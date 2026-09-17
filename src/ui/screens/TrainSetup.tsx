@@ -7,6 +7,7 @@ import { ALGORITHMS, type AlgorithmId } from '../../core/rl/algorithms';
 import { estimateTraining, formatEstimate, type TimeEstimate } from '../estimate';
 import { isMobileClass } from '../device';
 import { getStore, type ModelMeta } from '../../storage';
+import { randomModelName } from '../../core/champ/nameGen';
 
 export function TrainSetup() {
   const { gameId, draft, patchDraft, patchSlot, addSlot, removeSlot, slotFromModel, newDraft, go, setCompetitor } =
@@ -19,6 +20,20 @@ export function TrainSetup() {
   useEffect(() => {
     void (async () => setSaved(await (await getStore()).list(gameId)))();
   }, [gameId]);
+
+  /**
+   * One suggested name per slot, drawn once and then kept. Redrawing on every
+   * render would change the name under the cursor while someone is reading it,
+   * and `start` would commit something other than what the field showed. The
+   * names already drawn are passed along so no two cars on the grid share one.
+   */
+  const suggestions = useRef<string[]>([]);
+  const suggestFor = (i: number): string => {
+    if (!suggestions.current[i]) {
+      suggestions.current[i] = randomModelName(Math.random, suggestions.current.filter(Boolean));
+    }
+    return suggestions.current[i];
+  };
 
   const slots = draft.slots;
   const multi = slots.length > 1;
@@ -39,7 +54,7 @@ export function TrainSetup() {
 
   const start = () => {
     slots.forEach((s, i) => {
-      if (!s.name.trim()) patchSlot(i, { name: defaultName(game.spec.name, i) });
+      if (!s.name.trim()) patchSlot(i, { name: suggestFor(i) });
     });
     go('training');
   };
@@ -80,10 +95,11 @@ export function TrainSetup() {
                   slot={s}
                   saved={saved}
                   removable={slots.length > 1}
-                  placeholder={defaultName(game.spec.name, i)}
+                  placeholder={suggestFor(i)}
                   onPatch={(p) => patchSlot(i, p)}
                   onPick={(m) => slotFromModel(i, m)}
                   onRemove={() => {
+                    suggestions.current.splice(i, 1);
                     removeSlot(i);
                     setTab(0);
                   }}
@@ -330,11 +346,4 @@ function Estimate() {
       )}
     </div>
   );
-}
-
-function defaultName(gameName: string, index = 0): string {
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return index === 0 ? `${gameName} ${hh}:${mm}` : `${gameName} ${hh}:${mm} #${index + 1}`;
 }

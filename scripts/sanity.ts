@@ -19,6 +19,7 @@ import { RACING_SPEC, OBS_SIZE } from '../src/core/games/racing/rewards';
 import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, normalizeName, NAME_MAX } from '../src/core/champ/names';
+import { NAME_ADJECTIVES, NAME_NOUNS, isCleanName, randomModelName } from '../src/core/champ/nameGen';
 import { currentRound, lockAtForRound, startsAtForRound, trackForRound, DAY_MS } from '../src/core/champ/schedule';
 import { nextRoundOnTrack } from '../src/core/champ/records';
 import { eligibleEntries, MAX_CARS_PER_TEAM } from '../src/core/champ/card';
@@ -821,6 +822,59 @@ function broadcastClockTest(): void {
   );
 }
 
+// ------------------------------------------------------------ default names
+/**
+ * The generator promises that *every* name it can produce is fit for a public
+ * leaderboard, so the check is the whole cross product rather than a sample.
+ * A word added to either list without reading the rules fails right here.
+ */
+function nameGenTest(): void {
+  console.log('\ndefault model names');
+
+  const bad: string[] = [];
+  let longest = '';
+  for (const adjective of NAME_ADJECTIVES)
+    for (const noun of NAME_NOUNS) {
+      const name = `${adjective} ${noun}`;
+      if (!isCleanName(name)) bad.push(name);
+      if (name.length > longest.length) longest = name;
+    }
+  const pairs = NAME_ADJECTIVES.length * NAME_NOUNS.length;
+  check(
+    `all ${pairs} pairs are clean, and none is longer than NAME_MAX`,
+    bad.length === 0,
+    bad.slice(0, 6).join(', ') || `longest is "${longest}" at ${longest.length} of ${NAME_MAX}`,
+  );
+
+  const words = [...NAME_ADJECTIVES, ...NAME_NOUNS];
+  const dupes = words.filter((w, i) => words.indexOf(w) !== i);
+  check('no word is listed twice', dupes.length === 0, dupes.join(', ') || `${words.length} words`);
+
+  const shape = words.filter((w) => !/^[A-Z][a-z]{2,10}$/.test(w));
+  check('every word is a single capitalised English word', shape.length === 0, shape.join(', '));
+
+  // Four models can train on one grid, and four cars called the same thing is
+  // a grid nobody can read.
+  const grid: string[] = [];
+  const gridRng = mulberry32(5);
+  for (let i = 0; i < 4; i++) grid.push(randomModelName(gridRng, grid));
+  check('a full grid draws four different names', new Set(grid).size === 4, grid.join(' · '));
+
+  const avoid = ['Swift Falcon', 'Lone Otter'];
+  const avoidRng = mulberry32(11);
+  let leaked = 0;
+  const drawn = new Set<string>();
+  for (let i = 0; i < 2000; i++) {
+    const name = randomModelName(avoidRng, avoid);
+    drawn.add(name);
+    if (avoid.includes(name)) leaked++;
+  }
+  check('a name the caller ruled out is never drawn', leaked === 0, `${leaked} leaked`);
+  // A generator that keeps handing back the same fifty names is broken in a
+  // way every other check here would pass.
+  check('2000 draws spread across the lists', drawn.size > 800, `${drawn.size} distinct`);
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -832,6 +886,7 @@ sharedSessionTest();
 flagTest();
 timingTest();
 championshipTest();
+nameGenTest();
 teamLimitTest();
 broadcastClockTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
