@@ -20,10 +20,27 @@ import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, normalizeName, NAME_MAX } from '../src/core/champ/names';
 import { NAME_ADJECTIVES, NAME_NOUNS, isCleanName, randomModelName } from '../src/core/champ/nameGen';
-import { currentRound, lockAtForRound, startsAtForRound, trackForRound, DAY_MS } from '../src/core/champ/schedule';
+import {
+  airingRound,
+  currentRound,
+  lockAtForRound,
+  startsAtForRound,
+  trackForRound,
+  BROADCAST_OPENS_MS,
+  LOCK_BEFORE_MS,
+  DAY_MS,
+} from '../src/core/champ/schedule';
 import { nextRoundOnTrack } from '../src/core/champ/records';
 import { eligibleEntries, MAX_CARS_PER_TEAM } from '../src/core/champ/card';
-import { dayStatus, resultsVisible, sessionWindows, settledResults } from '../src/core/champ/timing';
+import {
+  broadcastOpensAt,
+  dayState,
+  dayStatus,
+  liveSession,
+  resultsVisible,
+  sessionWindows,
+  settledResults,
+} from '../src/core/champ/timing';
 import type { DayPlace, RaceCard, RaceResult } from '../src/core/champ/types';
 
 let failures = 0;
@@ -875,6 +892,60 @@ function nameGenTest(): void {
   check('2000 draws spread across the lists', drawn.size > 800, `${drawn.size} distinct`);
 }
 
+// --------------------------------------------------------------- early feed
+/**
+ * The feed opens before the lights.
+ *
+ * What has to hold is a pair of opposites: a way into the broadcast exists
+ * before the start, and nothing about the race itself moves an inch earlier.
+ * The day is still 'upcoming', the results are still sealed, and the session
+ * the viewer is let into has not started — they are watching a countdown on a
+ * stationary grid.
+ */
+function earlyFeedTest(): void {
+  console.log(CHAPTER + 'the feed opens before the lights');
+  const card = fakeCard(1, seedIds(6));
+  const start = sessionWindows(card)[0].startsAt;
+  const opens = broadcastOpensAt(card);
+
+  check(
+    'the feed opens a minute before the lights',
+    start - opens === BROADCAST_OPENS_MS,
+    `${(start - opens) / 1000}s`,
+  );
+  // Everyone has to build the same card, so the field must already be frozen
+  // when the first client builds it for the feed.
+  check(
+    'and only after the entry list has closed',
+    BROADCAST_OPENS_MS < LOCK_BEFORE_MS,
+    `opens ${BROADCAST_OPENS_MS / 1000}s out, locks ${LOCK_BEFORE_MS / 1000}s out`,
+  );
+
+  check('a second before it opens there is nothing to watch', dayState(card, opens - 1000) === 'upcoming');
+  check('the moment it opens the day counts as on air', dayState(card, opens) === 'live');
+  check('and it still is once the race is running', dayState(card, start + 1000) === 'live');
+
+  // The way in appears early; the race does not start early.
+  check('the race has not started with it', dayStatus(card, null, opens).phase === 'upcoming');
+  check('and no result is readable yet', !resultsVisible(card, opens, null));
+
+  const joined = liveSession(card, opens);
+  check('the viewer is let into the first session', joined?.session.id === sessionWindows(card)[0].session.id);
+  check(
+    'whose lights are still ahead of them',
+    joined !== null && joined.startsAt > opens,
+    `${((joined?.startsAt ?? 0) - opens) / 1000}s to go`,
+  );
+  check('nobody is let in before that', liveSession(card, opens - 1) === null);
+
+  // The round on air is what makes the client build tomorrow's card in time.
+  const r = 4;
+  const lights = startsAtForRound(r);
+  check('the round about to start is the one on air', airingRound(lights - BROADCAST_OPENS_MS) === r, `${r}`);
+  check('a moment earlier it is still yesterday', airingRound(lights - BROADCAST_OPENS_MS - 1) === r - 1);
+  check('and at the lights it is the round itself', airingRound(lights) === r);
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -889,5 +960,6 @@ championshipTest();
 nameGenTest();
 teamLimitTest();
 broadcastClockTest();
+earlyFeedTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

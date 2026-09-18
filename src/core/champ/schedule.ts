@@ -29,6 +29,30 @@ export function lockLeadText(): string {
   return hours === 1 ? 'שעה' : `${hours} שעות`;
 }
 
+/**
+ * How early the broadcast opens, before the lights go out.
+ *
+ * A button that appears at the moment of the start is a button you press after
+ * the start: by the time it renders, is noticed and is tapped, the cars have
+ * gone. So the feed opens on the grid a minute earlier and counts down to the
+ * lights, and being there in time stops being a matter of reflexes.
+ *
+ * The cost is that the round's card — its qualifying and its grid — has to
+ * exist before the round starts. That is safe only because the entry list has
+ * already closed by then: everybody builds the card from the same frozen field
+ * and gets the same card. Keep this shorter than `LOCK_BEFORE_MS`.
+ */
+export const BROADCAST_OPENS_MS = 60 * 1000;
+
+/**
+ * The round that is on air, which from a minute before its lights means the one
+ * about to start. 0 before the season opens.
+ */
+export function airingRound(now = Date.now()): number {
+  const next = currentRound(now) + 1;
+  return now >= startsAtForRound(next) - BROADCAST_OPENS_MS ? next : currentRound(now);
+}
+
 /** How far back an unraced round will still be run when someone opens the app. */
 export const MAX_BACKFILL_ROUNDS = 10;
 

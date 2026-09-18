@@ -1,4 +1,5 @@
 import { planSessions, SESSION_GAP_MS } from './format';
+import { BROADCAST_OPENS_MS } from './schedule';
 import { qualifyingOrder } from './sim';
 import type { RaceCard, RaceResult, SessionPlan } from './types';
 
@@ -55,8 +56,29 @@ export function sessionEndsAt(w: SessionWindow, result: RaceResult | null | unde
   return ms === null ? w.endsAt : Math.min(w.endsAt, w.startsAt + ms);
 }
 
+/**
+ * When the feed opens: a little before the first session's lights, so a viewer
+ * can be sitting on the grid when they go out instead of arriving to an empty
+ * pit straight. Only the first session needs this — the sessions after it run
+ * back to back, and anybody watching is already inside the broadcast.
+ */
+export function broadcastOpensAt(card: RaceCard): number {
+  const windows = sessionWindows(card);
+  const first = windows.length ? windows[0].startsAt : card.startsAt;
+  return first - BROADCAST_OPENS_MS;
+}
+
+/**
+ * The session on air, counting the minute before the day's first lights.
+ *
+ * Before the start the session returned has not begun: it is the one the
+ * broadcast is counting down to, and its own clock still reads zero.
+ */
 export function liveSession(card: RaceCard, now: number): SessionWindow | null {
-  return sessionWindows(card).find((w) => now >= w.startsAt && now < w.endsAt) ?? null;
+  const windows = sessionWindows(card);
+  if (!windows.length) return null;
+  if (now < windows[0].startsAt) return now >= broadcastOpensAt(card) ? windows[0] : null;
+  return windows.find((w) => now >= w.startsAt && now < w.endsAt) ?? null;
 }
 
 export type DayPhase = 'upcoming' | 'racing' | 'interval' | 'done';
@@ -117,9 +139,16 @@ export function dayStatus(card: RaceCard, result: RaceResult | null | undefined,
 
 export type DayState = 'upcoming' | 'live' | 'done';
 
+/**
+ * Whether a day is still to come, on air, or over — where "on air" starts with
+ * the feed rather than with the lights, so the screens that offer a way in
+ * offer it before the race has moved.
+ */
 export function dayState(card: RaceCard, now: number, result?: RaceResult | null): DayState {
   const phase = dayStatus(card, result, now).phase;
-  return phase === 'done' ? 'done' : phase === 'upcoming' ? 'upcoming' : 'live';
+  if (phase === 'done') return 'done';
+  if (phase === 'upcoming') return now >= broadcastOpensAt(card) ? 'live' : 'upcoming';
+  return 'live';
 }
 
 /**

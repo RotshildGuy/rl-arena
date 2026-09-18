@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { currentRound } from '../core/champ/schedule';
+import { airingRound, currentRound } from '../core/champ/schedule';
 import { syncChampionship, type ChampionshipState } from './champSync';
 
 /**
@@ -15,6 +15,8 @@ let inflight: Promise<ChampionshipState> | null = null;
 let note: string | null = null;
 /** Which round the cache was built for, so a race starting invalidates it. */
 let cacheRound = -1;
+/** And which round was on air, so the feed opening invalidates it too. */
+let cacheAiring = -1;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -32,7 +34,21 @@ function load(): Promise<ChampionshipState> {
   // `cache` is what says the data is ready.
   if (inflight && !cache) return inflight;
   if (cache) return Promise.resolve(cache);
+  return refresh();
+}
+
+/**
+ * Re-sync without taking down what is on screen.
+ *
+ * The two moments the season is guaranteed to be stale — the feed opening and
+ * the lights going out — are also the two moments somebody is most likely to be
+ * watching. Clearing the cache first would replace their broadcast with "no
+ * race to show" for as long as the simulation takes, so the old state stays up
+ * until the new one is ready to take its place.
+ */
+function refresh(): Promise<ChampionshipState> {
   cacheRound = currentRound();
+  cacheAiring = airingRound();
   inflight = syncChampionship((n) => {
     note = n;
     emit();
@@ -79,16 +95,20 @@ export function useChampionship(): ChampionshipView {
   }, []);
 
   /**
-   * Lights out is the one moment the cached season is guaranteed to be wrong:
-   * a race that did not exist a second ago now needs running. Without this, a
-   * tab left open through 20:00 would quietly miss the race it was waiting for.
+   * The two moments a cached season is guaranteed to be wrong. A minute before
+   * the lights the card of the round about to start has to be built, or there
+   * is nothing for the feed to open on; and when the lights go out the race
+   * itself needs running. Without this, a tab left open through 20:00 would
+   * quietly miss the race it was waiting for.
    */
   useEffect(() => {
     const id = setInterval(() => {
-      if (cache && currentRound() > cacheRound) reload();
-    }, 10_000);
+      if (cache && (currentRound() > cacheRound || airingRound() > cacheAiring)) {
+        void refresh().catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      }
+    }, 5_000);
     return () => clearInterval(id);
-  }, [reload]);
+  }, []);
 
   return { state: cache, progress: note, error, reload };
 }

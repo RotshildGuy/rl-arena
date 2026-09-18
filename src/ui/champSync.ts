@@ -1,7 +1,7 @@
 import { buildRaceCard } from '../core/champ/card';
 import { eligibleEntries } from '../core/champ/card';
 import { MIN_ENTRIES } from '../core/champ/format';
-import { currentRound, raceIdForRound, roundsToBackfill, startsAtForRound } from '../core/champ/schedule';
+import { airingRound, currentRound, raceIdForRound, roundsToBackfill, startsAtForRound } from '../core/champ/schedule';
 import { runRaceDay } from '../core/champ/sim';
 import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
 import { getArena, type ArenaStore } from '../storage/arena';
@@ -116,8 +116,18 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
   // from the round number, so the app already knows every document that could
   // exist and can ask only about the ones it has not seen — which is what keeps
   // a visit costing the same on day 400 as on day 4.
-  const lastRound = currentRound();
+  const lastRound = airingRound();
+  /** Rounds whose lights have gone out: these can be raced. */
   const runnable = new Set(roundsToBackfill());
+  /**
+   * Rounds whose card may be built — the raceable ones plus, from the moment
+   * the feed opens, the one about to start. The card is the qualifying result
+   * and the grid, and the broadcast cannot show a grid that does not exist yet.
+   * The day itself is *not* run early: the result is of no use before the race
+   * and simulating it is the heaviest thing this app does, which is the last
+   * thing to be doing in the minute somebody sits down to watch.
+   */
+  const buildable = new Set([...runnable, lastRound]);
 
   for (let round = 1; round <= lastRound; round++) {
     const raceId = raceIdForRound(round);
@@ -128,7 +138,7 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
         if (card) await cache.putCard(card);
       }
 
-      if (!card && runnable.has(round)) {
+      if (!card && buildable.has(round)) {
         const field = eligibleEntries(entries, round);
         if (field.length >= MIN_ENTRIES) {
           onProgress(`מריץ מוקדמות לסבב ${round}…`);
@@ -143,7 +153,7 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
       if (!card) {
         // Outside the backfill window a missing round can never appear, so the
         // absence is worth remembering; inside it, keep checking.
-        if (!runnable.has(round)) await cache.markBlank(raceId);
+        if (!buildable.has(round)) await cache.markBlank(raceId);
         continue;
       }
       cards.set(raceId, card);

@@ -5,7 +5,7 @@ import { buildStandings } from '../../core/champ/points';
 import { teamColor } from '../../core/champ/livery';
 import { GRID_SIZE, MIN_ENTRIES, SESSION_GAP_MS, lapsFor, planSessions } from '../../core/champ/format';
 import {
-  currentRound,
+  airingRound,
   grandPrixName,
   lockAtForRound,
   raceIdForRound,
@@ -50,8 +50,10 @@ export function Championship() {
   const [name, setName] = useState(competitor);
   const [editingName, setEditingName] = useState(!competitor);
 
-  const round = currentRound(now);
-  const upcoming = round + 1;
+  // The round on air owns the live banner, so "the next race" is the one after
+  // it — otherwise the minute before the lights shows the same Grand Prix twice,
+  // once as a countdown to enter and once as a broadcast to watch.
+  const upcoming = airingRound(now) + 1;
 
   const standings = useMemo(
     () => (state ? buildStandings({ cards: state.cards, results: settledResults(state.cards, state.results, now) }) : null),
@@ -337,16 +339,21 @@ function LiveBanner({
   const { state } = useChampionship();
   const status = dayStatus(card, state?.results.get(card.id), now);
   const racing = status.phase === 'racing';
+  // The feed is open and the lights have not gone out: the way in has to be on
+  // screen *before* the start, which is the whole point of opening it early.
+  const preStart = status.phase === 'upcoming';
   const elapsed = status.current ? now - status.current.startsAt : 0;
 
   return (
     <div className="hero" style={{ marginBottom: 14 }}>
       <div className="row wrap" style={{ position: 'relative' }}>
-        <span className={`pill ${racing ? 'live' : ''}`}>
+        <span className={`pill ${racing ? 'live' : preStart ? 'hot' : ''}`}>
           {racing ? (
             <>
               <span className="blip" /> שידור חי
             </>
+          ) : preStart ? (
+            'עולה לאוויר'
           ) : (
             'בין מקצים'
           )}
@@ -357,6 +364,11 @@ function LiveBanner({
             {racing ? (
               <>
                 {status.current?.session.name} · {Math.floor(elapsed / 1000)} שניות מהזינוק
+              </>
+            ) : preStart && status.next ? (
+              <>
+                {status.next.session.name} · הזינוק בעוד{' '}
+                <span className="mono">{untilText(status.next.startsAt - now)}</span>
               </>
             ) : status.next ? (
               <>
@@ -373,7 +385,7 @@ function LiveBanner({
           <button onClick={onReport}>תוצאות {status.current.session.name}</button>
         )}
         <button className="primary" onClick={onWatch}>
-          {racing ? 'צפה עכשיו' : 'לשידור'}
+          {racing ? 'צפה עכשיו' : preStart ? 'צפייה מהזינוק' : 'לשידור'}
         </button>
       </div>
     </div>
