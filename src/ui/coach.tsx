@@ -66,24 +66,13 @@ export function useCoachStep(): CoachStep {
 }
 
 /**
- * The bubble itself.
- *
- * `pop` hangs it off whatever it is rendered inside — that element needs the
- * `coach-anchor` class — and `flow` lays it out in the normal run of the page,
- * for the cards that have room for it. Either way it is `aria-live`, so a
- * screen reader is told what changed instead of silently losing the thread.
+ * The bubble itself: floats off whatever it is rendered inside, which needs
+ * the `coach-anchor` class, with its arrow pointing back at it. `aria-live`,
+ * so a screen reader is told what changed instead of losing the thread.
  */
-export function Coach({
-  text,
-  mode = 'pop',
-  className = '',
-}: {
-  text: string;
-  mode?: 'pop' | 'flow';
-  className?: string;
-}) {
+export function Coach({ text, className = '' }: { text: string; className?: string }) {
   return (
-    <div className={`coach ${mode} ${className}`.trim()} role="status" aria-live="polite">
+    <div className={`coach ${className}`.trim()} role="status" aria-live="polite">
       {text}
     </div>
   );

@@ -1331,12 +1331,18 @@ input[type='number'] { direction: ltr; text-align: end; }
 /* ------------------------------------------------------------- coach marks */
 
 /*
- * The first-run guide: one bubble beside the control that does the next thing.
+ * The first-run guide: one bubble floating beside the control that does the
+ * next thing, with an arrow at it.
  *
- * Deliberately not a modal and not an overlay. A person who wants to look
+ * White on a dark app, and the only white surface in it. Everything else here
+ * is a panel a shade away from the background, so a guide painted in the same
+ * language would be one more panel to look past — which is exactly what a
+ * person who does not yet know what to do will do with it.
+ *
+ * Deliberately not a modal and not an overlay. Somebody who wants to look
  * around before following the instructions can, and the bubble is still there
- * when they come back — which is also why it scrolls with the thing it points
- * at instead of being positioned against the viewport.
+ * when they come back — which is also why it hangs off the control rather than
+ * off the viewport, and scrolls with it.
  */
 .coach-anchor { position: relative; display: inline-flex; }
 .coach-anchor.lit::after {
@@ -1350,64 +1356,52 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 
 .coach {
-  background: #1e0810;
-  border: 1px solid var(--accent-dim);
-  border-radius: 10px;
-  padding: 9px 11px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--text);
-  text-align: start;
-}
-.coach.pop {
   position: absolute;
-  top: calc(100% + 11px);
+  top: calc(100% + 12px);
   inset-inline-start: 0;
   z-index: 50;
   width: max-content;
   max-width: min(270px, 74vw);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  background: #fff;
+  color: #10131c;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.55;
+  text-align: start;
+  /* The accent hairline is what ties it to the ring pulsing on the control. */
+  box-shadow: 0 0 0 1px rgba(255, 46, 77, 0.55), 0 16px 34px rgba(0, 0, 0, 0.6);
   animation: coach-in 0.22s ease-out;
 }
-/* The arrow is drawn twice, border over background, so it has an outline. */
-.coach.pop::before,
-.coach.pop::after {
+.coach::before {
   content: '';
   position: absolute;
   bottom: 100%;
   inset-inline-start: 16px;
   border: 7px solid transparent;
-  border-bottom-color: var(--accent-dim);
+  border-bottom-color: #fff;
 }
-.coach.pop::after { margin-bottom: -1px; border-bottom-color: #1e0810; }
 
-/* For a control that sits at the end of a row, where a bubble hanging off its
-   start edge would run off the side of the page instead of into it. */
-.coach.pop.to-start { inset-inline-start: auto; inset-inline-end: 0; }
-.coach.pop.to-start::before,
-.coach.pop.to-start::after { inset-inline-start: auto; inset-inline-end: 16px; }
-
-.coach.flow { margin-top: 10px; position: relative; }
-.coach.flow::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  inset-inline-start: 18px;
-  border: 7px solid transparent;
-  border-bottom-color: var(--accent-dim);
-}
+/* For a control at the end of a row, where a bubble hanging off its start edge
+   would run off the side of the page instead of into it. */
+.coach.to-start { inset-inline-start: auto; inset-inline-end: 0; }
+.coach.to-start::before { inset-inline-start: auto; inset-inline-end: 16px; }
 
 /* A bubble hanging off a navigation tab is centred on it: the tabs are narrow,
-   and a bubble aligned to one edge of one would run off the screen. */
+   and one aligned to an edge of one would run off the screen. */
 .coach.at-nav {
   inset-inline-start: 50%;
   transform: translateX(50%);
   max-width: min(250px, 78vw);
 }
-.coach.at-nav::before,
-.coach.at-nav::after { inset-inline-start: calc(50% - 7px); }
+.coach.at-nav::before { inset-inline-start: calc(50% - 7px); }
 
 .nav .coach-anchor { display: flex; }
+
+/* The name field is a flex item in its row, and the anchor takes its place. */
+.coach-anchor.field-anchor { flex: 1 1 220px; }
+.coach-anchor.field-anchor > .field { flex: 1; }
 
 @keyframes coach-in {
   from { opacity: 0; transform: translateY(-4px); }
@@ -1431,19 +1425,17 @@ input[type='number'] { direction: ltr; text-align: end; }
   /* The nav is at the bottom of a phone, so its bubble opens upwards. */
   .coach.at-nav {
     top: auto;
-    bottom: calc(100% + 11px);
+    bottom: calc(100% + 12px);
   }
-  .coach.at-nav::before,
-  .coach.at-nav::after {
+  .coach.at-nav::before {
     bottom: auto;
     top: 100%;
     border-bottom-color: transparent;
+    border-top-color: #fff;
   }
-  .coach.at-nav::before { border-top-color: var(--accent-dim); }
-  .coach.at-nav::after { margin-bottom: 0; margin-top: -1px; border-top-color: #1e0810; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .coach.pop { animation: none; }
+  .coach { animation: none; }
   .coach-anchor.lit::after { animation: none; }
 }

@@ -18,7 +18,7 @@ import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import type { ArenaEntry, RaceCard } from '../../core/champ/types';
 import { DriverCell } from '../components/Livery';
-import { Coach, useCoachStep } from '../coach';
+import { Coach, CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
@@ -111,17 +111,22 @@ export function Championship() {
         <div className="card notched" style={{ marginBottom: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>מי אתם</div>
           <div className="row wrap" style={{ alignItems: 'flex-end' }}>
-            <div className="field" style={{ flex: '1 1 220px', marginBottom: 0 }}>
-              <label>שם המתחרה — זה יהיה שם הקבוצה שלכם בטבלה</label>
-              <input
-                type="text"
-                value={name}
-                autoFocus
-                placeholder="לדוגמה: גיא"
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && name.trim() && saveName()}
-              />
-            </div>
+            <CoachAnchor on={coach === 'name'} className="field-anchor">
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>שם המתחרה — זה יהיה שם הקבוצה שלכם בטבלה</label>
+                <input
+                  type="text"
+                  value={name}
+                  autoFocus
+                  placeholder="לדוגמה: גיא"
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && name.trim() && saveName()}
+                />
+              </div>
+              {coach === 'name' && (
+                <Coach text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות." />
+              )}
+            </CoachAnchor>
             <button className="primary" disabled={!name.trim()} onClick={saveName}>
               שמור
             </button>
@@ -129,12 +134,6 @@ export function Championship() {
           <div className="small muted" style={{ marginTop: 8 }}>
             כל המודלים שתאמנו ירוצו תחת השם הזה, והנקודות שלהם יצטברו לטבלת הקבוצות.
           </div>
-          {coach === 'name' && (
-            <Coach
-              mode="flow"
-              text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות."
-            />
-          )}
         </div>
       ) : null}
 
