@@ -1327,3 +1327,123 @@ input[type='number'] { direction: ltr; text-align: end; }
 
 .chart-host { position: relative; width: 100%; }
 .chart-host canvas { display: block; width: 100%; }
+
+/* ------------------------------------------------------------- coach marks */
+
+/*
+ * The first-run guide: one bubble beside the control that does the next thing.
+ *
+ * Deliberately not a modal and not an overlay. A person who wants to look
+ * around before following the instructions can, and the bubble is still there
+ * when they come back — which is also why it scrolls with the thing it points
+ * at instead of being positioned against the viewport.
+ */
+.coach-anchor { position: relative; display: inline-flex; }
+.coach-anchor.lit::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 10px;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--accent-dim);
+  animation: coach-pulse 2s ease-in-out infinite;
+}
+
+.coach {
+  background: #1e0810;
+  border: 1px solid var(--accent-dim);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+  text-align: start;
+}
+.coach.pop {
+  position: absolute;
+  top: calc(100% + 11px);
+  inset-inline-start: 0;
+  z-index: 50;
+  width: max-content;
+  max-width: min(270px, 74vw);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  animation: coach-in 0.22s ease-out;
+}
+/* The arrow is drawn twice, border over background, so it has an outline. */
+.coach.pop::before,
+.coach.pop::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  inset-inline-start: 16px;
+  border: 7px solid transparent;
+  border-bottom-color: var(--accent-dim);
+}
+.coach.pop::after { margin-bottom: -1px; border-bottom-color: #1e0810; }
+
+/* For a control that sits at the end of a row, where a bubble hanging off its
+   start edge would run off the side of the page instead of into it. */
+.coach.pop.to-start { inset-inline-start: auto; inset-inline-end: 0; }
+.coach.pop.to-start::before,
+.coach.pop.to-start::after { inset-inline-start: auto; inset-inline-end: 16px; }
+
+.coach.flow { margin-top: 10px; position: relative; }
+.coach.flow::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  inset-inline-start: 18px;
+  border: 7px solid transparent;
+  border-bottom-color: var(--accent-dim);
+}
+
+/* A bubble hanging off a navigation tab is centred on it: the tabs are narrow,
+   and a bubble aligned to one edge of one would run off the screen. */
+.coach.at-nav {
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  max-width: min(250px, 78vw);
+}
+.coach.at-nav::before,
+.coach.at-nav::after { inset-inline-start: calc(50% - 7px); }
+
+.nav .coach-anchor { display: flex; }
+
+@keyframes coach-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+/* The nav bubble carries a transform of its own, so it gets its own entrance. */
+@keyframes coach-in-nav {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.coach.at-nav { animation-name: coach-in-nav; }
+
+@keyframes coach-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--accent-dim); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 46, 77, 0.18); }
+}
+
+@media (max-width: 900px) {
+  .nav .coach-anchor { flex: 1; }
+  .nav .coach-anchor > button { width: 100%; }
+  /* The nav is at the bottom of a phone, so its bubble opens upwards. */
+  .coach.at-nav {
+    top: auto;
+    bottom: calc(100% + 11px);
+  }
+  .coach.at-nav::before,
+  .coach.at-nav::after {
+    bottom: auto;
+    top: 100%;
+    border-bottom-color: transparent;
+  }
+  .coach.at-nav::before { border-top-color: var(--accent-dim); }
+  .coach.at-nav::after { margin-bottom: 0; margin-top: -1px; border-top-color: #1e0810; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach.pop { animation: none; }
+  .coach-anchor.lit::after { animation: none; }
+}

@@ -18,6 +18,7 @@ import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import type { ArenaEntry, RaceCard } from '../../core/champ/types';
 import { DriverCell } from '../components/Livery';
+import { Coach, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
@@ -49,6 +50,7 @@ export function Championship() {
   const now = useNow();
   const [name, setName] = useState(competitor);
   const [editingName, setEditingName] = useState(!competitor);
+  const coach = useCoachStep();
 
   // The round on air owns the live banner, so "the next race" is the one after
   // it — otherwise the minute before the lights shows the same Grand Prix twice,
@@ -127,6 +129,12 @@ export function Championship() {
           <div className="small muted" style={{ marginTop: 8 }}>
             כל המודלים שתאמנו ירוצו תחת השם הזה, והנקודות שלהם יצטברו לטבלת הקבוצות.
           </div>
+          {coach === 'name' && (
+            <Coach
+              mode="flow"
+              text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות."
+            />
+          )}
         </div>
       ) : null}
 

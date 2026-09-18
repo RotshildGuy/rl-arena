@@ -15,6 +15,7 @@ import { useWakeLock } from '../device';
 import { compactNumber, durationText, lapTime, raceTime } from '../format';
 import type { RacingSnapshot } from '../../core/games/racing/env';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
+import { Coach, CoachAnchor, useCoachStep } from '../coach';
 
 const SPEEDS: Array<{ id: SpeedMode; label: string; hint: string }> = [
   { id: 'watch', label: '×1', hint: 'זמן אמת — לראות מה המודל עושה' },
@@ -34,6 +35,7 @@ interface SlotBoot {
 
 export function TrainDashboard() {
   const { gameId, draft, patchSlot, go, showToast } = useApp();
+  const coach = useCoachStep();
   const game = getGame(gameId);
   const trainer = useTrainer();
   const { status, slots: live, seats, stepsPerSec, error, speed, snapRef } = trainer;
@@ -236,9 +238,17 @@ export function TrainDashboard() {
           <button onClick={() => save(false)} disabled={saving || booting}>
             נקודת שמירה
           </button>
-          <button className="primary" onClick={() => save(true)} disabled={saving || booting}>
-            {saving ? 'שומר…' : 'סיים ושמור'}
-          </button>
+          <CoachAnchor on={coach === 'save'}>
+            <button className="primary" onClick={() => save(true)} disabled={saving || booting}>
+              {saving ? 'שומר…' : 'סיים ושמור'}
+            </button>
+            {coach === 'save' && (
+              <Coach
+                className="to-start"
+                text="הרכב לומד תוך כדי נסיעה — אפשר לצפות, להזיז מחוונים ולתת לו זמן. כשאתם מרוצים מהנהג, לחצו סיים ושמור."
+              />
+            )}
+          </CoachAnchor>
         </div>
       </div>
 

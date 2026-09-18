@@ -1,4 +1,5 @@
 import { getGame } from '../core/games/registry';
+import { modelsChanged } from './coach';
 import type { RewardConfig } from '../core/games/types';
 import type { DqnHyper } from '../core/rl/dqn';
 import type { GaHyper } from '../core/rl/ga';
@@ -114,5 +115,8 @@ export async function saveModel(args: SaveArgs): Promise<ModelRecord> {
 
   const store = await getStore();
   await store.save(rec);
+  // Training is the one way a model comes into existence without the garage
+  // being on screen, so the first-run guide is told from here.
+  modelsChanged();
   return rec;
 }

@@ -12,6 +12,7 @@ import { TrainDashboard } from './screens/TrainDashboard';
 import { RaceSetup } from './screens/RaceSetup';
 import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
+import { Coach, CoachAnchor, useCoachStep } from './coach';
 
 interface Tab {
   id: Screen;
@@ -35,6 +36,7 @@ export function App() {
   const openInfo = useApp((s) => s.openInfo);
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
   const competitor = useApp((s) => s.competitor);
+  const coach = useCoachStep();
 
   // The match screen takes the whole viewport on a phone in landscape and draws
   // its own chrome; a header and a nav bar on top of it would eat the track.
@@ -50,16 +52,33 @@ export function App() {
         </div>
 
         <nav className="nav">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={screen === t.id || t.also?.includes(screen) ? 'on' : ''}
-              onClick={() => go(t.id)}
-            >
-              <span className="glyph">{t.glyph}</span>
-              <span>{t.label}</span>
-            </button>
-          ))}
+          {TABS.map((t) => {
+            // The garage is the only tab the guide ever points at, and it does
+            // so for two different reasons: nothing built yet, or something
+            // built that never made it onto the grid.
+            const nudge = t.id === 'library' && (coach === 'garage' || coach === 'unregistered');
+            return (
+              <CoachAnchor key={t.id} on={nudge}>
+                <button
+                  className={screen === t.id || t.also?.includes(screen) ? 'on' : ''}
+                  onClick={() => go(t.id)}
+                >
+                  <span className="glyph">{t.glyph}</span>
+                  <span>{t.label}</span>
+                </button>
+                {nudge && (
+                  <Coach
+                    className="at-nav"
+                    text={
+                      coach === 'garage'
+                        ? 'עכשיו למוסך — שם מאמנים את המודל שינהג בשבילכם.'
+                        : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
+                    }
+                  />
+                )}
+              </CoachAnchor>
+            );
+          })}
         </nav>
 
         <div className="spacer" />

@@ -8,11 +8,13 @@ import { estimateTraining, formatEstimate, type TimeEstimate } from '../estimate
 import { isMobileClass } from '../device';
 import { getStore, type ModelMeta } from '../../storage';
 import { randomModelName } from '../../core/champ/nameGen';
+import { Coach, CoachAnchor, useCoachStep } from '../coach';
 
 export function TrainSetup() {
   const { gameId, draft, patchDraft, patchSlot, addSlot, removeSlot, slotFromModel, newDraft, go, setCompetitor } =
     useApp();
   const game = getGame(gameId);
+  const coach = useCoachStep();
   const [saved, setSaved] = useState<ModelMeta[]>([]);
   const [tab, setTab] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -179,9 +181,17 @@ export function TrainSetup() {
         <button className="ghost" onClick={() => go('library')}>
           ביטול
         </button>
-        <button className="primary" onClick={start}>
-          {continuing ? 'המשך אימון' : 'התחל אימון'}
-        </button>
+        <CoachAnchor on={coach === 'setup'}>
+          <button className="primary" onClick={start}>
+            {continuing ? 'המשך אימון' : 'התחל אימון'}
+          </button>
+          {coach === 'setup' && (
+            <Coach
+              className="to-start"
+              text="אפשר להשאיר הכל כמו שהוא לאימון ראשון. לחצו התחל אימון והרכב יתחיל לנסוע ולהשתפר מול העיניים שלכם."
+            />
+          )}
+        </CoachAnchor>
       </div>
     </>
   );

@@ -42,6 +42,7 @@ import {
   settledResults,
 } from '../src/core/champ/timing';
 import type { DayPlace, RaceCard, RaceResult } from '../src/core/champ/types';
+import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -946,6 +947,54 @@ function earlyFeedTest(): void {
   check('and at the lights it is the round itself', airingRound(lights) === r);
 }
 
+// --------------------------------------------------------------- first run
+/**
+ * The walkthrough is a pure function of where the account actually is, so the
+ * ladder can be checked here instead of by clicking through the app six times.
+ * The two ends matter most: somebody who has just arrived is told the first
+ * thing to do, and somebody with a car on the grid is never spoken to again.
+ */
+function coachTest(): void {
+  console.log(CHAPTER + 'the first-run guide');
+  const base: CoachState = { screen: 'championship', competitor: '', models: null, registered: false };
+  const at = (over: Partial<CoachState>) => coachStepFor({ ...base, ...over });
+
+  check('a brand new visitor is sent to the name field', at({}) === 'name', String(at({})));
+  check(
+    'whitespace is not a team name',
+    at({ competitor: '   ', models: 0 }) === 'name',
+    String(at({ competitor: '   ', models: 0 })),
+  );
+
+  const named = { competitor: 'Guy' };
+  check('with a name and nothing built, the garage tab is next', at({ ...named, models: 0 }) === 'garage');
+  check('inside the garage it is the button that makes one', at({ ...named, models: 0, screen: 'library' }) === 'create');
+  check('setting a run up, it is the button that starts it', at({ ...named, models: 0, screen: 'trainSetup' }) === 'setup');
+  check('while it trains, it is finish and save', at({ ...named, models: 0, screen: 'training' }) === 'save');
+  check('a saved model in the garage gets the register button', at({ ...named, models: 1, screen: 'library' }) === 'enter');
+  check('and from anywhere else, the garage tab again', at({ ...named, models: 1 }) === 'unregistered');
+
+  // Nothing is said while the library is still being read: a bubble that
+  // guesses wrong and then swaps itself out reads as a glitch.
+  check('nothing is guessed before the library is read', at({ ...named, models: null }) === null);
+
+  const screens: CoachState['screen'][] = [
+    'championship', 'standings', 'broadcast', 'report', 'library',
+    'trainSetup', 'training', 'raceSetup', 'race', 'info',
+  ];
+  const spoken = screens.filter((screen) => at({ ...named, models: 2, registered: true, screen }) !== null);
+  check('a car on the grid ends the walkthrough everywhere', spoken.length === 0, spoken.join(', ') || 'silent');
+
+  // Someone watching a race or reading the terms is left alone, even mid-guide.
+  const quiet = (['broadcast', 'report', 'race', 'info'] as CoachState['screen'][]).filter(
+    (screen) => at({ ...named, models: 0, screen }) !== null,
+  );
+  check('and nobody is nudged over a race or the rules', quiet.length === 0, quiet.join(', ') || 'silent');
+
+  // Withdrawing a car puts the guide back: it follows the state, not a counter.
+  check('withdrawing a car brings it back', at({ ...named, models: 1, screen: 'library' }) === 'enter');
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -961,5 +1010,6 @@ nameGenTest();
 teamLimitTest();
 broadcastClockTest();
 earlyFeedTest();
+coachTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
