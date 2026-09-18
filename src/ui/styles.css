@@ -1331,18 +1331,17 @@ input[type='number'] { direction: ltr; text-align: end; }
 /* ------------------------------------------------------------- coach marks */
 
 /*
- * The first-run guide: one bubble floating beside the control that does the
- * next thing, with an arrow at it.
+ * The first-run guide: one bubble floating over the page beside the control
+ * that does the next thing, with an arrow at it.
  *
- * White on a dark app, and the only white surface in it. Everything else here
- * is a panel a shade away from the background, so a guide painted in the same
- * language would be one more panel to look past — which is exactly what a
- * person who does not yet know what to do will do with it.
+ * White, and the only white surface in the app. Everything else here is a
+ * panel a shade away from the background, so a guide painted in the same
+ * language would be one more panel to look past — which is exactly what
+ * somebody who does not yet know what to do would do with it.
  *
- * Deliberately not a modal and not an overlay. Somebody who wants to look
- * around before following the instructions can, and the bubble is still there
- * when they come back — which is also why it hangs off the control rather than
- * off the viewport, and scrolls with it.
+ * The bubble is positioned from JavaScript, in viewport coordinates, and lives
+ * at the end of the body: see `ui/coach.tsx` for why. All this file decides is
+ * what it looks like and which way the arrow points.
  */
 .coach-anchor { position: relative; display: inline-flex; }
 .coach-anchor.lit::after {
@@ -1356,12 +1355,9 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 
 .coach {
-  position: absolute;
-  top: calc(100% + 12px);
-  inset-inline-start: 0;
+  position: fixed;
   z-index: 50;
-  width: max-content;
-  max-width: min(270px, 74vw);
+  max-width: min(280px, calc(100vw - 20px));
   background: #fff;
   color: #10131c;
   border-radius: 10px;
@@ -1370,32 +1366,22 @@ input[type='number'] { direction: ltr; text-align: end; }
   font-weight: 600;
   line-height: 1.55;
   text-align: start;
+  overflow-wrap: anywhere;
   /* The accent hairline is what ties it to the ring pulsing on the control. */
   box-shadow: 0 0 0 1px rgba(255, 46, 77, 0.55), 0 16px 34px rgba(0, 0, 0, 0.6);
   animation: coach-in 0.22s ease-out;
 }
+/* `--coach-arrow` is where the control is, measured from the bubble's own left
+   edge — a physical offset, because that is what the positioner computes. */
 .coach::before {
   content: '';
   position: absolute;
-  bottom: 100%;
-  inset-inline-start: 16px;
+  left: var(--coach-arrow, 16px);
+  margin-left: -7px;
   border: 7px solid transparent;
-  border-bottom-color: #fff;
 }
-
-/* For a control at the end of a row, where a bubble hanging off its start edge
-   would run off the side of the page instead of into it. */
-.coach.to-start { inset-inline-start: auto; inset-inline-end: 0; }
-.coach.to-start::before { inset-inline-start: auto; inset-inline-end: 16px; }
-
-/* A bubble hanging off a navigation tab is centred on it: the tabs are narrow,
-   and one aligned to an edge of one would run off the screen. */
-.coach.at-nav {
-  inset-inline-start: 50%;
-  transform: translateX(50%);
-  max-width: min(250px, 78vw);
-}
-.coach.at-nav::before { inset-inline-start: calc(50% - 7px); }
+.coach.below::before { bottom: 100%; border-bottom-color: #fff; }
+.coach.above::before { top: 100%; border-top-color: #fff; }
 
 .nav .coach-anchor { display: flex; }
 
@@ -1404,15 +1390,9 @@ input[type='number'] { direction: ltr; text-align: end; }
 .coach-anchor.field-anchor > .field { flex: 1; }
 
 @keyframes coach-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: none; }
-}
-/* The nav bubble carries a transform of its own, so it gets its own entrance. */
-@keyframes coach-in-nav {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.coach.at-nav { animation-name: coach-in-nav; }
 
 @keyframes coach-pulse {
   0%, 100% { box-shadow: 0 0 0 2px var(--accent-dim); }
@@ -1422,20 +1402,40 @@ input[type='number'] { direction: ltr; text-align: end; }
 @media (max-width: 900px) {
   .nav .coach-anchor { flex: 1; }
   .nav .coach-anchor > button { width: 100%; }
-  /* The nav is at the bottom of a phone, so its bubble opens upwards. */
-  .coach.at-nav {
-    top: auto;
-    bottom: calc(100% + 12px);
-  }
-  .coach.at-nav::before {
-    bottom: auto;
-    top: 100%;
-    border-bottom-color: transparent;
-    border-top-color: #fff;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .coach { animation: none; }
   .coach-anchor.lit::after { animation: none; }
+}
+
+/* ----------------------------------------------------------- setup: start */
+
+/*
+ * The bar that starts a training run, above the settings rather than under
+ * them. Everything below it has a working default, so the button that starts
+ * and the estimate of how long it will take are the two things that should not
+ * be at the bottom of a long page of sliders.
+ */
+.start-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-bottom: 14px;
+}
+.start-bar .estimate {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.start-bar .estimate .eyebrow { flex: 0 0 auto; }
+.start-bar-actions { margin-inline-start: auto; gap: 8px; flex: 0 0 auto; }
+
+@media (max-width: 760px) {
+  .start-bar-actions { margin-inline-start: 0; width: 100%; }
+  .start-bar-actions > *:last-child { margin-inline-start: auto; }
 }

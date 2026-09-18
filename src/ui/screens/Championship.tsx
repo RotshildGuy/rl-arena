@@ -18,7 +18,7 @@ import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import type { ArenaEntry, RaceCard } from '../../core/champ/types';
 import { DriverCell } from '../components/Livery';
-import { Coach, CoachAnchor, useCoachStep } from '../coach';
+import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
@@ -111,7 +111,11 @@ export function Championship() {
         <div className="card notched" style={{ marginBottom: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>מי אתם</div>
           <div className="row wrap" style={{ alignItems: 'flex-end' }}>
-            <CoachAnchor on={coach === 'name'} className="field-anchor">
+            <CoachAnchor
+              on={coach === 'name'}
+              className="field-anchor"
+              text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות."
+            >
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>שם המתחרה — זה יהיה שם הקבוצה שלכם בטבלה</label>
                 <input
@@ -123,9 +127,6 @@ export function Championship() {
                   onKeyDown={(e) => e.key === 'Enter' && name.trim() && saveName()}
                 />
               </div>
-              {coach === 'name' && (
-                <Coach text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות." />
-              )}
             </CoachAnchor>
             <button className="primary" disabled={!name.trim()} onClick={saveName}>
               שמור

@@ -12,7 +12,7 @@ import { TrainDashboard } from './screens/TrainDashboard';
 import { RaceSetup } from './screens/RaceSetup';
 import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
-import { Coach, CoachAnchor, useCoachStep } from './coach';
+import { CoachAnchor, useCoachStep } from './coach';
 
 interface Tab {
   id: Screen;
@@ -58,7 +58,15 @@ export function App() {
             // built that never made it onto the grid.
             const nudge = t.id === 'library' && (coach === 'garage' || coach === 'unregistered');
             return (
-              <CoachAnchor key={t.id} on={nudge}>
+              <CoachAnchor
+                key={t.id}
+                on={nudge}
+                text={
+                  coach === 'garage'
+                    ? 'עכשיו למוסך — שם מאמנים את המודל שינהג בשבילכם.'
+                    : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
+                }
+              >
                 <button
                   className={screen === t.id || t.also?.includes(screen) ? 'on' : ''}
                   onClick={() => go(t.id)}
@@ -66,16 +74,6 @@ export function App() {
                   <span className="glyph">{t.glyph}</span>
                   <span>{t.label}</span>
                 </button>
-                {nudge && (
-                  <Coach
-                    className="at-nav"
-                    text={
-                      coach === 'garage'
-                        ? 'עכשיו למוסך — שם מאמנים את המודל שינהג בשבילכם.'
-                        : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
-                    }
-                  />
-                )}
               </CoachAnchor>
             );
           })}

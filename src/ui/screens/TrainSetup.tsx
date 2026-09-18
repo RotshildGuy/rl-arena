@@ -8,7 +8,7 @@ import { estimateTraining, formatEstimate, type TimeEstimate } from '../estimate
 import { isMobileClass } from '../device';
 import { getStore, type ModelMeta } from '../../storage';
 import { randomModelName } from '../../core/champ/nameGen';
-import { Coach, CoachAnchor, useCoachStep } from '../coach';
+import { CoachAnchor, useCoachStep } from '../coach';
 
 export function TrainSetup() {
   const { gameId, draft, patchDraft, patchSlot, addSlot, removeSlot, slotFromModel, newDraft, go, setCompetitor } =
@@ -68,12 +68,34 @@ export function TrainSetup() {
           <div className="eyebrow">המוסך</div>
           <h1 className="display">{continuing ? 'המשך אימון' : multi ? 'אימון משותף' : 'מודל חדש'}</h1>
         </div>
-        <div className="actions">
+      </div>
+
+      {/*
+        The way in and the way out, above everything that can be fiddled with.
+        Every setting below this has a default that works, so somebody who only
+        wants to watch a car learn should not have to scroll past ten sliders to
+        find the button — and the estimate belongs up here with it, because how
+        long it will take is the one thing worth knowing before starting.
+      */}
+      <div className="card notched start-bar">
+        <Estimate />
+        <div className="row start-bar-actions">
           {slots.some((s) => s.modelId) && (
             <button className="ghost" onClick={newDraft}>
               התחל מחדש
             </button>
           )}
+          <button className="ghost" onClick={() => go('library')}>
+            ביטול
+          </button>
+          <CoachAnchor
+            on={coach === 'setup'}
+            text="אפשר להשאיר הכל כמו שהוא לאימון ראשון. לחצו התחל אימון והרכב יתחיל לנסוע ולהשתפר מול העיניים שלכם."
+          >
+            <button className="primary" onClick={start}>
+              {continuing ? 'המשך אימון' : 'התחל אימון'}
+            </button>
+          </CoachAnchor>
         </div>
       </div>
 
@@ -173,25 +195,7 @@ export function TrainSetup() {
               onChange={(rewards) => patchSlot(slotIndex, { rewards })}
             />
           </div>
-          <Estimate />
         </div>
-      </div>
-
-      <div className="row wrap" style={{ marginTop: 18, justifyContent: 'flex-end' }}>
-        <button className="ghost" onClick={() => go('library')}>
-          ביטול
-        </button>
-        <CoachAnchor on={coach === 'setup'}>
-          <button className="primary" onClick={start}>
-            {continuing ? 'המשך אימון' : 'התחל אימון'}
-          </button>
-          {coach === 'setup' && (
-            <Coach
-              className="to-start"
-              text="אפשר להשאיר הכל כמו שהוא לאימון ראשון. לחצו התחל אימון והרכב יתחיל לנסוע ולהשתפר מול העיניים שלכם."
-            />
-          )}
-        </CoachAnchor>
       </div>
     </>
   );
@@ -331,28 +335,27 @@ function Estimate() {
   }, [key]);
 
   return (
-    <div className="card notched">
-      <div className="eyebrow" style={{ marginBottom: 8 }}>כמה זמן זה ייקח</div>
-      {measuring && <div className="muted small">מודד את המכשיר…</div>}
+    <div className="estimate">
+      <div className="eyebrow">כמה זמן זה ייקח</div>
+      {measuring && <span className="muted small">מודד את המכשיר…</span>}
       {!measuring && result && (
         <>
-          <div className="stat">
-            <div className="v" style={{ fontSize: 26, color: 'var(--accent-2)' }}>{formatEstimate(result.seconds)}</div>
-            <div className="k">
-              {slots > 1 ? `עד ש-${slots} המודלים נוסעים טוב, במצב טורבו` : 'עד שהמודל נוסע טוב, במצב טורבו'}
-            </div>
-          </div>
-          <div className="small muted" style={{ marginTop: 8 }}>
-            נמדד על המכשיר הזה: {Math.round(result.rate).toLocaleString('he-IL')} {result.rateLabel}.
-            ההערכה מבוססת על ריצות ייחוס ולכן היא בקירוב בלבד.
-          </div>
+          <strong
+            className="mono"
+            style={{ fontSize: 24, color: 'var(--accent-2)' }}
+            title={`נמדד על המכשיר הזה: ${Math.round(result.rate).toLocaleString('he-IL')} ${result.rateLabel}`}
+          >
+            {formatEstimate(result.seconds)}
+          </strong>
+          <span className="muted small">
+            {slots > 1 ? `עד ש-${slots} המודלים נוסעים טוב, במצב טורבו` : 'עד שהמודל נוסע טוב, במצב טורבו'}
+            {' · '}נמדד על המכשיר הזה, ולכן בקירוב
+          </span>
         </>
       )}
-      {!measuring && !result && <div className="muted small">לא הצלחתי למדוד את המכשיר.</div>}
+      {!measuring && !result && <span className="muted small">לא הצלחתי למדוד את המכשיר.</span>}
       {isMobileClass && (
-        <div className="pill warn small" style={{ marginTop: 10 }}>
-          זוהה מכשיר נייד — נבחרו ברירות מחדל קלות יותר
-        </div>
+        <span className="pill warn small">זוהה מכשיר נייד — נבחרו ברירות מחדל קלות יותר</span>
       )}
     </div>
   );

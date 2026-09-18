@@ -32,7 +32,7 @@ import { durationText, lapTime, raceTime, timeText } from '../format';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { TrainingPrimer, hasSeenPrimer, markPrimerSeen } from '../components/TrainingPrimer';
 import { exportModel, importModel, ModelFileError } from '../modelFile';
-import { Coach, CoachAnchor, modelsChanged, useCoachStep } from '../coach';
+import { CoachAnchor, modelsChanged, useCoachStep } from '../coach';
 
 export function Garage() {
   const { gameId, go, newDraft, draftFromModel, patchRace, showToast, competitor: team } = useApp();
@@ -261,13 +261,13 @@ export function Garage() {
             הסבר על אימון
           </button>
           <button onClick={() => fileInput.current?.click()}>ייבוא מקובץ</button>
-          <CoachAnchor on={coach === 'create'}>
+          <CoachAnchor
+            on={coach === 'create'}
+            text="כאן נולד מודל חדש. בוחרים מסלול, מכוונים עשרה מחווני אופי נהיגה — או משאירים כמו שהם — והרכב יוצא לנסות בעצמו. הוא מתחיל בלי לדעת כלום ולומד מהניסיונות."
+          >
             <button className="primary" onClick={startNew}>
               אמן מודל חדש
             </button>
-            {coach === 'create' && (
-              <Coach className="to-start" text="כאן נולד מודל חדש. בוחרים מסלול, מכוונים עשרה מחווני אופי נהיגה — או משאירים כמו שהם — והרכב יוצא לנסות בעצמו. הוא מתחיל בלי לדעת כלום ולומד מהניסיונות." />
-            )}
           </CoachAnchor>
         </div>
       </div>
@@ -424,7 +424,10 @@ export function Garage() {
 
                   <div className="acts">
                     {gameId === 'racing' && (
-                      <CoachAnchor on={coach === 'enter' && m.id === firstUnregistered}>
+                      <CoachAnchor
+                        on={coach === 'enter' && m.id === firstUnregistered}
+                        text="בלי רישום המודל לא משתתף במרוצים. לחצו רשום לאליפות והוא יעלה לגריד של הגרנד פרי הבא."
+                      >
                       <button
                         className={entry && drift === 'none' ? 'small' : 'small primary'}
                         disabled={entering === m.id || !(m.owner || team)}
@@ -443,9 +446,6 @@ export function Garage() {
                       >
                         {entering === m.id ? 'רושם…' : entry ? 'עדכן רכב' : 'רשום לאליפות'}
                       </button>
-                      {coach === 'enter' && m.id === firstUnregistered && (
-                        <Coach text="בלי רישום המודל לא משתתף במרוצים. לחצו רשום לאליפות והוא יעלה לגריד של הגרנד פרי הבא." />
-                      )}
                       </CoachAnchor>
                     )}
                     <button
