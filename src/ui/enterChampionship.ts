@@ -47,16 +47,33 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   if (!rec) throw new EntryError('לא הצלחתי לטעון את המשקולות של המודל');
 
   const uid = await arena.uid();
-  const entries = await arena.listEntries();
-  const existing = entries.find((e) => e.uid === uid && e.modelId === model.id);
+  // Strict: an entry list that came back empty because the read failed would
+  // look exactly like "this model has never been registered", and the car it
+  // already has on the grid would be duplicated instead of updated.
+  const entries = await arena.listEntriesForWrite();
+  const mine = entries.filter((e) => e.uid === uid);
+
+  /**
+   * The car this registration belongs to.
+   *
+   * Normally that is the entry made from this very model. The second lookup is
+   * what stops a driver being split in two: a model that was exported and
+   * imported again, or deleted and re-trained, arrives here with a new model id
+   * even though it is the same driver of the same team — and a fresh entry for
+   * it would mean a fresh set of points, with the season's results scattered
+   * between two rows that are obviously one driver.
+   */
+  const existing =
+    mine.find((e) => e.modelId === model.id) ??
+    mine.find((e) => !e.retired && e.team === team && e.driver === driver);
 
   // Updating a car that is already out there is always allowed; it is only a
   // *new* car that can push a team over the limit. An entry left over from the
   // days of withdrawal counts as new: it is not on the grid, so bringing it back
   // is an arrival.
   if (!existing || existing.retired) {
-    const mine = entries.filter((e) => e.uid === uid && !e.retired && e.team === team).length;
-    if (mine >= MAX_ENTRIES_PER_TEAM) {
+    const onGrid = mine.filter((e) => !e.retired && e.team === team).length;
+    if (onGrid >= MAX_ENTRIES_PER_TEAM) {
       throw new EntryError(
         `לכל קבוצה מותרים ${MAX_ENTRIES_PER_TEAM} רכבים על המסלול. הסירו רכב קיים כדי לרשום אחר במקומו`,
       );
