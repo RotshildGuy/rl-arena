@@ -1,7 +1,7 @@
 import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
 import { SEASON_ID } from '../core/champ/schedule';
 import { firebaseConfigured } from './firebase';
-import { setCloudError, setCloudOk } from './cloudStatus';
+import { cloudDisabled, setCloudError, setCloudOk } from './cloudStatus';
 
 /**
  * The shared side of the game.
@@ -16,6 +16,15 @@ export interface ArenaStore {
   /** The identity entries are written under. */
   uid(): Promise<string>;
   listEntries(): Promise<ArenaEntry[]>;
+  /**
+   * The same list, but a failed read throws instead of coming back empty.
+   *
+   * Reading the grid to show it can degrade to "nothing to show"; reading it to
+   * decide whether a car is already registered cannot. An empty list means
+   * "this model has no entry", and acting on that after a read that simply
+   * failed is how one driver ends up with two cars and half the points in each.
+   */
+  listEntriesForWrite(): Promise<ArenaEntry[]>;
   /** `null` weights update only the entry's metadata and leave the car as it is. */
   putEntry(entry: ArenaEntry, weightsB64: string | null): Promise<void>;
   removeEntry(id: string): Promise<void>;
@@ -110,6 +119,10 @@ class LocalArena implements ArenaStore {
     return 'local';
   }
 
+  listEntriesForWrite(): Promise<ArenaEntry[]> {
+    return this.listEntries();
+  }
+
   async listEntries(): Promise<ArenaEntry[]> {
     const keys = await this.keys('entry:');
     const out: ArenaEntry[] = [];
@@ -197,6 +210,10 @@ class FirestoreArena implements ArenaStore {
 
   async uid(): Promise<string> {
     return (await this.fs()).uid;
+  }
+
+  listEntriesForWrite(): Promise<ArenaEntry[]> {
+    return this.listEntries();
   }
 
   async listEntries(): Promise<ArenaEntry[]> {
@@ -325,11 +342,21 @@ class ArenaFacade implements ArenaStore {
     }
   }
 
+  /**
+   * Never guarded, and never given a fallback.
+   *
+   * A made-up uid is worse than no uid at all: every entry written under it
+   * belongs to nobody, so its owner can no longer see it in the garage, cannot
+   * remove it, and registering again creates a second car beside it.
+   */
   uid() {
-    return this.guard(() => this.inner.uid(), 'local');
+    return this.inner.uid();
   }
   listEntries() {
     return this.guard(() => this.inner.listEntries(), [] as ArenaEntry[]);
+  }
+  listEntriesForWrite() {
+    return this.inner.listEntriesForWrite();
   }
   putEntry(entry: ArenaEntry, weightsB64: string | null) {
     return this.inner.putEntry(entry, weightsB64);
@@ -378,6 +405,7 @@ let arenaPromise: Promise<ArenaStore> | null = null;
 
 export function getArena(): Promise<ArenaStore> {
   if (arenaPromise) return arenaPromise;
-  arenaPromise = (async () => new ArenaFacade(firebaseConfigured ? new FirestoreArena() : new LocalArena()))();
+  arenaPromise = (async () =>
+    new ArenaFacade(firebaseConfigured && !cloudDisabled() ? new FirestoreArena() : new LocalArena()))();
   return arenaPromise;
 }

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useApp } from '../store';
 import { getArena } from '../../storage/arena';
 import { deleteMyData } from '../deleteMyData';
+import { getAuthView, isLinked, providerLabel, subscribeAuth } from '../auth';
+import { AccountModal } from '../components/Account';
 import { GRID_SIZE, MIN_ENTRIES, RACE_LAPS } from '../../core/champ/format';
 import { MAX_CARS_PER_TEAM } from '../../core/champ/card';
 import { NAME_MAX } from '../../core/champ/names';
@@ -205,6 +207,20 @@ function Terms() {
         שהופיעו בהן. גם אחרי שתמחקו את הנתונים שלכם הן נשארות. אם זה מפריע לכם — אל תשתמשו בשם אמיתי.
       </p>
 
+      <h3>חשבון</h3>
+      <ul>
+        <li>
+          אפשר להיכנס עם Google, עם מייל וסיסמה, או בלי חשבון כלל. אתם אחראים לשמירת פרטי
+          הכניסה שלכם; אל תשתפו סיסמה עם אחרים.
+        </li>
+        <li>
+          <b>כניסה בלי חשבון היא זהות של דפדפן.</b> ניקוי נתוני האתר, מעבר למכשיר אחר או חלון
+          פרטי מנתקים אתכם ממנה בלי דרך חזרה — כולל מהרכבים והנקודות שצברתם. אפשר לקשר אליה
+          חשבון בכל רגע מתוך מידע ← קרדיטים, וזה שומר על הכל.
+        </li>
+        <li>אנחנו רשאים להשעות או להסיר חשבון שמפר את התנאים האלה.</li>
+      </ul>
+
       <h3>קטינים</h3>
       <p>השירות אינו מיועד לילדים מתחת לגיל 13.</p>
 
@@ -221,16 +237,36 @@ function Privacy() {
       <p className="muted">עודכן לאחרונה: ספטמבר 2026</p>
 
       <p>
-        קצר: <b>אין כאן הרשמה, אין מעקב ואין פרסום.</b> השירות לא מבקש אימייל, שם אמיתי או מספר
-        טלפון, ולא מפעיל כלי אנליטיקה כלשהו.
+        קצר: <b>אין כאן מעקב ואין פרסום.</b> השירות לא מבקש שם אמיתי או מספר טלפון ולא מפעיל
+        כלי אנליטיקה כלשהו. <b>אפשר להשתמש בו בלי למסור שום פרט</b> — כניסה בלי חשבון היא אחת
+        משלוש האפשרויות במסך הפתיחה, והיא עובדת במלואה.
       </p>
+
+      <h3>איך נכנסים, ומה זה שומר</h3>
+      <ul>
+        <li>
+          <b>בלי חשבון.</b> נוצר מזהה אקראי (Firebase Anonymous Auth) שחי בדפדפן הזה בלבד. הוא
+          לא מקושר לשום פרט מזהה ואנחנו לא יודעים מי אתם.
+        </li>
+        <li>
+          <b>מייל וסיסמה.</b> כתובת המייל נשמרת ב-Firebase Authentication כדי לזהות אתכם
+          בכניסה הבאה ולאפשר איפוס סיסמה. הסיסמה עצמה נשמרת אצל Google בצורה מגובבת ואינה
+          גלויה לנו. <b>המייל לא מופיע בשום מקום פומבי באתר</b> ולא נשלח אליו דבר מלבד איפוס
+          סיסמה שביקשתם.
+        </li>
+        <li>
+          <b>Google.</b> אם תבחרו להתחבר עם Google, נקבל ממנו את כתובת המייל, השם המוצג ותמונת
+          הפרופיל אם יש — ונשתמש רק בכתובת, כדי לזהות אתכם. גם הם אינם מופיעים בשום מקום פומבי.
+        </li>
+        <li>
+          <b>קישור חשבון קיים.</b> מי שנכנס בלי חשבון יכול לקשר אליו Google או מייל מאוחר יותר.
+          הקישור שומר על אותו מזהה — שום דבר לא מועבר ולא מתחיל מחדש — ומוסיף רק את פרטי הכניסה
+          שלמעלה.
+        </li>
+      </ul>
 
       <h3>מה נשמר</h3>
       <ul>
-        <li>
-          <b>מזהה אנונימי.</b> בכניסה נוצר מזהה אקראי (Firebase Anonymous Auth). הוא לא מקושר
-          לשום פרט מזהה ואנחנו לא יודעים מי אתם.
-        </li>
         <li>
           <b>מה שהקלדתם:</b> שם המתחרה ושם המודל. אלה שדות חופשיים — אם תכתבו בהם פרט מזהה, הוא
           יופיע לכולם.
@@ -245,7 +281,8 @@ function Privacy() {
 
       <h3>מה לא נשמר</h3>
       <p className="muted">
-        אימייל · שם אמיתי · טלפון · מיקום · עוגיות מעקב · פרופיל פרסומי · כלי אנליטיקה.
+        שם אמיתי · טלפון · מיקום · עוגיות מעקב · פרופיל פרסומי · כלי אנליטיקה. אימייל נשמר רק
+        אם בחרתם להתחבר עם מייל או עם Google, ולעולם לא מוצג לאחרים.
         הגופנים באתר מוגשים מהשרת שלנו ולא מרשת חיצונית, כך שטעינת הדף לא מדווחת לאף צד שלישי.
       </p>
 
@@ -256,7 +293,8 @@ function Privacy() {
           בשליטתכם המלאה, גם דרך הגדרות הדפדפן.
         </li>
         <li>
-          <b>בענן:</b> Google Firestore, באזור <b>me-west1 (תל אביב)</b>.
+          <b>בענן:</b> Google Firestore, באזור <b>me-west1 (תל אביב)</b>. פרטי הכניסה עצמם —
+          המזהה, וכתובת המייל אם יש — יושבים ב-Firebase Authentication, שירות נפרד של Google.
         </li>
         <li>
           <b>אירוח:</b> Firebase Hosting. כמו כל שרת אינטרנט, ספק האירוח רושם בקשות ובכללן כתובות
@@ -311,15 +349,21 @@ function Notices() {
   const [uid, setUid] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [account, setAccount] = useState(false);
+  const auth = useSyncExternalStore(subscribeAuth, getAuthView);
   const showToast = useApp((s) => s.showToast);
   const go = useApp((s) => s.go);
 
   useEffect(() => {
+    // At the gate, where this page is also reachable, there is no identity to
+    // ask for and the arena would wait for one that never comes. Without cloud
+    // keys ('off') there is one — the local arena's — and it is worth showing.
+    if (auth.phase === 'out') return;
     void getArena()
       .then((a) => a.uid())
       .then(setUid)
       .catch(() => setUid(null));
-  }, []);
+  }, [auth.phase]);
 
   const wipe = async () => {
     setBusy(true);
@@ -369,9 +413,37 @@ function Notices() {
         מכונה חיצוניות.
       </p>
 
+      <h3>החשבון שלי</h3>
+      {auth.phase !== 'in' ? (
+        <p className="muted small">אין חשבון מחובר בדפדפן הזה.</p>
+      ) : isLinked(auth) ? (
+        <>
+          <p className="small">
+            מחוברים {auth.email ? <b className="mono">{auth.email}</b> : null} דרך{' '}
+            {auth.providers.map(providerLabel).join(' · ')}. אפשר להתחבר עם אותו חשבון מכל מכשיר
+            ולמצוא את אותם מודלים ואותן נקודות.
+          </p>
+          <button className="small" onClick={() => setAccount(true)}>
+            ניהול החשבון
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="small">
+            נכנסתם בלי חשבון. הכל עובד כרגיל, אבל הזהות חיה <b>בדפדפן הזה בלבד</b>: ניקוי נתוני
+            האתר או מעבר למכשיר אחר מנתקים אתכם ממנה, ומהרכבים והנקודות שלכם באליפות. קישור
+            ל-Google או למייל שומר על אותו מזהה ועל הכל מתחתיו.
+          </p>
+          <button className="small primary" onClick={() => setAccount(true)}>
+            קשר חשבון
+          </button>
+        </>
+      )}
+      {account && <AccountModal onClose={() => setAccount(false)} />}
+
       <h3>המזהה שלכם</h3>
       <p className="muted small">
-        זה המזהה האנונימי שהמודלים שלכם שמורים תחתיו. הוא לא מקושר לשום פרט אישי.
+        זה המזהה שהמודלים שלכם שמורים תחתיו. הוא אינו כולל שום פרט אישי, גם כשהחשבון מקושר.
       </p>
       <p className="mono small" style={{ overflowWrap: 'anywhere' }}>
         {uid ?? '—'}
@@ -383,7 +455,9 @@ function Notices() {
         שכבר נערכו נשארות — היסטוריית האליפות אינה ניתנת לשכתוב.
       </p>
       <div className="row wrap">
-        {confirming ? (
+        {auth.phase === 'out' ? (
+          <span className="muted small">כדי למחוק צריך להיות מחוברים לחשבון שהנתונים שייכים לו.</span>
+        ) : confirming ? (
           <>
             <button className="danger" disabled={busy} onClick={() => void wipe()}>
               {busy ? 'מוחק…' : 'כן, למחוק הכל לצמיתות'}

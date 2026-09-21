@@ -184,7 +184,7 @@ button.ghost:hover:not(:disabled) { background: var(--panel-2); color: var(--tex
 
 button.small { padding: 6px 11px; font-size: 12px; }
 
-input[type='text'], input[type='number'], select {
+input[type='text'], input[type='email'], input[type='password'], input[type='number'], select {
   font: inherit;
   color: inherit;
   background: var(--bg-2);
@@ -950,7 +950,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 
 @media (pointer: coarse) {
   /* iOS zooms the page when focusing an input under 16px. */
-  input[type='text'], input[type='number'], select { font-size: 16px; padding: 10px 12px; }
+  input[type='text'], input[type='email'], input[type='password'], input[type='number'], select { font-size: 16px; padding: 10px 12px; }
   button { padding: 11px 16px; touch-action: manipulation; }
   button.small { padding: 8px 12px; }
   input[type='range'] { height: 32px; }
@@ -1204,6 +1204,95 @@ input[type='number'] { direction: ltr; text-align: end; }
   backdrop-filter: blur(3px);
   text-align: center;
   padding: 16px;
+}
+
+/* ------------------------------------------------------------------- auth */
+
+/*
+ * The sign-in gate, and the account dialog that follows from it.
+ *
+ * One column, centred, and narrow: the whole screen is a choice between three
+ * buttons, and anything wider invites the eye to wander off to a second column
+ * that is not there.
+ */
+.signin {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 40px;
+}
+/* `margin: auto` and not `align-items: center`: a card taller than a short
+   phone must scroll from its top, and a centred flex item clips it instead. */
+.signin-card { width: min(420px, 100%); margin: auto; }
+.signin-card .brand { display: flex; align-items: baseline; gap: 7px; }
+
+/* A provider button carries a logo, so it centres its own row rather than
+   inheriting the text alignment of the column it sits in. */
+button.provider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  background: var(--text);
+  border-color: var(--text);
+  color: #10131f;
+  font-weight: 700;
+}
+button.provider:hover:not(:disabled) { background: #fff; border-color: #fff; }
+button.provider svg { flex: 0 0 auto; }
+
+button.wide { width: 100%; }
+
+/* "or", with the rule running through it. */
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+.auth-or::before,
+.auth-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-note {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.auth-note.warn { border-color: #4a3a11; background: #241c07; color: var(--warn); }
+.auth-note.good { border-color: #15452c; background: #082013; color: var(--good); }
+
+.auth-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.auth-foot button { padding: 4px 6px; }
+
+/* The one piece of account chrome in the header. Quiet on purpose: an
+   anonymous identity is a supported way to use the app, not a warning. */
+.account-btn { display: inline-flex; align-items: center; gap: 6px; }
+.account-btn.unlinked { color: var(--accent-2); }
+.account-btn .glyph { font-size: 13px; line-height: 1; }
+@media (max-width: 900px) {
+  .account-btn .txt { display: none; }
 }
 
 /* ------------------------------------------------------------------ modal */

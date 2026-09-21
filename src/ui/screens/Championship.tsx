@@ -203,7 +203,7 @@ export function Championship() {
             <table className="timing">
               <tbody>
                 {standings.drivers.slice(0, 6).map((d) => (
-                  <tr key={d.entryId} className={myEntries.some((e) => e.id === d.entryId) ? 'me' : ''}>
+                  <tr key={d.entryId} className={d.entryIds.some((id) => myEntries.some((e) => e.id === id)) ? 'me' : ''}>
                     <td style={{ width: 40 }}>
                       <span className={posClass(d.position)}>{d.position}</span>
                     </td>
@@ -520,6 +520,27 @@ function MyTeam({
   const [confirming, setConfirming] = useState<string | null>(null);
   const known = useMemo(() => new Set(models.map((m) => m.id)), [models]);
 
+  /**
+   * Entries that are the same driver twice.
+   *
+   * Registering used to be able to hand one driver a second car — after a
+   * delete and a re-entry, or a model imported under a new id — and the two
+   * then split the season's points between them. The table puts them back
+   * together, but the grid does not: seniority decides which two cars of a team
+   * race, so the *older* of the pair is the one that keeps lining up while the
+   * one being updated sits out. Saying which is which is what makes that
+   * fixable, and the newest is kept because it is the one being updated.
+   */
+  const duplicates = useMemo(() => {
+    const newest = new Map<string, ArenaEntry>();
+    for (const e of entries) {
+      const key = `${e.team}\u0000${e.driver}`;
+      const best = newest.get(key);
+      if (!best || e.createdAt > best.createdAt) newest.set(key, e);
+    }
+    return new Set(entries.filter((e) => newest.get(`${e.team}\u0000${e.driver}`)?.id !== e.id).map((e) => e.id));
+  }, [entries]);
+
   const drop = async (entry: ArenaEntry) => {
     setConfirming(null);
     try {
@@ -555,6 +576,14 @@ function MyTeam({
             {orphan && (
               <span className="pill warn small" title="המודל שממנו נרשם הרכב כבר לא במוסך">
                 אין מודל
+              </span>
+            )}
+            {duplicates.has(e.id) && (
+              <span
+                className="pill warn small"
+                title="אותו נהג רשום פעמיים. הרשומה הישנה היא זו שעולה לגריד — כדאי להסיר אותה. הנקודות והתוצאות שלה נשארות בטבלה, מאוחדות תחת אותו נהג"
+              >
+                רישום כפול
               </span>
             )}
             <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} אפ׳</span>

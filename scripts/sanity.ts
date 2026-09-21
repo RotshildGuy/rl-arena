@@ -712,6 +712,93 @@ function fakeResult(raceId: string, places: DayPlace[]): RaceResult {
   return { raceId, seasonId: 'S1', computedAt: 0, sessions: [], places, pole: null, fastestLap: null };
 }
 
+// ------------------------------------------------------- split drivers
+/**
+ * One driver, two entries.
+ *
+ * A car is meant to keep its entry for the whole season, but a delete and a
+ * re-registration, or a model re-imported under a new id, could give the same
+ * driver a second one — and then half the season's points sat in each, two rows
+ * apart in the table. History cannot be rewritten to fix it (cards and results
+ * are create-only and name the entry that actually raced), so the table itself
+ * has to put the pieces back together.
+ */
+function splitDriverTest(): void {
+  console.log(CHAPTER + 'a driver split across two entries');
+
+  const asDriver = (card: RaceCard, driver: string, team = 'Alpha', uid = 'u'): RaceCard => ({
+    ...card,
+    entries: card.entries.map((e) => ({ ...e, driver, team, uid })),
+  });
+
+  const first = asDriver(fakeCard(1, ['old']), 'Flesh Blood');
+  const second = asDriver(fakeCard(2, ['new']), 'Flesh Blood');
+  const results = new Map([
+    [first.id, fakeResult(first.id, [fakePlace('old', 1)])],
+    [second.id, fakeResult(second.id, [fakePlace('new', 1)])],
+  ]);
+
+  const merged = buildStandings({ cards: [first, second], results });
+  check('the same driver is one row, not two', merged.drivers.length === 1, `${merged.drivers.length} rows`);
+  check(
+    'both entries keep their points',
+    merged.drivers[0].points === POINTS[0] * 2 && merged.drivers[0].wins === 2,
+    `${merged.drivers[0].points} pts`,
+  );
+  check(
+    'the row is the car that is still on the grid',
+    merged.drivers[0].entryId === 'new' && merged.drivers[0].entryIds.join(',') === 'old,new',
+  );
+  check(
+    'every race the driver ran is still in the grid of results',
+    Object.keys(merged.drivers[0].byRace).sort().join(',') === [first.id, second.id].sort().join(','),
+  );
+
+  // A rename is the case that makes this a union rather than a lookup: the old
+  // entry raced under one name and the new one under the name it was renamed to.
+  const renamed = [asDriver(fakeCard(1, ['old']), 'WOW'), asDriver(fakeCard(2, ['old']), 'WOW v2'), asDriver(fakeCard(3, ['new']), 'WOW v2')];
+  const afterRename = buildStandings({
+    cards: renamed,
+    results: new Map(
+      renamed.map((c, i) => [c.id, fakeResult(c.id, [fakePlace(i === 2 ? 'new' : 'old', 1)])]),
+    ),
+  });
+  check(
+    'a rename does not split a driver, and still catches the duplicate',
+    afterRename.drivers.length === 1 && afterRename.drivers[0].points === POINTS[0] * 3,
+    `${afterRename.drivers.length} rows`,
+  );
+
+  // The safety rail: two people are allowed the same team and model name, and
+  // merging their points would be far worse than showing a split.
+  const mine = asDriver(fakeCard(1, ['mine']), 'Flesh Blood');
+  const theirs = asDriver(fakeCard(2, ['theirs']), 'Flesh Blood', 'Alpha', 'someone-else');
+  const twoPeople = buildStandings({
+    cards: [mine, theirs],
+    results: new Map([
+      [mine.id, fakeResult(mine.id, [fakePlace('mine', 1)])],
+      [theirs.id, fakeResult(theirs.id, [fakePlace('theirs', 1)])],
+    ]),
+  });
+  check('two different owners are never merged', twoPeople.drivers.length === 2);
+
+  // Both cars of a split driver on one grid: nothing invented, nothing dropped.
+  const together = asDriver(fakeCard(4, ['old', 'new']), 'Flesh Blood');
+  const sameRace = buildStandings({
+    cards: [together],
+    results: new Map([
+      [together.id, fakeResult(together.id, [fakePlace('old', 2), fakePlace('new', 5)])],
+    ]),
+  });
+  check(
+    'two cars of one driver in one race add up, and show the better finish',
+    sameRace.drivers.length === 1 &&
+      sameRace.drivers[0].byRace[together.id].points === POINTS[1] + POINTS[4] &&
+      sameRace.drivers[0].byRace[together.id].position === 2,
+    `${sameRace.drivers[0].byRace[together.id].points} pts`,
+  );
+}
+
 // ----------------------------------------------------------- team limit
 /**
  * Two cars per team, on the grid as well as in the garage.
@@ -1008,6 +1095,7 @@ timingTest();
 championshipTest();
 nameGenTest();
 teamLimitTest();
+splitDriverTest();
 broadcastClockTest();
 earlyFeedTest();
 coachTest();

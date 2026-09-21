@@ -1,4 +1,4 @@
-import type { DayPlace, RaceCard, RaceResult } from './types';
+import type { ArenaEntry, DayPlace, RaceCard, RaceResult } from './types';
 
 /**
  * The scoring system Formula 1 has used since 2010, with the fastest-lap bonus
@@ -14,7 +14,10 @@ export function pointsForPosition(position: number): number {
 }
 
 export interface DriverStanding {
+  /** The driver's current car. Several ids can be the same driver — see below. */
   entryId: string;
+  /** Every entry id that turned out to be this driver, newest last. */
+  entryIds: string[];
   driver: string;
   team: string;
   tag: string;
@@ -63,17 +66,91 @@ export interface SeasonInput {
   results: Map<string, RaceResult>;
 }
 
+/**
+ * What makes two entries the same driver: one owner, one team, one name.
+ *
+ * The uid is in the key on purpose. Two people are allowed to pick the same
+ * team and the same model name, and folding their points together would be far
+ * worse than showing a split — so a merge only ever happens inside one account.
+ */
+function driverKey(e: ArenaEntry): string {
+  return `${e.uid}\u0000${e.team}\u0000${e.driver}`;
+}
+
+/**
+ * Entry ids that are really one driver.
+ *
+ * A car is supposed to keep its entry — and therefore its points — for the
+ * whole season, but several things could hand the same driver a second one:
+ * taking a car off the grid and registering it again, re-importing the model so
+ * that the garage gives it a new id, or a failed read at exactly the wrong
+ * moment. The result is one driver in two rows, each with part of the season,
+ * which is what this repairs.
+ *
+ * It repairs it here rather than by rewriting the database, because it cannot
+ * be rewritten: race cards and results are create-only, and every one of them
+ * names the entry that actually lined up. So the history stays exactly as it
+ * was raced, and only the championship table — which is a view over it — puts
+ * the pieces back together.
+ *
+ * Renames are why this is a union and not a lookup: an entry can appear under
+ * one name in round 2 and another in round 9, and the second name is what ties
+ * it to the duplicate. Joining ids through every name each of them ever wore
+ * gets both cases right at once.
+ */
+function sameDriver(cards: RaceCard[]): Map<string, string> {
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    const up = parent.get(x);
+    if (up === undefined || up === x) return x;
+    const root = find(up);
+    parent.set(x, root);
+    return root;
+  };
+  const union = (a: string, b: string): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  const byName = new Map<string, string>();
+  const ordered = [...cards].sort((a, b) => a.round - b.round);
+  for (const card of ordered) {
+    for (const e of card.entries) {
+      if (!parent.has(e.id)) parent.set(e.id, e.id);
+      const key = driverKey(e);
+      const seen = byName.get(key);
+      if (seen) union(e.id, seen);
+      else byName.set(key, e.id);
+    }
+  }
+
+  // The newest car of a group is the one that represents it: it is the entry
+  // that is still on the grid, so the table highlights the right row and links
+  // to a car that exists.
+  const newest = new Map<string, string>();
+  for (const card of ordered) for (const e of card.entries) newest.set(find(e.id), e.id);
+
+  const canonical = new Map<string, string>();
+  for (const id of parent.keys()) canonical.set(id, newest.get(find(id)) ?? id);
+  return canonical;
+}
+
 export function buildStandings({ cards, results }: SeasonInput): {
   drivers: DriverStanding[];
   teams: TeamStanding[];
 } {
   const byEntry = new Map<string, DriverStanding>();
+  const canonical = sameDriver(cards);
+  const canon = (entryId: string): string => canonical.get(entryId) ?? entryId;
 
   const ensure = (entryId: string, driver: string, team: string, tag: string): DriverStanding => {
-    let d = byEntry.get(entryId);
+    const id = canon(entryId);
+    let d = byEntry.get(id);
     if (!d) {
       d = {
-        entryId,
+        entryId: id,
+        entryIds: [entryId],
         driver,
         team,
         tag,
@@ -90,12 +167,13 @@ export function buildStandings({ cards, results }: SeasonInput): {
         byRace: {},
         position: 0,
       };
-      byEntry.set(entryId, d);
+      byEntry.set(id, d);
     } else {
       // The newest card wins: an owner may have renamed the model since.
       d.driver = driver;
       d.team = team;
       d.tag = tag;
+      if (!d.entryIds.includes(entryId)) d.entryIds.push(entryId);
     }
     return d;
   };
@@ -121,7 +199,17 @@ export function buildStandings({ cards, results }: SeasonInput): {
       if (place.position <= 3) d.podiums++;
       if (d.bestFinish === null || place.position < d.bestFinish) d.bestFinish = place.position;
       d.counts[place.position - 1] = (d.counts[place.position - 1] ?? 0) + 1;
-      d.byRace[card.id] = { position: place.position, points: place.points, status: place.status };
+      // A merged driver can have two places in one race, if both of its cars
+      // were on that grid. The points are added up — none of them were made up,
+      // and none may be dropped — and the results grid shows the better finish.
+      const had = d.byRace[card.id];
+      d.byRace[card.id] = had
+        ? {
+            position: Math.min(had.position, place.position),
+            points: had.points + place.points,
+            status: had.status === 'finished' || place.status === 'finished' ? 'finished' : 'dnf',
+          }
+        : { position: place.position, points: place.points, status: place.status };
     }
     if (result.pole) {
       const e = names.get(result.pole);

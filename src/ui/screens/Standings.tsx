@@ -94,7 +94,7 @@ export function Standings() {
               </thead>
               <tbody>
                 {standings.drivers.map((d) => (
-                  <tr key={d.entryId} className={mine.has(d.entryId) ? 'me' : ''}>
+                  <tr key={d.entryId} className={d.entryIds.some((id) => mine.has(id)) ? 'me' : ''}>
                     <td>
                       <span className={posClass(d.position)}>{d.position}</span>
                     </td>
@@ -190,7 +190,7 @@ export function Standings() {
                 </thead>
                 <tbody>
                   {standings.drivers.map((d) => (
-                    <tr key={d.entryId} className={mine.has(d.entryId) ? 'me' : ''}>
+                    <tr key={d.entryId} className={d.entryIds.some((id) => mine.has(id)) ? 'me' : ''}>
                       <td>
                         <DriverCell driver={d.driver} team={d.team} tag={d.tag} />
                       </td>

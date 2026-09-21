@@ -1,9 +1,21 @@
+# Build and publish the site to Firebase Hosting.
+#
+# Only Hosting. `firestore.rules` is deliberately not in the repository, so
+# nothing here can deploy or overwrite the security rules — those stay a manual,
+# deliberate act from a machine that has the file.
 name: Deploy to Firebase Hosting
 
 on:
   push:
     branches: [main]
+  # A deploy on demand, for re-publishing without a commit.
   workflow_dispatch:
+
+# A later push wins. Two deploys racing each other would decide the live site
+# by whichever finished last, which is not necessarily the newer one.
+concurrency:
+  group: hosting
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -18,18 +30,65 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build
+      # The gate before anything is published: types, then the rules of the
+      # championship and the learning core (`scripts/sanity.ts`, ~5 seconds).
+      - run: npm run typecheck
+      - run: npm run sanity
+
+      # The Firebase web keys are public identifiers — they are served to every
+      # browser that loads the site — so they may live in either repository
+      # variables or secrets, and this reads whichever is set.
+      #
+      # They are checked before the build rather than after it, because without
+      # them the app still builds: it simply runs local-only, which is a
+      # supported mode and looks like a perfectly healthy build. Publishing that
+      # would quietly take the shared championship, the cloud library and the
+      # whole sign-in screen off the live site for everybody. A missing value
+      # has to stop the deploy, not change what it deploys.
+      - name: Check the Firebase config is present
         env:
-          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          missing=
+          for name in VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID VITE_FIREBASE_APP_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing Firebase config:$missing. Set them as repository variables (Settings -> Secrets and variables -> Actions -> Variables) or as secrets."
+            exit 1
+          fi
+
+      - name: Build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID }}
+          # Optional in `storage/firebase.ts` — the app counts as configured
+          # without them — so they are passed but not required above.
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET || secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID || secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+        run: npm run build
+
+      # And that they actually reached the bundle. Vite inlines them at build
+      # time, so the project id is in the output of a cloud build and absent
+      # from a local-only one — the one signal that tells the two apart. (The
+      # auth SDK itself ships either way, so its presence proves nothing.)
+      - name: Check the bundle carries the cloud config
+        env:
+          PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID }}
+        run: |
+          if ! grep -rqs -- "$PROJECT_ID" dist/assets; then
+            echo "::error::The built bundle carries no Firebase project id. Refusing to publish a build with no cloud."
+            exit 1
+          fi
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: reinforcement-learning-ed0ed
+          projectId: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || 'reinforcement-learning-ed0ed' }}
           channelId: live
