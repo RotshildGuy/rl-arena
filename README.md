@@ -462,6 +462,35 @@ epsilon, אין loss ואין ספירת גרדיאנטים — מספר שאי 
 האתר. האבטחה מגיעה מ-`firestore.rules`: ספרייה פרטית נעולה לבעליה, זירה שכולם קוראים וכל
 אחד כותב רק את הרכב שלו, והיסטוריה שניתן רק להוסיף לה.
 
+### פריסה
+
+דחיפה ל-`main` בונה ופורסת ל-Firebase Hosting דרך `.github/workflows/deploy.yml`. אותו
+workflow רץ גם ידנית מלשונית Actions (`workflow_dispatch`), והוא מריץ `typecheck` ו-`sanity`
+לפני שהוא מפרסם משהו.
+
+מה צריך להגדיר בריפו פעם אחת, ב-Settings ← Secrets and variables ← Actions:
+
+| | איפה | מה |
+|---|---|---|
+| `VITE_FIREBASE_API_KEY` · `VITE_FIREBASE_AUTH_DOMAIN` · `VITE_FIREBASE_PROJECT_ID` · `VITE_FIREBASE_APP_ID` | **Variables** (או Secrets — ה-workflow קורא את שניהם) | מפתחות ה-Web של הפרויקט. הם מזהים ציבוריים שנשלחים ממילא לכל דפדפן, ולכן Variables הם המקום הטבעי שלהם |
+| `FIREBASE_SERVICE_ACCOUNT` | **Secrets** | JSON של service account עם הרשאת Firebase Hosting Admin. זה הסוד האמיתי היחיד כאן |
+
+ה-workflow **מסרב לפרסם בילד בלי ענן**, בשתי בדיקות: שהמשתנים קיימים לפני הבנייה, ושמזהה
+הפרויקט באמת הגיע לבאנדל אחריה. זה לא הידור יתר — בלי המפתחות האפליקציה נבנית בהצלחה
+ורצה מקומית, וזה מצב נתמך לגמרי שנראה כמו בילד בריא; פרסום שלו היה מוריד בשקט את האליפות
+המשותפת, את הספרייה בענן ואת מסך ההתחברות מהאתר החי. ערך חסר חייב לעצור פריסה, לא לשנות
+את מה שנפרס. (בדיקה על נוכחות ה-SDK לא הייתה עוזרת: הוא נארז כך או כך.)
+
+**רק Hosting.** `firestore.rules` לא נמצא בריפו בכוונה, ולכן שום דבר אוטומטי לא יכול לדרוס
+את כללי האבטחה — הם נשארים פעולה ידנית ומודעת ממכונה שהקובץ נמצא בה. פריסה ידנית מלאה:
+
+```bash
+npm i -g firebase-tools   # פעם אחת. שימו לב: החבילה היא firebase-tools, לא firebase —
+firebase login            # החבילה בשם firebase היא ה-SDK ואין לה CLI בכלל
+npm run build             # עם .env.local
+firebase deploy --only hosting
+```
+
 ### גדלים ומכסות
 
 מודל בודד שוקל כ-**34KB** ב-base64 (`24→64→64→9`), מול מגבלת מסמך של 1MB ומכסה חינמית של
