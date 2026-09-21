@@ -1,7 +1,7 @@
 import type { ModelMeta, ModelRecord, ModelStore } from './types';
 import { LocalStore } from './indexedDb';
 import { firebaseConfigured } from './firebase';
-import { setCloudError, setCloudOk } from './cloudStatus';
+import { cloudDisabled, setCloudError, setCloudOk } from './cloudStatus';
 
 export * from './types';
 export { LocalStore } from './indexedDb';
@@ -133,7 +133,7 @@ export function getStore(): Promise<ModelStore> {
   if (storePromise) return storePromise;
   storePromise = (async () => {
     const local = new LocalStore();
-    if (!firebaseConfigured) return local;
+    if (!firebaseConfigured || cloudDisabled()) return local;
     // Imported lazily so the Firebase SDK is only fetched when it is actually used.
     const { FirestoreStore } = await import('./firestore');
     return new SyncedStore(new FirestoreStore(), local);

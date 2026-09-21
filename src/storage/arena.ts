@@ -1,7 +1,7 @@
 import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
 import { SEASON_ID } from '../core/champ/schedule';
 import { firebaseConfigured } from './firebase';
-import { setCloudError, setCloudOk } from './cloudStatus';
+import { cloudDisabled, setCloudError, setCloudOk } from './cloudStatus';
 
 /**
  * The shared side of the game.
@@ -405,6 +405,7 @@ let arenaPromise: Promise<ArenaStore> | null = null;
 
 export function getArena(): Promise<ArenaStore> {
   if (arenaPromise) return arenaPromise;
-  arenaPromise = (async () => new ArenaFacade(firebaseConfigured ? new FirestoreArena() : new LocalArena()))();
+  arenaPromise = (async () =>
+    new ArenaFacade(firebaseConfigured && !cloudDisabled() ? new FirestoreArena() : new LocalArena()))();
   return arenaPromise;
 }

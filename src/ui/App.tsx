@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { useApp, type Screen } from './store';
 import { getCloudStatus, subscribeCloudStatus } from '../storage';
+import { getAuthView, subscribeAuth } from './auth';
 import { teamColor } from '../core/champ/livery';
 import { Championship } from './screens/Championship';
 import { Standings } from './screens/Standings';
@@ -12,6 +13,8 @@ import { TrainDashboard } from './screens/TrainDashboard';
 import { RaceSetup } from './screens/RaceSetup';
 import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
+import { SignIn } from './screens/SignIn';
+import { AccountButton } from './components/Account';
 import { CoachAnchor, useCoachStep } from './coach';
 
 interface Tab {
@@ -29,7 +32,34 @@ const TABS: Tab[] = [
   { id: 'raceSetup', label: 'לשחק', glyph: '🎮', also: ['race'] },
 ];
 
+/**
+ * The identity gate.
+ *
+ * Nothing under it may mount before there is an account to own what it reads:
+ * every screen goes to the library or to the grid, and both are per-identity.
+ * Keeping the whole app behind one branch — rather than letting each screen
+ * cope with "no user yet" — is also what keeps the stores simple, because by
+ * the time anything calls them the answer exists.
+ *
+ * Somebody who signed in on this device before never sees any of this: Firebase
+ * restores the session, so the gate only stands in front of a genuinely new
+ * visit. Without cloud keys there is nothing to sign in to, and the app opens
+ * straight into its local championship exactly as it always did.
+ */
 export function App() {
+  const screen = useApp((s) => s.screen);
+  const auth = useSyncExternalStore(subscribeAuth, getAuthView);
+
+  if (auth.phase === 'loading') return <Splash />;
+  if (auth.phase === 'out') {
+    // The rules and the privacy notice are part of deciding whether to sign in
+    // at all, so they stay reachable from the door.
+    return screen === 'info' ? <GateInfo /> : <SignIn />;
+  }
+  return <Arena />;
+}
+
+function Arena() {
   const screen = useApp((s) => s.screen);
   const toast = useApp((s) => s.toast);
   const go = useApp((s) => s.go);
@@ -84,6 +114,7 @@ export function App() {
         <button className="ghost small info-link" onClick={() => openInfo('how')} title="הוראות, תנאי שימוש ופרטיות">
           מידע
         </button>
+        <AccountButton />
         {competitor && (
           <span className="pill" title="שם המתחרה שלך — הקבוצה שהמודלים שלך מתחרים בשמה">
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
@@ -110,6 +141,37 @@ export function App() {
       </main>
 
       {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+/**
+ * The half-second before Firebase says who is signed in.
+ *
+ * It is the difference between a returning visitor seeing their championship
+ * appear and seeing a sign-in screen flash past first — which would read as
+ * having been logged out.
+ */
+function Splash() {
+  return (
+    <div className="signin">
+      <div className="brand" style={{ opacity: 0.6 }}>
+        <span className="mark">RL</span>
+        <span>ARENA</span>
+      </div>
+    </div>
+  );
+}
+
+/** The information screen, reachable from the sign-in gate itself. */
+function GateInfo() {
+  return (
+    <div className="app">
+      <main className="content">
+        <div className="wrap">
+          <Info />
+        </div>
+      </main>
     </div>
   );
 }

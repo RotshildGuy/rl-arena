@@ -15,6 +15,30 @@ let current: CloudStatus = {
 
 const listeners = new Set<() => void>();
 
+/**
+ * Set when the app is asked to carry on without the cloud.
+ *
+ * The one thing that can reach this state is a project whose authentication is
+ * broken — a provider switched off, an unauthorised domain, no network on a
+ * first visit — where nobody can sign in and there is nothing to sign in to.
+ * From here on the stores behave exactly as they do with no Firebase keys at
+ * all, which is a mode the whole app already supports, so the badge says
+ * "local" rather than reporting an error over and over.
+ */
+let disabled = false;
+
+export function disableCloud(): void {
+  if (disabled) return;
+  disabled = true;
+  current = { state: 'local', message: null };
+  listeners.forEach((fn) => fn());
+}
+
+/** Whether this session has given up on the cloud. Read when a store is built. */
+export function cloudDisabled(): boolean {
+  return disabled;
+}
+
 export function getCloudStatus(): CloudStatus {
   return current;
 }
@@ -25,12 +49,13 @@ export function subscribeCloudStatus(fn: () => void): () => void {
 }
 
 export function setCloudOk(): void {
-  if (current.state === 'ok') return;
+  if (disabled || current.state === 'ok') return;
   current = { state: 'ok', message: null };
   listeners.forEach((fn) => fn());
 }
 
 export function setCloudError(err: unknown): void {
+  if (disabled) return;
   const message = explain(err);
   if (current.state === 'error' && current.message === message) return;
   current = { state: 'error', message };
@@ -50,7 +75,10 @@ function explain(err: unknown): string {
     return 'Authentication לא הופעל בפרויקט. פתח את Firebase Console ← Authentication ← Get started.';
   }
   if (/admin-restricted-operation|operation-not-allowed/i.test(code)) {
-    return 'ספק ההתחברות האנונימית כבוי. Firebase Console ← Authentication ← Sign-in method ← Anonymous ← Enable.';
+    return 'שיטת ההתחברות הזאת כבויה בפרויקט. Firebase Console ← Authentication ← Sign-in method.';
+  }
+  if (/no-user/i.test(code)) {
+    return 'אין חשבון מחובר — המודלים נשמרים בדפדפן הזה בלבד.';
   }
   if (/unauthorized-domain/i.test(code)) {
     return 'הדומיין הזה לא מורשה. Firebase Console ← Authentication ← Settings ← Authorized domains.';
