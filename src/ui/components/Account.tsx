@@ -38,7 +38,7 @@ export function AccountButton() {
         title={
           linked
             ? `מחובר${auth.email ? ` כ-${auth.email}` : ''}`
-            : 'החשבון שלכם אנונימי וחי בדפדפן הזה בלבד. אפשר לקשר אותו ל-Google או למייל'
+            : 'החשבון שלכם אנונימי וחי בדפדפן הזה בלבד. אפשר לקשר אותו ל-Google או למייל — או להתחבר לחשבון שכבר יש לכם'
         }
       >
         <span className="glyph">{linked ? '👤' : '🔗'}</span>
@@ -64,11 +64,15 @@ export function AccountModal({ onClose }: { onClose(): void }) {
   const showToast = useApp((s) => s.showToast);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState<null | 'google' | 'email' | 'out'>(null);
+  const [busy, setBusy] = useState<null | 'google' | 'email' | 'in-google' | 'in-email' | 'out'>(null);
   const [error, setError] = useState<string | null>(null);
   /** A Google account or an email that already belongs to somebody else here. */
   const [conflict, setConflict] = useState<Conflict | null>(null);
   const [leaving, setLeaving] = useState(false);
+  /** The other door: an account that already exists, on a browser that is anonymous. */
+  const [entering, setEntering] = useState(false);
+  const [inEmail, setInEmail] = useState('');
+  const [inPassword, setInPassword] = useState('');
 
   const linked = isLinked(auth);
 
@@ -102,6 +106,29 @@ export function AccountModal({ onClose }: { onClose(): void }) {
     setError(null);
     try {
       await signOutNow();
+    } catch (e) {
+      setError(authError(e).message);
+      setBusy(null);
+    }
+  };
+
+  /**
+   * Open an account that already exists, from a browser that is not it.
+   *
+   * Nothing is merged — there is no server to merge with — so this says plainly
+   * what it costs before it is used.
+   */
+  const enter = async (how: 'google' | 'email') => {
+    if (how === 'email') {
+      if (!inEmail.trim()) return setError('צריך להקליד כתובת מייל.');
+      if (!inPassword) return setError('צריך להקליד סיסמה.');
+    }
+    setBusy(how === 'google' ? 'in-google' : 'in-email');
+    setError(null);
+    setConflict(null);
+    try {
+      // On success the page reloads into the other account; nothing returns here.
+      await switchAccount(how === 'google' ? 'google' : { email: inEmail, password: inPassword });
     } catch (e) {
       setError(authError(e).message);
       setBusy(null);
@@ -193,6 +220,83 @@ export function AccountModal({ onClose }: { onClose(): void }) {
               {busy === 'email' ? 'מקשר…' : 'קשר מייל וסיסמה'}
             </button>
           </form>
+
+          <h3 style={{ margin: '18px 0 6px' }}>כבר יש לי חשבון</h3>
+          {entering ? (
+            <>
+              <p className="small">
+                התחברות לחשבון קיים <b>מחליפה</b> את הזהות שיושבת עכשיו בדפדפן הזה — היא לא
+                מתמזגת איתה. הרכבים שלה על הגריד והנקודות שצברה יישארו שלה, ואין דרך לחזור
+                אליה. המודלים השמורים בדפדפן הזה יעברו איתכם.
+              </p>
+              <button className="provider" disabled={busy !== null} onClick={() => void enter('google')}>
+                <GoogleMark />
+                {busy === 'in-google' ? 'מתחבר…' : 'התחברות עם Google'}
+              </button>
+              <div className="auth-or">
+                <span>או</span>
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void enter('email');
+                }}
+              >
+                <div className="field">
+                  <label htmlFor="in-email">מייל</label>
+                  <input
+                    id="in-email"
+                    type="email"
+                    autoComplete="email"
+                    dir="ltr"
+                    value={inEmail}
+                    placeholder="you@example.com"
+                    onChange={(e) => setInEmail(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="in-password">סיסמה</label>
+                  <input
+                    id="in-password"
+                    type="password"
+                    autoComplete="current-password"
+                    dir="ltr"
+                    value={inPassword}
+                    onChange={(e) => setInPassword(e.target.value)}
+                  />
+                </div>
+                <button className="primary wide" type="submit" disabled={busy !== null}>
+                  {busy === 'in-email' ? 'מתחבר…' : 'התחברות'}
+                </button>
+              </form>
+              <button
+                className="ghost small"
+                style={{ marginTop: 8 }}
+                disabled={busy !== null}
+                onClick={() => setEntering(false)}
+              >
+                ביטול
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="small muted">
+                קישרתם חשבון במכשיר אחר? הדפדפן הזה נכנס אוטומטית לזהות שכבר יש לו, אז כדי
+                להגיע לחשבון שלכם צריך להתחבר אליו כאן במפורש.
+              </p>
+              <button
+                className="wide"
+                disabled={busy !== null}
+                onClick={() => {
+                  setEntering(true);
+                  setError(null);
+                  setConflict(null);
+                }}
+              >
+                התחברות לחשבון קיים
+              </button>
+            </>
+          )}
         </>
       )}
 

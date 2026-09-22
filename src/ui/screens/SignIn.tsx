@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useSyncExternalStore, type FormEvent } from 'react';
 import { useApp } from '../store';
-import { authError, continueOffline, resetPassword, signIn } from '../auth';
+import { authError, continueOffline, getAuthView, resetPassword, signIn, subscribeAuth } from '../auth';
 import { GoogleMark } from '../components/GoogleMark';
 
 /**
@@ -14,6 +14,11 @@ import { GoogleMark } from '../components/GoogleMark';
  *
  * Nobody who already signed in on this device ever sees this screen: Firebase
  * keeps the session, so the gate only stands in front of a genuinely new visit.
+ *
+ * The exception is a browser carrying an anonymous identity from before this
+ * screen existed, when the app still made one on its own. That one is shown the
+ * door too — and there "without an account" means the identity already here,
+ * models, cars and points included, rather than a fresh one.
  */
 type Mode = 'in' | 'up';
 type Busy = null | 'google' | 'email' | 'anon' | 'reset';
@@ -22,6 +27,8 @@ const MIN_PASSWORD = 6;
 
 export function SignIn() {
   const openInfo = useApp((s) => s.openInfo);
+  /** True when an unchosen identity is already sitting in this browser. */
+  const inherited = useSyncExternalStore(subscribeAuth, getAuthView).needsDoor;
   const [mode, setMode] = useState<Mode>('in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -165,11 +172,22 @@ export function SignIn() {
         </div>
 
         <button className="wide" disabled={busy !== null} onClick={() => void attempt('anon', signIn.anonymous)}>
-          {busy === 'anon' ? 'נכנס…' : 'כניסה מהירה בלי חשבון'}
+          {busy === 'anon' ? 'נכנס…' : inherited ? 'המשך בלי חשבון' : 'כניסה מהירה בלי חשבון'}
         </button>
         <p className="tiny dim" style={{ margin: '8px 0 0' }}>
-          בלי חשבון אין מה למלא ואף פרט לא נשמר — אבל הזהות חיה בדפדפן הזה בלבד, וניקוי נתוני
-          הדפדפן מוחק אותה. אפשר לקשר אליה Google או מייל מאוחר יותר, בלי לאבד מודלים או נקודות.
+          {inherited ? (
+            <>
+              בדפדפן הזה כבר יושבת זהות אנונימית, והכפתור הזה ממשיך <b>איתה</b> — עם המודלים,
+              הרכבים והנקודות שצברה. היא חיה בדפדפן הזה בלבד, וניקוי נתוני הדפדפן מוחק אותה.
+              אם יש לכם חשבון, התחברו אליו למעלה במקום.
+            </>
+          ) : (
+            <>
+              בלי חשבון אין מה למלא ואף פרט לא נשמר — אבל הזהות חיה בדפדפן הזה בלבד, וניקוי
+              נתוני הדפדפן מוחק אותה. אפשר לקשר אליה Google או מייל מאוחר יותר, בלי לאבד מודלים
+              או נקודות.
+            </>
+          )}
         </p>
 
         {stuck && (

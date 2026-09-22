@@ -46,13 +46,20 @@ const TABS: Tab[] = [
  * restores the session, so the gate only stands in front of a genuinely new
  * visit. Without cloud keys there is nothing to sign in to, and the app opens
  * straight into its local championship exactly as it always did.
+ *
+ * `needsDoor` is the third case, and the reason the gate is not simply "is
+ * anybody signed in". Before there was a sign-in screen the app minted an
+ * anonymous identity by itself on first load, so a browser can hold a session
+ * nobody ever chose — and a session nobody chose would otherwise sail past the
+ * door forever, which is how somebody signs into their account on a second
+ * device and lands in an empty garage that is not theirs.
  */
 export function App() {
   const screen = useApp((s) => s.screen);
   const auth = useSyncExternalStore(subscribeAuth, getAuthView);
 
   if (auth.phase === 'loading') return <Splash />;
-  if (auth.phase === 'out') {
+  if (auth.phase === 'out' || auth.needsDoor) {
     // The rules and the privacy notice are part of deciding whether to sign in
     // at all, so they stay reachable from the door.
     return screen === 'info' ? <GateInfo /> : <SignIn />;

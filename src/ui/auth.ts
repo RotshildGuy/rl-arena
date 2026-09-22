@@ -32,6 +32,11 @@ export interface AuthView {
   anonymous: boolean;
   /** Durable ways back in: `google.com`, `password`. Empty while anonymous. */
   providers: string[];
+  /**
+   * Signed in with an identity nobody in this browser ever chose — so the door
+   * still has to be answered. See `claimIdentity`.
+   */
+  needsDoor: boolean;
 }
 
 const SIGNED_OUT: AuthView = {
@@ -40,7 +45,55 @@ const SIGNED_OUT: AuthView = {
   email: null,
   anonymous: false,
   providers: [],
+  needsDoor: false,
 };
+
+/**
+ * Whether anybody ever answered the sign-in screen in this browser.
+ *
+ * Firebase restores whatever session a browser holds, which is right for a
+ * session somebody chose and wrong for one they never did: until there was a
+ * sign-in screen the app minted an anonymous identity on load, all by itself,
+ * and every browser that ever opened the site still carries one. Those browsers
+ * would go straight past the door forever — which is exactly how somebody ends
+ * up staring at a stranger's empty garage on their own second device,
+ * wondering where the account they signed into went.
+ *
+ * So an anonymous identity that predates this flag is treated as unanswered:
+ * the door opens once, and the answer is remembered from then on.
+ */
+const DOOR_KEY = 'rl-arena.door';
+
+function readDoor(): boolean {
+  try {
+    return localStorage.getItem(DOOR_KEY) === '1';
+  } catch {
+    // No storage to remember an answer in — private mode, or storage blocked.
+    // Treating it as answered is the safe end: a door that cannot record being
+    // answered is a door nobody can ever get through.
+    return true;
+  }
+}
+
+let doorAnswered = readDoor();
+
+/**
+ * Take the identity sitting in this browser as mine, without signing in again.
+ *
+ * Deliberately *not* a new anonymous sign-in: the identity already here may own
+ * models, a car on the grid and a season's points, and minting a second one
+ * would orphan all of it behind a uid nobody can reach again.
+ */
+export function claimIdentity(): void {
+  if (doorAnswered) return;
+  doorAnswered = true;
+  try {
+    localStorage.setItem(DOOR_KEY, '1');
+  } catch {
+    // Then it is answered for this session only, which is the best on offer.
+  }
+  publish({ ...view, needsDoor: false });
+}
 
 let view: AuthView = SIGNED_OUT;
 const listeners = new Set<() => void>();
@@ -51,6 +104,7 @@ function publish(next: AuthView): void {
     next.uid === view.uid &&
     next.email === view.email &&
     next.anonymous === view.anonymous &&
+    next.needsDoor === view.needsDoor &&
     next.providers.join(',') === view.providers.join(',');
   // `useSyncExternalStore` compares snapshots by identity, so an unchanged
   // account has to keep handing back the very same object.
@@ -82,7 +136,7 @@ export function startAuth(): void {
       watchUser((user, ready) => {
         if (!ready) return;
         if (!user) {
-          publish({ phase: 'out', uid: null, email: null, anonymous: false, providers: [] });
+          publish({ phase: 'out', uid: null, email: null, anonymous: false, providers: [], needsDoor: false });
           return;
         }
         publish({
@@ -91,6 +145,9 @@ export function startAuth(): void {
           email: user.email,
           anonymous: user.isAnonymous,
           providers: user.providerData.map((p) => p.providerId),
+          // An account is its own answer; only an anonymous identity can be one
+          // this browser inherited rather than chose.
+          needsDoor: user.isAnonymous && !doorAnswered,
         });
       }),
     )
@@ -179,11 +236,32 @@ async function run<T>(work: (s: Sdk) => Promise<T>): Promise<T> {
 
 // ----------------------------------------------------------------- actions
 
+/**
+ * Every way through the door, and each of them answers it.
+ *
+ * "Without an account" is the one with a twist: when this browser already holds
+ * an anonymous identity it adopts *that* one instead of minting a second. The
+ * person means the same thing either way — carry on with no account — and the
+ * version that keeps their models is obviously the one they meant.
+ */
 export const signIn = {
-  anonymous: () => run((s) => s.signInAnonymous()),
-  google: () => run((s) => s.signInGoogle()),
-  password: (email: string, pw: string) => run((s) => s.signInPassword(email.trim(), pw)),
-  register: (email: string, pw: string) => run((s) => s.signUpPassword(email.trim(), pw)),
+  anonymous: async () => {
+    if (view.phase === 'in' && view.anonymous) return claimIdentity();
+    await run((s) => s.signInAnonymous());
+    claimIdentity();
+  },
+  google: async () => {
+    await run((s) => s.signInGoogle());
+    claimIdentity();
+  },
+  password: async (email: string, pw: string) => {
+    await run((s) => s.signInPassword(email.trim(), pw));
+    claimIdentity();
+  },
+  register: async (email: string, pw: string) => {
+    await run((s) => s.signUpPassword(email.trim(), pw));
+    claimIdentity();
+  },
 };
 
 /**
@@ -191,8 +269,14 @@ export const signIn = {
  * stay put. Nothing here moves data anywhere.
  */
 export const link = {
-  google: () => run((s) => s.linkGoogle()),
-  password: (email: string, pw: string) => run((s) => s.linkPassword(email.trim(), pw)),
+  google: async () => {
+    await run((s) => s.linkGoogle());
+    claimIdentity();
+  },
+  password: async (email: string, pw: string) => {
+    await run((s) => s.linkPassword(email.trim(), pw));
+    claimIdentity();
+  },
 };
 
 export function resetPassword(email: string): Promise<void> {
@@ -212,10 +296,21 @@ export async function signOutNow(): Promise<void> {
   location.reload();
 }
 
-/** Abandon an anonymous session for an account that already exists here. */
+/**
+ * Leave this browser's identity behind and open an account that already exists.
+ *
+ * The way *in* to a second device: Firebase restores whatever session a browser
+ * already has, so somebody who once tapped "כניסה מהירה" here never sees the door again
+ * and would otherwise have no way to say "that account is mine".
+ *
+ * Signing in is enough on its own — it replaces the current user — and the
+ * missing `signOut` is deliberate. Signing out first put two awaits between the
+ * tap and `window.open`, which on Safari and on iOS is no longer a user gesture
+ * and gets the Google popup blocked; it also flashed the sign-in screen while
+ * the popup was still open.
+ */
 export async function switchAccount(to: 'google' | { email: string; password: string }): Promise<void> {
   await run(async (s) => {
-    await s.signOutUser();
     if (to === 'google') await s.signInGoogle();
     else await s.signInPassword(to.email.trim(), to.password);
   });
