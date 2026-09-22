@@ -1,7 +1,8 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useApp, type Screen } from './store';
 import { getCloudStatus, subscribeCloudStatus } from '../storage';
 import { getAuthView, subscribeAuth } from './auth';
+import { pullCompetitor } from './identity';
 import { teamColor } from '../core/champ/livery';
 import { Championship } from './screens/Championship';
 import { Standings } from './screens/Standings';
@@ -61,12 +62,23 @@ export function App() {
 
 function Arena() {
   const screen = useApp((s) => s.screen);
+  const adoptCompetitor = useApp((s) => s.adoptCompetitor);
   const toast = useApp((s) => s.toast);
   const go = useApp((s) => s.go);
   const openInfo = useApp((s) => s.openInfo);
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
   const competitor = useApp((s) => s.competitor);
   const coach = useCoachStep();
+
+  // The team name lives with the account, not with the browser, so the first
+  // thing to do behind the gate is ask the account what it is. On the device
+  // that already knows, this changes nothing; on a new one it is the difference
+  // between racing as yourself and being asked to type your name again.
+  useEffect(() => {
+    void pullCompetitor().then((name) => {
+      if (name) adoptCompetitor(name);
+    });
+  }, [adoptCompetitor]);
 
   // The match screen takes the whole viewport on a phone in landscape and draws
   // its own chrome; a header and a nav bar on top of it would eat the track.

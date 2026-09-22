@@ -19,6 +19,7 @@ import { RACING_SPEC, OBS_SIZE } from '../src/core/games/racing/rewards';
 import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, normalizeName, NAME_MAX } from '../src/core/champ/names';
+import { resolveCompetitor } from '../src/ui/competitorMerge';
 import { NAME_ADJECTIVES, NAME_NOUNS, isCleanName, randomModelName } from '../src/core/champ/nameGen';
 import {
   airingRound,
@@ -831,6 +832,41 @@ function teamLimitTest(): void {
   );
 }
 
+// ------------------------------------------------------- the team name
+/**
+ * Which name wins when the browser and the account disagree.
+ *
+ * The team name used to live only in localStorage, which made a second device
+ * ask for it again — and a slightly different spelling is a different
+ * constructor, with the season's points split across two rows of the teams'
+ * table. It lives with the account now, and this is the rule that merges the
+ * two copies.
+ */
+function competitorTest(): void {
+  console.log(CHAPTER + 'the team name across devices');
+
+  const fresh = resolveCompetitor('', 'גיא');
+  check('a new device takes the name from the account', fresh.adopt === 'גיא' && fresh.push === null);
+
+  const first = resolveCompetitor('גיא', '');
+  check('an account with no name yet gets the one already typed', first.push === 'גיא' && first.adopt === null);
+
+  const same = resolveCompetitor('גיא', 'גיא');
+  check('agreement writes nothing anywhere', same.adopt === null && same.push === null);
+
+  const renamed = resolveCompetitor('גיא', 'גיא מוטורספורט');
+  check(
+    'a rename on another device wins here too',
+    renamed.adopt === 'גיא מוטורספורט' && renamed.push === null,
+  );
+
+  const nothing = resolveCompetitor('', '');
+  check('with nothing anywhere, nothing is invented', nothing.adopt === null && nothing.push === null);
+
+  const spaced = resolveCompetitor('  גיא  ', 'גיא');
+  check('whitespace is not a different team', spaced.adopt === null && spaced.push === null);
+}
+
 // ------------------------------------------------------- broadcast clock
 /**
  * A race day has two kinds of dead time, and both used to be shown as a clock
@@ -1096,6 +1132,7 @@ championshipTest();
 nameGenTest();
 teamLimitTest();
 splitDriverTest();
+competitorTest();
 broadcastClockTest();
 earlyFeedTest();
 coachTest();

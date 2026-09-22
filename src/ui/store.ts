@@ -6,7 +6,7 @@ import { DEFAULT_GA_HYPER, type GaHyper } from '../core/rl/ga';
 import type { AlgorithmId } from '../core/rl/algorithms';
 import type { ModelMeta } from '../storage';
 import { isMobileClass } from './device';
-import { getCompetitor, setCompetitor as persistCompetitor } from './identity';
+import { getCompetitor, pushCompetitor, setCompetitor as persistCompetitor } from './identity';
 
 /**
  * The app has two halves. The championship half — standings, race days, the
@@ -85,6 +85,8 @@ interface AppState {
   go(screen: Screen): void;
   openRace(raceId: string, screen: 'broadcast' | 'report'): void;
   setCompetitor(name: string): void;
+  /** The same, for a name that came *from* the account — so it is not sent back. */
+  adoptCompetitor(name: string): void;
   openInfo(tab: InfoTab): void;
   selectGame(id: GameId): void;
   showToast(msg: string): void;
@@ -176,6 +178,12 @@ export const useApp = create<AppState>((set, get) => ({
   openInfo: (infoTab) => set({ infoTab, screen: 'info' }),
 
   setCompetitor: (name) => {
+    persistCompetitor(name);
+    pushCompetitor(name);
+    set({ competitor: name, draft: { ...get().draft, owner: name } });
+  },
+
+  adoptCompetitor: (name) => {
     persistCompetitor(name);
     set({ competitor: name, draft: { ...get().draft, owner: name } });
   },

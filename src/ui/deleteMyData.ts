@@ -1,5 +1,6 @@
 import { getArena } from '../storage/arena';
 import { getStore } from '../storage';
+import { deleteProfile } from '../storage/profile';
 import { setCompetitor } from './identity';
 import { invalidateChampionship } from './useChampionship';
 
@@ -28,6 +29,9 @@ export async function deleteMyData(): Promise<DeletionReport> {
   const models = await store.list();
   for (const model of models) await store.remove(model.id);
 
+  // Including the copy in the account: a name that comes back from the cloud on
+  // the next load is the one thing a delete button must never do.
+  await deleteProfile().catch(() => {});
   setCompetitor('');
   invalidateChampionship();
   return { entries: mine.length, models: models.length };
