@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { buildStandings } from '../../core/champ/points';
@@ -50,7 +50,21 @@ export function Championship() {
   const now = useNow();
   const [name, setName] = useState(competitor);
   const [editingName, setEditingName] = useState(!competitor);
+  /** Whether this person has started typing a name of their own. */
+  const typed = useRef(false);
   const coach = useCoachStep();
+
+  /**
+   * On a device this account has never been used on, the team name arrives from
+   * the account a moment after this screen mounts. Taking it closes the form
+   * before anyone fills it in — which is the point, since the answer already
+   * exists — but never while they are in the middle of typing one.
+   */
+  useEffect(() => {
+    if (!competitor || typed.current) return;
+    setName(competitor);
+    setEditingName(false);
+  }, [competitor]);
 
   // The round on air owns the live banner, so "the next race" is the one after
   // it — otherwise the minute before the lights shows the same Grand Prix twice,
@@ -123,7 +137,10 @@ export function Championship() {
                   value={name}
                   autoFocus
                   placeholder="לדוגמה: גיא"
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    typed.current = true;
+                    setName(e.target.value);
+                  }}
                   onKeyDown={(e) => e.key === 'Enter' && name.trim() && saveName()}
                 />
               </div>
