@@ -2,7 +2,8 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { useApp, type Screen } from './store';
 import { getCloudStatus, subscribeCloudStatus } from '../storage';
 import { getAuthView, subscribeAuth } from './auth';
-import { pullCompetitor } from './identity';
+import { getCompetitor, pullCompetitor } from './identity';
+import { claimName, NameTakenError } from '../storage/teamNames';
 import { teamColor } from '../core/champ/livery';
 import { Championship } from './screens/Championship';
 import { Standings } from './screens/Standings';
@@ -82,11 +83,23 @@ function Arena() {
   // thing to do behind the gate is ask the account what it is. On the device
   // that already knows, this changes nothing; on a new one it is the difference
   // between racing as yourself and being asked to type your name again.
+  //
+  // Then the name is claimed, which is a no-op for a name that is already this
+  // account's. A name picked before names were unique may turn out to be
+  // somebody else's; the championship screen then asks for another one.
+  const setNameTaken = useApp((s) => s.setNameTaken);
   useEffect(() => {
-    void pullCompetitor().then((name) => {
+    void pullCompetitor().then(async (name) => {
       if (name) adoptCompetitor(name);
+      const current = getCompetitor();
+      if (!current) return;
+      try {
+        await claimName(current);
+      } catch (err) {
+        if (err instanceof NameTakenError) setNameTaken(true);
+      }
     });
-  }, [adoptCompetitor]);
+  }, [adoptCompetitor, setNameTaken]);
 
   // The match screen takes the whole viewport on a phone in landscape and draws
   // its own chrome; a header and a nav bar on top of it would eat the track.

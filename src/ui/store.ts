@@ -79,6 +79,11 @@ interface AppState {
    * moment it changes instead of on the next reload.
    */
   competitor: string;
+  /**
+   * The team name turned out to belong to another account — a name chosen
+   * before names were unique. The championship screen asks for a new one.
+   */
+  nameTaken: boolean;
   /** Which section of the information screen is open. */
   infoTab: InfoTab;
 
@@ -87,6 +92,7 @@ interface AppState {
   setCompetitor(name: string): void;
   /** The same, for a name that came *from* the account — so it is not sent back. */
   adoptCompetitor(name: string): void;
+  setNameTaken(taken: boolean): void;
   openInfo(tab: InfoTab): void;
   selectGame(id: GameId): void;
   showToast(msg: string): void;
@@ -167,6 +173,7 @@ export const useApp = create<AppState>((set, get) => ({
   toast: null,
   viewRaceId: null,
   competitor: getCompetitor(),
+  nameTaken: false,
   infoTab: 'how',
   draft: freshDraft(GAME_IDS[0]),
   race: { config: getGame(GAME_IDS[0]).defaultConfig(), opponents: [] },
@@ -180,8 +187,10 @@ export const useApp = create<AppState>((set, get) => ({
   setCompetitor: (name) => {
     persistCompetitor(name);
     pushCompetitor(name);
-    set({ competitor: name, draft: { ...get().draft, owner: name } });
+    set({ competitor: name, nameTaken: false, draft: { ...get().draft, owner: name } });
   },
+
+  setNameTaken: (nameTaken) => set({ nameTaken }),
 
   adoptCompetitor: (name) => {
     persistCompetitor(name);

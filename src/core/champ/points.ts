@@ -18,6 +18,8 @@ export interface DriverStanding {
   entryId: string;
   /** Every entry id that turned out to be this driver, newest last. */
   entryIds: string[];
+  /** The account the driver belongs to — what the team table groups by. */
+  uid: string;
   driver: string;
   team: string;
   tag: string;
@@ -38,6 +40,9 @@ export interface DriverStanding {
 }
 
 export interface TeamStanding {
+  /** The account: a team is one owner, whatever name it shows. */
+  uid: string;
+  /** The name to print — the newest one any of its drivers raced under. */
   team: string;
   points: number;
   wins: number;
@@ -67,14 +72,14 @@ export interface SeasonInput {
 }
 
 /**
- * What makes two entries the same driver: one owner, one team, one name.
+ * What makes two entries the same driver: one owner, one model name.
  *
- * The uid is in the key on purpose. Two people are allowed to pick the same
- * team and the same model name, and folding their points together would be far
- * worse than showing a split — so a merge only ever happens inside one account.
+ * The uid is in the key on purpose: a merge only ever happens inside one
+ * account. The team name is not — it is a label, and renaming the team must
+ * not split every one of its drivers in two.
  */
 function driverKey(e: ArenaEntry): string {
-  return `${e.uid}\u0000${e.team}\u0000${e.driver}`;
+  return `${e.uid}\u0000${e.driver}`;
 }
 
 /**
@@ -144,13 +149,17 @@ export function buildStandings({ cards, results }: SeasonInput): {
   const canonical = sameDriver(cards);
   const canon = (entryId: string): string => canonical.get(entryId) ?? entryId;
 
-  const ensure = (entryId: string, driver: string, team: string, tag: string): DriverStanding => {
+  const ensure = (entryId: string, e: ArenaEntry | undefined): DriverStanding => {
+    const driver = e?.driver ?? '—';
+    const team = e?.team ?? '—';
+    const tag = e?.tag ?? '???';
     const id = canon(entryId);
     let d = byEntry.get(id);
     if (!d) {
       d = {
         entryId: id,
         entryIds: [entryId],
+        uid: e?.uid ?? '',
         driver,
         team,
         tag,
@@ -173,6 +182,7 @@ export function buildStandings({ cards, results }: SeasonInput): {
       d.driver = driver;
       d.team = team;
       d.tag = tag;
+      if (e) d.uid = e.uid;
       if (!d.entryIds.includes(entryId)) d.entryIds.push(entryId);
     }
     return d;
@@ -185,12 +195,11 @@ export function buildStandings({ cards, results }: SeasonInput): {
     const names = new Map(card.entries.map((e) => [e.id, e]));
     if (!result) {
       // Still entered, so the driver shows up in the table even before lights out.
-      for (const e of card.entries) ensure(e.id, e.driver, e.team, e.tag);
+      for (const e of card.entries) ensure(e.id, e);
       continue;
     }
     for (const place of result.places) {
-      const e = names.get(place.entryId);
-      const d = ensure(place.entryId, e?.driver ?? '—', e?.team ?? '—', e?.tag ?? '???');
+      const d = ensure(place.entryId, names.get(place.entryId));
       d.starts++;
       d.points += place.points;
       if (place.status === 'dnf') d.dnfs++;
@@ -212,24 +221,33 @@ export function buildStandings({ cards, results }: SeasonInput): {
         : { position: place.position, points: place.points, status: place.status };
     }
     if (result.pole) {
-      const e = names.get(result.pole);
-      ensure(result.pole, e?.driver ?? '—', e?.team ?? '—', e?.tag ?? '???').poles++;
+      ensure(result.pole, names.get(result.pole)).poles++;
     }
     if (result.fastestLap) {
-      const e = names.get(result.fastestLap.entryId);
-      ensure(result.fastestLap.entryId, e?.driver ?? '—', e?.team ?? '—', e?.tag ?? '???').fastestLaps++;
+      ensure(result.fastestLap.entryId, names.get(result.fastestLap.entryId)).fastestLaps++;
     }
   }
 
   const drivers = [...byEntry.values()].sort((a, b) => b.points - a.points || countback(a.counts, b.counts));
   drivers.forEach((d, i) => (d.position = i + 1));
 
+  // Grouped by account. The name shown is the newest one: drivers are updated
+  // card by card above, so the driver whose last race is latest carries it.
+  const lastRace = new Map<string, number>();
+  for (const card of ordered) for (const e of card.entries) lastRace.set(canon(e.id), card.round);
   const teamMap = new Map<string, TeamStanding>();
+  const teamAsOf = new Map<string, number>();
   for (const d of drivers) {
-    let t = teamMap.get(d.team);
+    const key = d.uid || `\u0000${d.team}`;
+    let t = teamMap.get(key);
     if (!t) {
-      t = { team: d.team, points: 0, wins: 0, podiums: 0, entries: [], counts: [], position: 0 };
-      teamMap.set(d.team, t);
+      t = { uid: d.uid, team: d.team, points: 0, wins: 0, podiums: 0, entries: [], counts: [], position: 0 };
+      teamMap.set(key, t);
+    }
+    const asOf = lastRace.get(d.entryId) ?? 0;
+    if (asOf >= (teamAsOf.get(key) ?? -1)) {
+      teamAsOf.set(key, asOf);
+      t.team = d.team;
     }
     t.points += d.points;
     t.wins += d.wins;

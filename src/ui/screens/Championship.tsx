@@ -18,6 +18,7 @@ import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import type { ArenaEntry, RaceCard } from '../../core/champ/types';
 import { DriverCell } from '../components/Livery';
+import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
@@ -45,10 +46,9 @@ function useMyModels(): ModelMeta[] {
 }
 
 export function Championship() {
-  const { go, openRace, competitor, setCompetitor } = useApp();
+  const { go, openRace, competitor, nameTaken } = useApp();
   const { state, progress, error, reload } = useChampionship();
   const now = useNow();
-  const [name, setName] = useState(competitor);
   const [editingName, setEditingName] = useState(!competitor);
   /** Whether this person has started typing a name of their own. */
   const typed = useRef(false);
@@ -62,7 +62,6 @@ export function Championship() {
    */
   useEffect(() => {
     if (!competitor || typed.current) return;
-    setName(competitor);
     setEditingName(false);
   }, [competitor]);
 
@@ -100,12 +99,6 @@ export function Championship() {
   const nextField = state ? eligibleEntries(state.entries, upcoming) : [];
   const myModels = useMyModels();
 
-  const saveName = () => {
-    setCompetitor(name);
-    setEditingName(false);
-    reload();
-  };
-
   return (
     <>
       <div className="page-head">
@@ -121,34 +114,32 @@ export function Championship() {
         </p>
       </div>
 
-      {editingName ? (
+      {editingName || nameTaken ? (
         <div className="card notched" style={{ marginBottom: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>מי אתם</div>
-          <div className="row wrap" style={{ alignItems: 'flex-end' }}>
-            <CoachAnchor
-              on={coach === 'name'}
-              className="field-anchor"
-              text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות."
-            >
-              <div className="field" style={{ marginBottom: 0 }}>
-                <label>שם המתחרה — זה יהיה שם הקבוצה שלכם בטבלה</label>
-                <input
-                  type="text"
-                  value={name}
-                  autoFocus
-                  placeholder="לדוגמה: גיא"
-                  onChange={(e) => {
-                    typed.current = true;
-                    setName(e.target.value);
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && name.trim() && saveName()}
-                />
-              </div>
-            </CoachAnchor>
-            <button className="primary" disabled={!name.trim()} onClick={saveName}>
-              שמור
-            </button>
-          </div>
+          {nameTaken && (
+            <div className="small" style={{ marginBottom: 10, color: 'var(--warn)' }}>
+              השם "{competitor}" כבר שייך למתחרה אחר. בחרו שם אחר לקבוצה — הרכבים והנקודות שלכם נשארים.
+            </div>
+          )}
+          <TeamNameForm
+            autoFocus
+            onTyping={() => (typed.current = true)}
+            onSaved={() => {
+              setEditingName(false);
+              reload();
+            }}
+            onCancel={competitor && !nameTaken ? () => setEditingName(false) : undefined}
+            wrap={(field) => (
+              <CoachAnchor
+                on={coach === 'name'}
+                className="field-anchor"
+                text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות."
+              >
+                {field}
+              </CoachAnchor>
+            )}
+          />
           <div className="small muted" style={{ marginTop: 8 }}>
             כל המודלים שתאמנו ירוצו תחת השם הזה, והנקודות שלהם יצטברו לטבלת הקבוצות.
           </div>
@@ -195,7 +186,13 @@ export function Championship() {
           onEnter={() => go('library')}
         />
         <div className="grid">
-          <MyTeam entries={myEntries} models={myModels} onManage={() => go('library')} onChanged={reload} />
+          <MyTeam
+            entries={myEntries}
+            models={myModels}
+            onManage={() => go('library')}
+            onRename={() => setEditingName(true)}
+            onChanged={reload}
+          />
           {lastFinished && state && (
             <LastRace
               card={lastFinished}
@@ -243,7 +240,7 @@ export function Championship() {
             <table className="timing">
               <tbody>
                 {standings.teams.slice(0, 6).map((t) => (
-                  <tr key={t.team}>
+                  <tr key={t.uid || t.team}>
                     <td style={{ width: 40 }}>
                       <span className={posClass(t.position)}>{t.position}</span>
                     </td>
@@ -525,11 +522,13 @@ function MyTeam({
   entries,
   models,
   onManage,
+  onRename,
   onChanged,
 }: {
   entries: ArenaEntry[];
   models: ModelMeta[];
   onManage(): void;
+  onRename(): void;
   onChanged(): void;
 }) {
   const team = useApp((s) => s.competitor);
@@ -551,11 +550,11 @@ function MyTeam({
   const duplicates = useMemo(() => {
     const newest = new Map<string, ArenaEntry>();
     for (const e of entries) {
-      const key = `${e.team}\u0000${e.driver}`;
+      const key = `${e.uid}\u0000${e.driver}`;
       const best = newest.get(key);
       if (!best || e.createdAt > best.createdAt) newest.set(key, e);
     }
-    return new Set(entries.filter((e) => newest.get(`${e.team}\u0000${e.driver}`)?.id !== e.id).map((e) => e.id));
+    return new Set(entries.filter((e) => newest.get(`${e.uid}\u0000${e.driver}`)?.id !== e.id).map((e) => e.id));
   }, [entries]);
 
   const drop = async (entry: ArenaEntry) => {
@@ -574,6 +573,11 @@ function MyTeam({
       <div className="head">
         <div className="eyebrow">הקבוצה שלי</div>
         <div className="fill" />
+        {team && (
+          <button className="ghost small" onClick={onRename}>
+            שינוי שם
+          </button>
+        )}
         <button className="ghost small" onClick={onManage}>
           ניהול
         </button>

@@ -9,10 +9,12 @@ import { isMobileClass } from '../device';
 import { getStore, type ModelMeta } from '../../storage';
 import { randomModelName } from '../../core/champ/nameGen';
 import { CoachAnchor, useCoachStep } from '../coach';
+import { TeamNameForm } from '../components/TeamNameForm';
 
 export function TrainSetup() {
-  const { gameId, draft, patchDraft, patchSlot, addSlot, removeSlot, slotFromModel, newDraft, go, setCompetitor } =
+  const { gameId, draft, patchDraft, patchSlot, addSlot, removeSlot, slotFromModel, newDraft, go, competitor } =
     useApp();
+  const [editingName, setEditingName] = useState(false);
   const game = getGame(gameId);
   const coach = useCoachStep();
   const [saved, setSaved] = useState<ModelMeta[]>([]);
@@ -151,18 +153,30 @@ export function TrainSetup() {
 
             {/* One name, remembered: it fills the next model too, and it is what
                 the championship entry races under. */}
-            <div className="field">
-              <label>שם המתחרה — הקבוצה שכל המודלים כאן מתחרים בשמה</label>
-              <input
-                type="text"
-                value={draft.owner}
-                placeholder="השם שלך"
-                onChange={(e) => setCompetitor(e.target.value)}
-              />
-              {!draft.owner.trim() && (
-                <div className="small muted">בלי שם מתחרה אי אפשר לרשום את המודל לאליפות.</div>
-              )}
-            </div>
+            {!competitor || editingName ? (
+              <div className="field">
+                <TeamNameForm
+                  label="שם המתחרה — הקבוצה שכל המודלים כאן מתחרים בשמה"
+                  onSaved={() => setEditingName(false)}
+                  onCancel={competitor ? () => setEditingName(false) : undefined}
+                />
+                {!competitor && (
+                  <div className="small muted" style={{ marginTop: 6 }}>
+                    בלי שם מתחרה אי אפשר לרשום את המודל לאליפות.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="field">
+                <label>שם המתחרה — הקבוצה שכל המודלים כאן מתחרים בשמה</label>
+                <div className="row">
+                  <b>{competitor}</b>
+                  <button className="ghost small" onClick={() => setEditingName(true)}>
+                    שינוי שם
+                  </button>
+                </div>
+              </div>
+            )}
 
             <GameOptions
               options={game.options}

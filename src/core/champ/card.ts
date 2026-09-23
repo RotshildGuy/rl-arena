@@ -12,6 +12,10 @@ import type { ArenaEntry, RaceCard } from './types';
  * came in keep their entries, and the grid simply takes the two that registered
  * first. Every client computes the same field from the same entry list, so this
  * must stay a pure function of the data.
+ *
+ * A team is an account, not a name. The name on an entry is only what the
+ * tables print: two accounts that happened to type the same name would
+ * otherwise share two seats, and whoever registered first would take both.
  */
 export const MAX_CARS_PER_TEAM = 2;
 
@@ -37,8 +41,8 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
   // Seniority decides which two: the cars that have been on the grid longest.
   const perTeam = new Map<string, number>();
   return field.filter((e) => {
-    const n = perTeam.get(e.team) ?? 0;
-    perTeam.set(e.team, n + 1);
+    const n = perTeam.get(e.uid) ?? 0;
+    perTeam.set(e.uid, n + 1);
     return n < MAX_CARS_PER_TEAM;
   });
 }

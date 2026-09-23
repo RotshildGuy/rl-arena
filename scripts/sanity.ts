@@ -18,7 +18,7 @@ import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS } from '../src/core/games/rac
 import { RACING_SPEC, OBS_SIZE } from '../src/core/games/racing/rewards';
 import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
-import { isNameOk, normalizeName, NAME_MAX } from '../src/core/champ/names';
+import { isNameOk, nameKey, normalizeName, NAME_MAX } from '../src/core/champ/names';
 import { resolveCompetitor } from '../src/ui/competitorMerge';
 import { NAME_ADJECTIVES, NAME_NOUNS, isCleanName, randomModelName } from '../src/core/champ/nameGen';
 import {
@@ -595,6 +595,10 @@ function championshipTest(): void {
     '   ',
   ];
   check('real names pass', nameOk.every(isNameOk), nameOk.join(', '));
+  // One team name, one owner: spellings that read as the same name share a claim.
+  check('case and spacing are the same team name', nameKey('Rotshild') === nameKey('  rotSHILD ') && nameKey('A  Team') === nameKey('a team'));
+  check('different names are different claims', nameKey('Rotshild') !== nameKey('Rotshild2') && nameKey('גיא') !== nameKey('גאי'));
+  check('a slash cannot escape the registry', !nameKey('a/b').includes('/'));
   check(
     'too short, too long, links, emails and bidi overrides are rejected',
     nameBad.every((n) => !isNameOk(n)),
@@ -680,7 +684,8 @@ function fakeCard(round: number, entryIds: string[]): RaceCard {
     startsAt: startsAtForRound(round),
     entries: entryIds.map((id) => ({
       id,
-      uid: 'u',
+      // One account per team, as it is in the real arena.
+      uid: id === 'a' ? 'u' : 'u-beta',
       driver: id,
       team: id === 'a' ? 'Alpha' : 'Beta',
       gameId: 'racing',
@@ -782,6 +787,28 @@ function splitDriverTest(): void {
     ]),
   });
   check('two different owners are never merged', twoPeople.drivers.length === 2);
+  check(
+    'two owners with one team name are two teams',
+    twoPeople.teams.length === 2 && twoPeople.teams.every((t) => t.team === 'Alpha'),
+    `${twoPeople.teams.length} teams`,
+  );
+
+  // Renaming the team is a label change: the driver stays one row, the team
+  // stays one team, and it shows the newest name.
+  const beforeRename = asDriver(fakeCard(1, ['car']), 'Flesh Blood', 'Alpha');
+  const afterTeamRename = asDriver(fakeCard(2, ['car']), 'Flesh Blood', 'Omega');
+  const teamRenamed = buildStandings({
+    cards: [beforeRename, afterTeamRename],
+    results: new Map([
+      [beforeRename.id, fakeResult(beforeRename.id, [fakePlace('car', 1)])],
+      [afterTeamRename.id, fakeResult(afterTeamRename.id, [fakePlace('car', 1)])],
+    ]),
+  });
+  check(
+    'a team rename keeps one driver and one team, under the new name',
+    teamRenamed.drivers.length === 1 && teamRenamed.teams.length === 1 && teamRenamed.teams[0].team === 'Omega',
+    `${teamRenamed.drivers.length} drivers, ${teamRenamed.teams.map((t) => t.team).join('/')}`,
+  );
 
   // Both cars of a split driver on one grid: nothing invented, nothing dropped.
   const together = asDriver(fakeCard(4, ['old', 'new']), 'Flesh Blood');
@@ -816,10 +843,11 @@ function teamLimitTest(): void {
   const entries = ['a', 'b', 'c', 'd'].map((id, i) => ({
     ...fakeCard(round, [id]).entries[0],
     id,
+    uid: 'u',
     team: 'Alpha',
     createdAt: before - (4 - i) * 1000,
   }));
-  entries.push({ ...fakeCard(round, ['z']).entries[0], id: 'z', team: 'Beta', createdAt: before });
+  entries.push({ ...fakeCard(round, ['z']).entries[0], id: 'z', uid: 'other', team: 'Beta', createdAt: before });
 
   const field = eligibleEntries(entries, round);
   const alpha = field.filter((e) => e.team === 'Alpha');
@@ -829,6 +857,27 @@ function teamLimitTest(): void {
   check(
     'the same field comes out whatever order the entries arrive in',
     eligibleEntries([...entries].reverse(), round).map((e) => e.id).join(',') === field.map((e) => e.id).join(','),
+  );
+
+  // A team is an account. Somebody else's cars under the same name must not
+  // take this account's seats, and a rename must not hand an account more.
+  const older = ['x1', 'x2'].map((id, i) => ({
+    ...fakeCard(round, [id]).entries[0],
+    id,
+    uid: 'someone-else',
+    team: 'Alpha',
+    createdAt: before - 10_000 - i,
+  }));
+  const shared = eligibleEntries([...older, ...entries.slice(0, 2)], round).map((e) => e.id);
+  check(
+    'the same team name on two accounts is two teams',
+    ['x1', 'x2', 'a', 'b'].every((id) => shared.includes(id)),
+    shared.join(','),
+  );
+  const renamed = entries.slice(0, 3).map((e, i) => ({ ...e, team: i === 2 ? 'Alpha Renamed' : e.team }));
+  check(
+    'a second name does not buy a third car',
+    eligibleEntries(renamed, round).length === MAX_CARS_PER_TEAM,
   );
 }
 
