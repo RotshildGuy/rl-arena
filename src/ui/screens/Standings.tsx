@@ -132,9 +132,9 @@ export function Standings() {
             </thead>
             <tbody>
               {standings.teams.map((t) => {
-                const drivers = standings.drivers.filter((d) => d.team === t.team);
+                const drivers = standings.drivers.filter((d) => (t.uid ? d.uid === t.uid : d.team === t.team));
                 return (
-                  <tr key={t.team}>
+                  <tr key={t.uid || t.team}>
                     <td>
                       <span className={posClass(t.position)}>{t.position}</span>
                     </td>

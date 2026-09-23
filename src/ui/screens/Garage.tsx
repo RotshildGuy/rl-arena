@@ -371,7 +371,7 @@ export function Garage() {
                   <div className="row">
                     <DriverCell
                       driver={m.name}
-                      team={m.owner || team || 'ללא שם'}
+                      team={team || 'ללא שם'}
                       note={ALGORITHMS[m.algorithm]?.name ?? m.algorithm}
                     />
                     <div style={{ flex: 1 }} />
@@ -430,7 +430,7 @@ export function Garage() {
                       >
                       <button
                         className={entry && drift === 'none' ? 'small' : 'small primary'}
-                        disabled={entering === m.id || !(m.owner || team)}
+                        disabled={entering === m.id || !team}
                         title={
                           gridFull && !entry
                             ? `לכל קבוצה ${MAX_ENTRIES_PER_TEAM} רכבים על המסלול — תתבקשו לבחור מי יורד`

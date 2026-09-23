@@ -4,6 +4,7 @@ import type { ArenaEntry } from '../core/champ/types';
 import { getArena } from '../storage/arena';
 import { getStore, newModelId, type ModelMeta } from '../storage';
 import { getCompetitor } from './identity';
+import { claimName, NameTakenError } from '../storage/teamNames';
 import { invalidateChampionship } from './useChampionship';
 
 export class EntryError extends Error {}
@@ -27,9 +28,9 @@ export const MAX_ENTRIES_PER_TEAM = 2;
  * this is where "my model got better" turns into "my car got faster".
  */
 export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
-  // The name typed on the model wins over the current default: one device can
-  // belong to a household, and "who trained this" is a property of the model.
-  const team = normalizeName(model.owner || getCompetitor());
+  // The account's name, not the one stamped on the model when it was trained:
+  // a team is the account, and a model trained before a rename is still ours.
+  const team = normalizeName(getCompetitor());
   const driver = normalizeName(model.name);
   if (!team) throw new EntryError('צריך להגדיר שם מתחרה לפני רישום לאליפות');
   if (model.gameId !== 'racing') throw new EntryError('האליפות מתקיימת במירוץ מכוניות בלבד');
@@ -41,6 +42,15 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   if (teamIssue) throw new EntryError(`שם המתחרה — ${teamIssue}`);
   const driverIssue = nameProblem(driver);
   if (driverIssue) throw new EntryError(`שם המודל — ${driverIssue}`);
+
+  // The name goes public here, so this is where it has to be ours. It is also
+  // how a name chosen before names were unique gets claimed.
+  try {
+    await claimName(team);
+  } catch (err) {
+    if (err instanceof NameTakenError) throw new EntryError(err.message);
+    throw err;
+  }
 
   const [arena, store] = await Promise.all([getArena(), getStore()]);
   const rec = await store.load(model.id);
@@ -61,18 +71,19 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
    * imported again, or deleted and re-trained, arrives here with a new model id
    * even though it is the same driver of the same team — and a fresh entry for
    * it would mean a fresh set of points, with the season's results scattered
-   * between two rows that are obviously one driver.
+   * between two rows that are obviously one driver. The team name is not part
+   * of it: every car of this account is this team, whatever it was called.
    */
   const existing =
     mine.find((e) => e.modelId === model.id) ??
-    mine.find((e) => !e.retired && e.team === team && e.driver === driver);
+    mine.find((e) => !e.retired && e.driver === driver);
 
   // Updating a car that is already out there is always allowed; it is only a
   // *new* car that can push a team over the limit. An entry left over from the
   // days of withdrawal counts as new: it is not on the grid, so bringing it back
   // is an arrival.
   if (!existing || existing.retired) {
-    const onGrid = mine.filter((e) => !e.retired && e.team === team).length;
+    const onGrid = mine.filter((e) => !e.retired).length;
     if (onGrid >= MAX_ENTRIES_PER_TEAM) {
       throw new EntryError(
         `לכל קבוצה מותרים ${MAX_ENTRIES_PER_TEAM} רכבים על המסלול. הסירו רכב קיים כדי לרשום אחר במקומו`,

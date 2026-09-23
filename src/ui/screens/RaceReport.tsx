@@ -123,8 +123,8 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
     const seen = new Map<string, number>();
     const map = new Map<string, string>();
     for (const e of card.entries) {
-      const n = seen.get(e.team) ?? 0;
-      seen.set(e.team, n + 1);
+      const n = seen.get(e.uid) ?? 0;
+      seen.set(e.uid, n + 1);
       map.set(e.id, shadeFor(teamColor(e.team), n));
     }
     return map;
