@@ -93,6 +93,13 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
+/* Nothing is ever wider than the screen. A single row that overflows would
+   make a phone zoom the whole page out or let it slide sideways, and a page
+   that slides sideways pushes the bottom navigation off the screen with it. */
+html, body { overflow-x: hidden; }
+/* The visible height, which with a browser toolbar at the bottom or the phone's
+   own navigation buttons is less than the screen. */
+body { height: 100dvh; }
 
 body {
   margin: 0;
@@ -215,7 +222,13 @@ input[type='number'] { direction: ltr; text-align: end; }
 
 /* ------------------------------------------------------------------ shell */
 
-.app { display: flex; flex-direction: column; height: 100%; }
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
 
 .topbar {
   display: flex;
@@ -228,6 +241,7 @@ input[type='number'] { direction: ltr; text-align: end; }
      the bottom of the viewport on a phone. */
   background: linear-gradient(180deg, #101320, #0a0c13);
   flex: 0 0 auto;
+  min-width: 0;
   position: relative;
   z-index: 10;
 }
@@ -898,25 +912,31 @@ input[type='number'] { direction: ltr; text-align: end; }
   }
   .cards { grid-template-columns: 1fr; }
 
-  .content { padding: 14px 12px 78px; }
+  .content { padding: 14px 12px 24px; }
   .topbar { padding: 9px 12px; gap: 10px; }
+  /* The header has room for the wordmark and three small things, not for the
+     tagline too; whatever does not fit is cut here rather than widening the page. */
+  .brand .sub { display: none; }
+  .topbar > * { flex-shrink: 0; }
+  .topbar > .spacer { flex-shrink: 1; }
+  /* The team name is the one thing here long enough to be a problem. */
+  .topbar > .pill:not(.small) { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
   h1 { font-size: 20px; }
   .card { padding: 13px; }
 
   /* Fat enough to hit with a thumb. */
   .reward-row input[type='range'] { height: 26px; }
 
-  /* Bottom navigation. Thumb-reachable, and it frees the header for context. */
-  .nav {
-    position: fixed;
-    inset-inline: 0;
-    bottom: 0;
+  /* Bottom navigation. Thumb-reachable, and it frees the header for context.
+     It is the last row of the app's column rather than pinned to the screen,
+     so it always sits right above whatever the browser or the phone puts at
+     the bottom — a toolbar, or navigation buttons — instead of behind it. */
+  .nav.bottom {
+    flex: 0 0 auto;
     z-index: 40;
     background: rgba(10, 12, 19, 0.97);
     border-top: 1px solid var(--line);
-    backdrop-filter: blur(10px);
     gap: 0;
-    padding-bottom: env(safe-area-inset-bottom);
   }
   .nav button {
     flex: 1;
@@ -1336,34 +1356,6 @@ button.wide { width: 100%; }
   border-top: 1px solid var(--line);
 }
 .modal .modal-foot button { flex: 1 1 auto; }
-
-/* A numbered point: the number is the anchor the eye returns to. */
-.primer-point {
-  display: grid;
-  grid-template-columns: 26px 1fr;
-  gap: 10px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line);
-}
-.primer-point .n {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 2px;
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-weight: 700;
-  font-size: 13px;
-}
-.primer-kicker {
-  margin-top: 14px !important;
-  padding: 12px 14px;
-  border-inline-start: 3px solid var(--accent-2);
-  background: var(--accent-2-dim);
-  border-radius: 0 var(--radius) var(--radius) 0;
-}
 
 /* ------------------------------------------------------------------ prose */
 
