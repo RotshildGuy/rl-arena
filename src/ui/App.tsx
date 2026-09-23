@@ -17,6 +17,7 @@ import { Info } from './screens/Info';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
 import { CoachAnchor, useCoachStep } from './coach';
+import { useIsNarrow } from './device';
 
 interface Tab {
   id: Screen;
@@ -91,6 +92,40 @@ function Arena() {
   // its own chrome; a header and a nav bar on top of it would eat the track.
   const bare = screen === 'race' || screen === 'broadcast';
 
+  // On a phone the tabs are a bar at the bottom, and that bar is the last row
+  // of the app's column rather than something pinned over the page: pinned, it
+  // lands behind a bottom browser toolbar or the phone's navigation buttons.
+  const narrow = useIsNarrow();
+  const nav = (
+    <nav className={narrow ? 'nav bottom' : 'nav'}>
+      {TABS.map((t) => {
+        // The garage is the only tab the guide ever points at, and it does
+        // so for two different reasons: nothing built yet, or something
+        // built that never made it onto the grid.
+        const nudge = t.id === 'library' && (coach === 'garage' || coach === 'unregistered');
+        return (
+          <CoachAnchor
+            key={t.id}
+            on={nudge}
+            text={
+              coach === 'garage'
+                ? 'עכשיו למוסך — שם מאמנים את המודל שינהג בשבילכם.'
+                : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
+            }
+          >
+            <button
+              className={screen === t.id || t.also?.includes(screen) ? 'on' : ''}
+              onClick={() => go(t.id)}
+            >
+              <span className="glyph">{t.glyph}</span>
+              <span>{t.label}</span>
+            </button>
+          </CoachAnchor>
+        );
+      })}
+    </nav>
+  );
+
   return (
     <div className="app">
       <header className="topbar">
@@ -100,33 +135,7 @@ function Arena() {
           <span className="sub">CHAMPIONSHIP</span>
         </div>
 
-        <nav className="nav">
-          {TABS.map((t) => {
-            // The garage is the only tab the guide ever points at, and it does
-            // so for two different reasons: nothing built yet, or something
-            // built that never made it onto the grid.
-            const nudge = t.id === 'library' && (coach === 'garage' || coach === 'unregistered');
-            return (
-              <CoachAnchor
-                key={t.id}
-                on={nudge}
-                text={
-                  coach === 'garage'
-                    ? 'עכשיו למוסך — שם מאמנים את המודל שינהג בשבילכם.'
-                    : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
-                }
-              >
-                <button
-                  className={screen === t.id || t.also?.includes(screen) ? 'on' : ''}
-                  onClick={() => go(t.id)}
-                >
-                  <span className="glyph">{t.glyph}</span>
-                  <span>{t.label}</span>
-                </button>
-              </CoachAnchor>
-            );
-          })}
-        </nav>
+        {!narrow && nav}
 
         <div className="spacer" />
 
@@ -158,6 +167,8 @@ function Arena() {
           {!bare && screen !== 'info' && <Footer onOpen={openInfo} />}
         </div>
       </main>
+
+      {narrow && nav}
 
       {toast && <div className="toast">{toast}</div>}
     </div>

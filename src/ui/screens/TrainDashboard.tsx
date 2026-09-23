@@ -214,7 +214,6 @@ export function TrainDashboard() {
           </div>
           <h1 className="display">{multi ? `${models.length} מודלים יחד` : slot.name || 'אימון'}</h1>
           <div className="row wrap small muted">
-            {slotLive?.live.note && <span className="mono">{slotLive.live.note}</span>}
             {status === 'error' && <span className="pill warn">שגיאה: {error}</span>}
             {booting && <span className="pill">מאתחל…</span>}
           </div>
