@@ -775,10 +775,28 @@ function splitDriverTest(): void {
     `${afterRename.drivers.length} rows`,
   );
 
-  // The safety rail: two people are allowed the same team and model name, and
-  // merging their points would be far worse than showing a split.
+  // One team on two accounts — an anonymous identity left behind in another
+  // browser — is one driver, and one team.
+  const leftBehind = asDriver(fakeCard(1, ['anon']), 'wow', 'Rotshild', 'anonymous');
+  const signedIn = asDriver(fakeCard(2, ['google']), 'wow', 'Rotshild', 'google');
+  const twoAccounts = buildStandings({
+    cards: [leftBehind, signedIn],
+    results: new Map([
+      [leftBehind.id, fakeResult(leftBehind.id, [fakePlace('anon', 1)])],
+      [signedIn.id, fakeResult(signedIn.id, [fakePlace('google', 1)])],
+    ]),
+  });
+  check(
+    'one team on two accounts keeps one row per driver',
+    twoAccounts.drivers.length === 1 && twoAccounts.drivers[0].points === POINTS[0] * 2 && twoAccounts.drivers[0].entryId === 'google',
+    `${twoAccounts.drivers.length} rows`,
+  );
+  check('and is one team', twoAccounts.teams.length === 1 && twoAccounts.teams[0].points === POINTS[0] * 2);
+
+  // The safety rail: two people are allowed the same model name, and merging
+  // their points would be far worse than showing a split.
   const mine = asDriver(fakeCard(1, ['mine']), 'Flesh Blood');
-  const theirs = asDriver(fakeCard(2, ['theirs']), 'Flesh Blood', 'Alpha', 'someone-else');
+  const theirs = asDriver(fakeCard(2, ['theirs']), 'Flesh Blood', 'Beta', 'someone-else');
   const twoPeople = buildStandings({
     cards: [mine, theirs],
     results: new Map([
@@ -786,12 +804,8 @@ function splitDriverTest(): void {
       [theirs.id, fakeResult(theirs.id, [fakePlace('theirs', 1)])],
     ]),
   });
-  check('two different owners are never merged', twoPeople.drivers.length === 2);
-  check(
-    'two owners with one team name are two teams',
-    twoPeople.teams.length === 2 && twoPeople.teams.every((t) => t.team === 'Alpha'),
-    `${twoPeople.teams.length} teams`,
-  );
+  check('one model name in two teams is two drivers', twoPeople.drivers.length === 2);
+  check('and two teams', twoPeople.teams.length === 2, `${twoPeople.teams.length} teams`);
 
   // Renaming the team is a label change: the driver stays one row, the team
   // stays one team, and it shows the newest name.
@@ -859,21 +873,23 @@ function teamLimitTest(): void {
     eligibleEntries([...entries].reverse(), round).map((e) => e.id).join(',') === field.map((e) => e.id).join(','),
   );
 
-  // A team is an account. Somebody else's cars under the same name must not
-  // take this account's seats, and a rename must not hand an account more.
+  // One team on two accounts: an identity left behind in another browser still
+  // wears the team's name. It is one team with two seats, and the seats go to
+  // the account the team races from now, not to the cars nobody can reach.
   const older = ['x1', 'x2'].map((id, i) => ({
     ...fakeCard(round, [id]).entries[0],
     id,
-    uid: 'someone-else',
+    uid: 'left-behind',
     team: 'Alpha',
     createdAt: before - 10_000 - i,
+    updatedAt: before - 10_000,
   }));
-  const shared = eligibleEntries([...older, ...entries.slice(0, 2)], round).map((e) => e.id);
-  check(
-    'the same team name on two accounts is two teams',
-    ['x1', 'x2', 'a', 'b'].every((id) => shared.includes(id)),
-    shared.join(','),
-  );
+  const current = entries.slice(0, 2).map((e) => ({ ...e, updatedAt: before }));
+  const shared = eligibleEntries([...older, ...current], round).map((e) => e.id);
+  check('one team name on two accounts is one team, with two seats', shared.length === MAX_CARS_PER_TEAM, shared.join(','));
+  check('and the seats go to the account in use, not the one left behind', shared.join(',') === 'a,b', shared.join(','));
+  const oneLeft = eligibleEntries([...older, current[0]], round).map((e) => e.id);
+  check('a seat the current account leaves empty is filled from the old one', oneLeft.join(',') === 'x2,a', oneLeft.join(','));
   const renamed = entries.slice(0, 3).map((e, i) => ({ ...e, team: i === 2 ? 'Alpha Renamed' : e.team }));
   check(
     'a second name does not buy a third car',
