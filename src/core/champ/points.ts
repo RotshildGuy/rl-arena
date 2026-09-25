@@ -1,4 +1,5 @@
 import type { ArenaEntry, DayPlace, RaceCard, RaceResult } from './types';
+import { nameKey } from './names';
 
 /**
  * The scoring system Formula 1 has used since 2010, with the fastest-lap bonus
@@ -40,13 +41,17 @@ export interface DriverStanding {
 }
 
 export interface TeamStanding {
-  /** The account: a team is one owner, whatever name it shows. */
+  /**
+   * The account the newest of its drivers raced under. A team is an account,
+   * whatever name it shows, plus any other account racing under the same name.
+   */
   uid: string;
   /** The name to print — the newest one any of its drivers raced under. */
   team: string;
   points: number;
   wins: number;
   podiums: number;
+  /** The `entryId` of every driver in the team. */
   entries: string[];
   counts: number[];
   position: number;
@@ -72,14 +77,58 @@ export interface SeasonInput {
 }
 
 /**
- * What makes two entries the same driver: one owner, one model name.
- *
- * The uid is in the key on purpose: a merge only ever happens inside one
- * account. The team name is not — it is a label, and renaming the team must
- * not split every one of its drivers in two.
+ * A tiny union-find over strings: which ids turned out to be one thing.
  */
-function driverKey(e: ArenaEntry): string {
-  return `${e.uid}\u0000${e.driver}`;
+function unionFind() {
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    const up = parent.get(x);
+    if (up === undefined) {
+      parent.set(x, x);
+      return x;
+    }
+    if (up === x) return x;
+    const root = find(up);
+    parent.set(x, root);
+    return root;
+  };
+  const union = (a: string, b: string): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  return { parent, find, union };
+}
+
+/**
+ * What makes two entries the same driver.
+ *
+ * Two keys, and sharing either one is enough:
+ *
+ * - **one account, one model name** — the car was taken off and registered
+ *   again, or the model was re-imported under a new id. The team name is not
+ *   part of it: renaming the team must not split every one of its drivers.
+ * - **one team name, one model name** — the same person under two accounts.
+ *   Before there was a sign-in screen every browser minted an anonymous
+ *   identity of its own, and signing in to Google on a device that already had
+ *   one leaves the old identity's cars behind under a uid nobody can reach. The
+ *   season then showed "wow" of Rotshild twice, each with part of its points.
+ *   A team name belongs to one account (`names/{key}`), so the name is what
+ *   says these accounts are one team; the model name on top of it is what says
+ *   these cars are one driver. Two people may still both have a model called
+ *   "wow" — under two different team names they stay two drivers.
+ *
+ * Both compare names the way the name registry does: case and Unicode
+ * compatibility forms are not a different name.
+ */
+function driverKeys(e: ArenaEntry): string[] {
+  const driver = nameKey(e.driver);
+  return [`u\u0000${e.uid}\u0000${driver}`, `t\u0000${nameKey(e.team)}\u0000${driver}`];
+}
+
+/** Which team a driver's points go to: its account, joined to others by name. */
+function teamKeys(d: { uid: string; team: string }): string[] {
+  return d.uid ? [`u\u0000${d.uid}`, `t\u0000${nameKey(d.team)}`] : [`t\u0000${nameKey(d.team)}`];
 }
 
 /**
@@ -88,9 +137,9 @@ function driverKey(e: ArenaEntry): string {
  * A car is supposed to keep its entry — and therefore its points — for the
  * whole season, but several things could hand the same driver a second one:
  * taking a car off the grid and registering it again, re-importing the model so
- * that the garage gives it a new id, or a failed read at exactly the wrong
- * moment. The result is one driver in two rows, each with part of the season,
- * which is what this repairs.
+ * that the garage gives it a new id, a failed read at exactly the wrong moment,
+ * or the same team racing from a second account. The result is one driver in
+ * two rows, each with part of the season, which is what this repairs.
  *
  * It repairs it here rather than by rewriting the database, because it cannot
  * be rewritten: race cards and results are create-only, and every one of them
@@ -104,29 +153,18 @@ function driverKey(e: ArenaEntry): string {
  * gets both cases right at once.
  */
 function sameDriver(cards: RaceCard[]): Map<string, string> {
-  const parent = new Map<string, string>();
-  const find = (x: string): string => {
-    const up = parent.get(x);
-    if (up === undefined || up === x) return x;
-    const root = find(up);
-    parent.set(x, root);
-    return root;
-  };
-  const union = (a: string, b: string): void => {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra !== rb) parent.set(ra, rb);
-  };
+  const { parent, find, union } = unionFind();
 
-  const byName = new Map<string, string>();
+  const byKey = new Map<string, string>();
   const ordered = [...cards].sort((a, b) => a.round - b.round);
   for (const card of ordered) {
     for (const e of card.entries) {
-      if (!parent.has(e.id)) parent.set(e.id, e.id);
-      const key = driverKey(e);
-      const seen = byName.get(key);
-      if (seen) union(e.id, seen);
-      else byName.set(key, e.id);
+      find(e.id);
+      for (const key of driverKeys(e)) {
+        const seen = byKey.get(key);
+        if (seen) union(e.id, seen);
+        else byKey.set(key, e.id);
+      }
     }
   }
 
@@ -146,6 +184,8 @@ export function buildStandings({ cards, results }: SeasonInput): {
   teams: TeamStanding[];
 } {
   const byEntry = new Map<string, DriverStanding>();
+  /** Every account a driver raced under — more than one when it was merged across them. */
+  const driverUids = new Map<string, Set<string>>();
   const canonical = sameDriver(cards);
   const canon = (entryId: string): string => canonical.get(entryId) ?? entryId;
 
@@ -184,6 +224,11 @@ export function buildStandings({ cards, results }: SeasonInput): {
       d.tag = tag;
       if (e) d.uid = e.uid;
       if (!d.entryIds.includes(entryId)) d.entryIds.push(entryId);
+    }
+    if (e?.uid) {
+      const uids = driverUids.get(id) ?? new Set<string>();
+      uids.add(e.uid);
+      driverUids.set(id, uids);
     }
     return d;
   };
@@ -231,14 +276,25 @@ export function buildStandings({ cards, results }: SeasonInput): {
   const drivers = [...byEntry.values()].sort((a, b) => b.points - a.points || countback(a.counts, b.counts));
   drivers.forEach((d, i) => (d.position = i + 1));
 
-  // Grouped by account. The name shown is the newest one: drivers are updated
-  // card by card above, so the driver whose last race is latest carries it.
+  // Grouped by account, and accounts are joined by the team name they race
+  // under: one person on two accounts is one team, the same way it is one
+  // driver above. A team is keyed by its drivers' newest name only — a name
+  // an account has since let go of may belong to somebody else by now.
+  // The name shown is the newest one: drivers are updated card by card above,
+  // so the driver whose last race is latest carries it.
   const lastRace = new Map<string, number>();
   for (const card of ordered) for (const e of card.entries) lastRace.set(canon(e.id), card.round);
+  const teamSets = unionFind();
+  const teamOf = (d: DriverStanding): string => {
+    const keys = [...(driverUids.get(d.entryId) ?? [d.uid])].flatMap((uid) => teamKeys({ uid, team: d.team }));
+    for (const k of keys) teamSets.union(k, keys[0]);
+    return keys[0];
+  };
+  drivers.forEach(teamOf);
   const teamMap = new Map<string, TeamStanding>();
   const teamAsOf = new Map<string, number>();
   for (const d of drivers) {
-    const key = d.uid || `\u0000${d.team}`;
+    const key = teamSets.find(teamOf(d));
     let t = teamMap.get(key);
     if (!t) {
       t = { uid: d.uid, team: d.team, points: 0, wins: 0, podiums: 0, entries: [], counts: [], position: 0 };
@@ -248,6 +304,7 @@ export function buildStandings({ cards, results }: SeasonInput): {
     if (asOf >= (teamAsOf.get(key) ?? -1)) {
       teamAsOf.set(key, asOf);
       t.team = d.team;
+      t.uid = d.uid;
     }
     t.points += d.points;
     t.wins += d.wins;

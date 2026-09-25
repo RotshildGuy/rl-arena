@@ -132,7 +132,7 @@ export function Standings() {
             </thead>
             <tbody>
               {standings.teams.map((t) => {
-                const drivers = standings.drivers.filter((d) => (t.uid ? d.uid === t.uid : d.team === t.team));
+                const drivers = standings.drivers.filter((d) => t.entries.includes(d.entryId));
                 return (
                   <tr key={t.uid || t.team}>
                     <td>
