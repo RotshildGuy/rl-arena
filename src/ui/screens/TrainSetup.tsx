@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
-import { MAX_TRAIN_SLOTS, useApp, type TrainSlot } from '../store';
+import { MAX_TRAIN_SLOTS, TIME_LIMITS, useApp, type TrainSlot } from '../store';
 import { GameOptions } from '../components/GameOptions';
 import { RewardEditor } from '../components/RewardEditor';
 import { ALGORITHMS, type AlgorithmId } from '../../core/rl/algorithms';
@@ -81,6 +81,7 @@ export function TrainSetup() {
       */}
       <div className="card notched start-bar">
         <Estimate />
+        <TimeLimit />
         <div className="row start-bar-actions">
           {slots.some((s) => s.modelId) && (
             <button className="ghost" onClick={newDraft}>
@@ -371,6 +372,35 @@ function Estimate() {
       {isMobileClass && (
         <span className="pill warn small">זוהה מכשיר נייד - נבחרו ברירות מחדל קלות יותר</span>
       )}
+    </div>
+  );
+}
+
+/**
+ * How long to train before stopping and saving by itself.
+ *
+ * A browser only trains while its tab is open - on a phone, while the screen
+ * is on and the app is in front. Saying so up front, and offering a run that
+ * ends in a saved model after five minutes, is what makes training on a phone
+ * something that works instead of something that quietly stops.
+ */
+function TimeLimit() {
+  const { draft, patchDraft } = useApp();
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      <div className="eyebrow">עצירה ושמירה אוטומטית</div>
+      <div className="segmented">
+        {TIME_LIMITS.map((m) => (
+          <button key={m} className={draft.timeLimitMin === m ? 'on' : ''} onClick={() => patchDraft({ timeLimitMin: m })}>
+            {m === 0 ? 'בלי הגבלה' : `${m} דק׳`}
+          </button>
+        ))}
+      </div>
+      <span className="muted small">
+        {isMobileClass
+          ? 'האימון רץ רק כשהמסך דולק והלשונית פתוחה. אימון קצר שנגמר בשמירה עדיף על ארוך שנעצר בכיס.'
+          : 'האימון רץ רק כשהלשונית פתוחה. כשהזמן נגמר המודל נשמר, ואפשר להמשיך משם.'}
+      </span>
     </div>
   );
 }

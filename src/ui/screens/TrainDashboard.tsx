@@ -121,6 +121,28 @@ export function TrainDashboard() {
   // A sleeping phone throttles the worker to a halt mid-run.
   useWakeLock(running);
 
+  // The time limit chosen in setup: when it runs out, stop and save, and stay
+  // here so "continue" is one tap away. Checked once a second; the save is the
+  // same one the button does.
+  const limitMs = (draft.timeLimitMin ?? 0) * 60_000;
+  const limitHit = useRef(false);
+  // The latest `save`, so the timer saves today's history and not the first render's.
+  const saveRef = useRef<(thenLeave: boolean) => Promise<void>>(async () => {});
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!limitMs) return;
+    const id = setInterval(() => {
+      tick((n) => n + 1);
+      if (limitHit.current || status !== 'running' || trainer.elapsedMs() < limitMs) return;
+      limitHit.current = true;
+      trainer.pause();
+      void saveRef.current(false).then(() => showToast(`${draft.timeLimitMin} דקות הסתיימו - המודל נשמר. אפשר להמשיך או לסיים.`));
+    }, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limitMs, status]);
+  const remainingMs = limitMs ? Math.max(0, limitMs - trainer.elapsedMs()) : null;
+
   const save = async (thenLeave: boolean) => {
     setSaving(true);
     try {
@@ -165,6 +187,8 @@ export function TrainDashboard() {
       setSaving(false);
     }
   };
+
+  saveRef.current = save;
 
   /** Colour every car by the model driving it, so interference is visible. */
   const carColors = useMemo(() => {
@@ -230,6 +254,12 @@ export function TrainDashboard() {
           <div className="row wrap small muted">
             {status === 'error' && <span className="pill warn">שגיאה: {error}</span>}
             {booting && <span className="pill">מאתחל…</span>}
+            {remainingMs !== null && !limitHit.current && (
+              <span className="pill" title="עצירה ושמירה אוטומטית">
+                ⏱ <span className="mono">{durationText(remainingMs)}</span> עד שמירה
+              </span>
+            )}
+            {limitHit.current && <span className="pill good">הזמן נגמר - נשמר</span>}
           </div>
         </div>
         <div className="actions">

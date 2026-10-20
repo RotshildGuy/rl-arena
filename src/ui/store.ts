@@ -55,7 +55,15 @@ export interface TrainDraft {
   slots: TrainSlot[];
   hyper: DqnHyper;
   gaHyper: GaHyper;
+  /**
+   * Stop and save by itself after this many minutes; 0 for no limit. A phone
+   * only trains while the tab is open and the screen is on, so a short run
+   * that ends with a saved model beats a long one that ends in a pocket.
+   */
+  timeLimitMin: number;
 }
+
+export const TIME_LIMITS = [0, 5, 15, 30];
 
 /** More than this and a single phone cannot keep up with the grid. */
 export const MAX_TRAIN_SLOTS = 4;
@@ -162,6 +170,7 @@ function freshDraft(gameId: GameId): TrainDraft {
       // chart actually moves while someone is watching it on a phone.
       populationSize: isMobileClass ? 20 : DEFAULT_GA_HYPER.populationSize,
     },
+    timeLimitMin: isMobileClass ? 5 : 0,
   };
 }
 
