@@ -16,6 +16,7 @@ import { RaceSetup } from './screens/RaceSetup';
 import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
 import { Feedback } from './screens/Feedback';
+import { Shop } from './screens/Shop';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
 import { ThemeButton } from './components/ThemeButton';
@@ -37,6 +38,7 @@ const TABS: Tab[] = [
   { id: 'standings', label: 'טבלאות', glyph: '📊' },
   { id: 'library', label: 'המוסך', glyph: '🔧', also: ['trainSetup', 'training'] },
   { id: 'raceSetup', label: 'לשחק', glyph: '🎮', also: ['race'] },
+  { id: 'shop', label: 'חנות', glyph: '🪙' },
 ];
 
 /**
@@ -208,6 +210,7 @@ function Arena() {
           {screen === 'race' && <RaceScreen />}
           {screen === 'info' && <Info />}
           {screen === 'feedback' && <Feedback />}
+          {screen === 'shop' && <Shop />}
           {!bare && screen !== 'info' && <Footer onOpen={openInfo} onFeedback={openFeedback} />}
         </div>
       </main>

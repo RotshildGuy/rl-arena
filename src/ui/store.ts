@@ -25,7 +25,8 @@ export type Screen =
   | 'raceSetup'
   | 'race'
   | 'info'
-  | 'feedback';
+  | 'feedback'
+  | 'shop';
 
 export type InfoTab = 'how' | 'terms' | 'privacy' | 'notices';
 

@@ -54,6 +54,8 @@ export interface CarLook {
   pattern?: 'solid' | 'stripe' | 'twotone';
   number?: number;
   helmet?: string;
+  /** Drift smoke colour. */
+  smoke?: string;
 }
 
 function colorOf(opts: RenderOpts, i: number): string {
@@ -411,7 +413,7 @@ function drawWorld(
       ctx.lineTo(wx + bx, wy + by);
       ctx.stroke();
 
-      ctx.fillStyle = 'rgba(210, 216, 230, 0.16)';
+      ctx.fillStyle = opts.looks?.[i]?.smoke ?? 'rgba(210, 216, 230, 0.16)';
       ctx.beginPath();
       ctx.arc(wx + bx * 0.35, wy + by * 0.35, wid * 0.55, 0, Math.PI * 2);
       ctx.arc(wx + bx * 0.7, wy + by * 0.7, wid * 0.8, 0, Math.PI * 2);
@@ -656,4 +658,21 @@ export function renderRacing(ctx: CanvasRenderingContext2D, snap: RacingSnapshot
   if (opts.minimap) drawMinimap(ctx, snap, track, opts);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/**
+ * One car, large, for the shop's preview: the same drawing the track uses, so
+ * what is bought is exactly what races.
+ */
+export function drawCarPreview(ctx: CanvasRenderingContext2D, color: string, look: CarLook | undefined): void {
+  const { width: w, height: h } = ctx.canvas;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#2b303d';
+  ctx.fillRect(0, 0, w, h);
+  const len = Math.min(h * 0.85, w * 1.3);
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(-Math.PI / 2);
+  drawCar(ctx, len, len * 0.59, color, look, 99);
+  ctx.restore();
 }

@@ -59,6 +59,8 @@ import { teamNameProblem } from '../src/core/champ/names';
 import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
 import { leagueView, newLeagueId } from '../src/core/champ/league';
 import { findCopies, weightsFingerprint } from '../src/core/champ/copies';
+import { earnedCoins, COINS_PER_START } from '../src/core/champ/coins';
+import { spent, validLook, ITEM_BY_ID } from '../src/core/champ/shop';
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -1290,7 +1292,7 @@ function coachTest(): void {
 
   const screens: CoachState['screen'][] = [
     'championship', 'standings', 'broadcast', 'report', 'library',
-    'trainSetup', 'training', 'raceSetup', 'race', 'info', 'feedback',
+    'trainSetup', 'training', 'raceSetup', 'race', 'info', 'feedback', 'shop',
   ];
   const spoken = screens.filter((screen) => at({ ...named, models: 2, registered: true, screen }) !== null);
   check('a car on the grid ends the walkthrough everywhere', spoken.length === 0, spoken.join(', ') || 'silent');
@@ -1655,6 +1657,28 @@ function functionsCalendarTest(): void {
   check('and find the round of the day at 19:45 and 20:45', today);
 }
 
+function coinsTest(): void {
+  console.log(CHAPTER + 'Coins and the shop');
+  const c1 = fakeCard(42, ['a', 'b0', 'b1']);
+  const r1 = fakeResult(c1.id, [fakePlace('b0', 1), fakePlace('b1', 2), fakePlace('a', 3)]);
+  const settled = new Map([[c1.id, r1]]);
+  const w = earnedCoins('u', [c1], settled, startsAtForRound(43));
+  const expected = POINTS[2] + COINS_PER_START + 20 + 40; // points, start, first finish, first podium
+  check('coins are points, a start bonus and first-time achievements', w.total === expected, `${w.total} vs ${expected}`);
+  check('the last car still earns', earnedCoins('u', [c1], new Map([[c1.id, fakeResult(c1.id, [fakePlace('b0', 1), fakePlace('b1', 2), { ...fakePlace('a', 3), points: 0, position: 12, classified: false }])]]), 0).total > 0);
+  check('a race not yet settled pays nothing', earnedCoins('u', [c1], new Map(), 0).total === 0);
+  check('the house earns nothing', earnedCoins('house', [c1], settled, 0).total === 0);
+
+  const color = ITEM_BY_ID.get('color-navy')!;
+  const honest = { purchases: ['color-navy'], equipped: { color: 'color-navy' }, updatedAt: 0 };
+  check('a bought colour is worn', validLook(honest, color.price)?.color === color.value);
+  check('a colour bought with coins the team does not have is ignored', validLook(honest, color.price - 1) === null);
+  check('and so is one worn without being bought', validLook({ purchases: [], equipped: { color: 'color-navy' }, updatedAt: 0 }, 1000) === null);
+  check('buying twice costs once', spent(['color-navy', 'color-navy']) === color.price);
+  check('no timing colour is for sale', [...ITEM_BY_ID.values()].filter((i) => i.kind === 'color')
+    .every((i) => !['#c77dff', '#3de87a', '#ffd84d'].includes(i.value.toLowerCase())));
+}
+
 function feedbackTest(): void {
   console.log(CHAPTER + 'Feedback');
   check('a one-word report is sent back for more', feedbackProblem('broken') !== null);
@@ -1706,6 +1730,7 @@ diagnoseTest();
 feedbackTest();
 leagueTest();
 copiesTest();
+coinsTest();
 functionsCalendarTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);

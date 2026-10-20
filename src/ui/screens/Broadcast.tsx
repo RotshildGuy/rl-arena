@@ -15,6 +15,7 @@ import type { RaceCard } from '../../core/champ/types';
 import { lapTime, raceTime, timeText, untilText } from '../format';
 import { useIsPortrait, useWakeLock } from '../device';
 import { track } from '../../storage/metrics';
+import { useTeamPaint } from '../teamLooks';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -145,6 +146,8 @@ function BroadcastStage({
   );
 
   /** Livery per grid slot, plus a shade when a team fields more than one car. */
+  // Paint bought in the shop, checked against what each team has earned.
+  const paint = useTeamPaint(grid.map((id) => entryById.get(id)?.uid ?? ''));
   const towerCars: TowerCar[] = useMemo(() => {
     const seen = new Map<string, number>();
     return grid.map((id, i) => {
@@ -152,16 +155,17 @@ function BroadcastStage({
       const team = e?.team ?? '-';
       const n = seen.get(team) ?? 0;
       seen.set(team, n + 1);
+      const bought = e ? paint.get(e.uid) : undefined;
       return {
         car: i,
         name: e?.driver ?? '-',
         tag: e?.tag ?? '???',
-        color: shadeFor(teamColor(team), n),
-        look: teamLook(team, e?.driver ?? ''),
+        color: shadeFor(bought?.color ?? teamColor(team), n),
+        look: { ...teamLook(team, e?.driver ?? ''), ...bought?.look },
         mine: myIds.has(id),
       };
     });
-  }, [grid, entryById, myIds]);
+  }, [grid, entryById, myIds, paint]);
 
   const colors = towerCars.map((c) => c.color);
   const labels = towerCars.map((c) => c.tag);
