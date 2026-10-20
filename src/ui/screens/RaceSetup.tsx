@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { LineSkeleton } from '../components/PageSkeleton';
 import { getGame } from '../../core/games/registry';
 import { useApp } from '../store';
 import { GameOptions } from '../components/GameOptions';
@@ -109,7 +110,7 @@ export function RaceSetup() {
 
           {pool === 'mine' && (
             <>
-              {models === null && <div className="muted small">טוען מודלים…</div>}
+              {models === null && <LineSkeleton />}
               {models !== null && models.length === 0 && (
                 <div className="empty">
                   <p style={{ margin: '0 0 12px' }}>אין מודלים מאומנים למשחק הזה.</p>

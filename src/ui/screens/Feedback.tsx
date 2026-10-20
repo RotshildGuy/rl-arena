@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { LineSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { getAuthView, subscribeAuth } from '../auth';
 import {
@@ -168,7 +169,7 @@ export function Feedback() {
             <div className="eyebrow" style={{ marginBottom: 8 }}>
               הפניות שלי
             </div>
-            {mine === null && <div className="muted small">טוען…</div>}
+            {mine === null && <LineSkeleton />}
             {mine?.length === 0 && <div className="muted small">עוד לא שלחתם פניות.</div>}
             {mine?.map((f) => <FeedbackRow key={f.id} item={f} />)}
           </div>

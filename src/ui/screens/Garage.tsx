@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { getGame } from '../../core/games/registry';
 import { useApp } from '../store';
 import { LineChart } from '../components/LineChart';
@@ -340,7 +341,7 @@ export function Garage() {
         </div>
       </div>
 
-      {models === null && <div className="empty">טוען…</div>}
+      {models === null && <PageSkeleton variant="list" />}
 
       {models !== null && models.length === 0 && (
         <div className="empty">
@@ -495,7 +496,6 @@ export function Garage() {
 
                     <div className="row wrap" style={{ marginBottom: 14 }}>
                       <button onClick={() => continueTraining(m, false)}>המשך אימון</button>
-                      <button onClick={() => continueTraining(m, true)}>אימון מחדש</button>
                       <button onClick={() => race(m)}>התחרה מולו</button>
                       <button
                         onClick={() => {

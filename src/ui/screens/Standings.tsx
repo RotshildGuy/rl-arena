@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { buildStandings, POINTS, FASTEST_LAP_BONUS } from '../../core/champ/points';
@@ -74,7 +75,7 @@ export function Standings() {
   const mine = new Set(state ? state.entries.filter((e) => e.uid === state.uid).map((e) => e.id) : []);
 
   if (!state || !standings) {
-    return <div className="empty">{progress ?? 'טוען את האליפות…'}</div>;
+    return <PageSkeleton variant="table" note={progress} />;
   }
 
   if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !leagueId && leagues.length === 0) {

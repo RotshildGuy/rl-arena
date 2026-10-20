@@ -176,7 +176,7 @@ function freshDraft(gameId: GameId): TrainDraft {
   const hidden = isMobileClass ? [48, 48] : DEFAULT_HYPER.hidden;
   return {
     owner: getCompetitor(),
-    config: game.defaultConfig(),
+    config: withTrainingDefaults(gameId, game.defaultConfig()),
     slots: [freshSlot(gameId)],
     hyper: { ...DEFAULT_HYPER, hidden },
     gaHyper: {
@@ -192,6 +192,29 @@ function freshDraft(gameId: GameId): TrainDraft {
 }
 
 /** The grid has to be at least as big as the number of models racing on it. */
+/**
+ * Training always runs the hardest setup the championship can throw at a car:
+ * the full grid, the full distance, and contact on. A model trained on three
+ * laps alone with cars that pass through each other has learned a different
+ * game from the one it will race, and these three were the settings people
+ * got wrong without knowing it - so they are no longer settings. The episode
+ * gets as long as a championship session allows, or ten laps would be cut off.
+ */
+export const TRAINING_GRID = 8;
+export const TRAINING_LAPS = 10;
+export const TRAINING_HIDDEN_OPTIONS = ['nCars', 'laps', 'carCollisions'];
+
+export function withTrainingDefaults(gameId: GameId, config: Record<string, unknown>): Record<string, unknown> {
+  if (gameId !== 'racing') return config;
+  return {
+    ...config,
+    nCars: TRAINING_GRID,
+    laps: TRAINING_LAPS,
+    carCollisions: true,
+    maxSteps: TRAINING_LAPS * 900 + 600,
+  };
+}
+
 function withSeats(config: Record<string, unknown>, slots: number): Record<string, unknown> {
   const nCars = Number(config.nCars ?? slots);
   return nCars >= slots ? config : { ...config, nCars: slots };
@@ -255,7 +278,7 @@ export const useApp = create<AppState>((set, get) => ({
       draft: {
         ...base,
         owner: m.owner || getCompetitor(),
-        config: { ...m.config },
+        config: withTrainingDefaults(get().gameId, { ...m.config }),
         slots: [
           { modelId: m.id, name: m.name, algorithm: m.algorithm, rewards: { ...m.rewards }, restart },
         ],

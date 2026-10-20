@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useChampionship } from '../useChampionship';
-import { buildStandings } from '../../core/champ/points';
-import { settledResults } from '../../core/champ/timing';
-import { OBS_VERSION } from '../../core/games/racing/rewards';
+import { useEffect, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
-import { MAX_TRAIN_SLOTS, TIME_LIMITS, useApp, type TrainSlot } from '../store';
+import {
+  MAX_TRAIN_SLOTS,
+  TIME_LIMITS,
+  TRAINING_GRID,
+  TRAINING_HIDDEN_OPTIONS,
+  TRAINING_LAPS,
+  useApp,
+  withTrainingDefaults,
+  type TrainSlot,
+} from '../store';
 import { GameOptions } from '../components/GameOptions';
 import { RewardEditor } from '../components/RewardEditor';
 import { ALGORITHMS, type AlgorithmId } from '../../core/rl/algorithms';
@@ -153,7 +158,6 @@ export function TrainSetup() {
             )}
           </div>
 
-          <RivalPicker />
 
           <div className="card notched">
             <div className="eyebrow" style={{ marginBottom: 12 }}>המסלול והקבוצה</div>
@@ -188,9 +192,15 @@ export function TrainSetup() {
             <GameOptions
               options={game.options}
               value={draft.config}
-              minima={{ nCars: slots.length }}
-              onChange={(config) => patchDraft({ config })}
+              hiddenKeys={TRAINING_HIDDEN_OPTIONS}
+              onChange={(config) => patchDraft({ config: withTrainingDefaults(gameId, config) })}
             />
+            {gameId === 'racing' && (
+              <div className="small muted">
+                האימון תמיד רץ על גריד מלא של {TRAINING_GRID} רכבים, {TRAINING_LAPS} הקפות ומגע בין רכבים -
+                בדיוק כמו באליפות.
+              </div>
+            )}
           </div>
         </div>
 
@@ -262,6 +272,15 @@ function SlotCard({
         )}
       </div>
 
+      {/* A model being continued is that model: its name, its weights and its
+          history are what is being trained, so none of them is up for change
+          here. Renaming lives in the garage; starting over is a new model. */}
+      {slot.modelId ? (
+        <div className="field">
+          <label>ממשיכים לאמן את</label>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>{slot.name}</div>
+        </div>
+      ) : (
       <div className="cols-2">
         <div className="field">
           <label>שם המודל - כך הוא יופיע כנהג בטבלה</label>
@@ -286,18 +305,9 @@ function SlotCard({
               </option>
             ))}
           </select>
-          {slot.modelId && (
-            <label className="row small" style={{ gap: 6, marginTop: 6 }}>
-              <input
-                type="checkbox"
-                checked={slot.restart}
-                onChange={(e) => onPatch({ restart: e.target.checked })}
-              />
-              התחל את המשקולות שלו מאפס
-            </label>
-          )}
         </div>
       </div>
+      )}
 
       <div className="field" style={{ marginBottom: 0 }}>
         <label>איך הוא לומד {locked ? '(נעול - נקבע בעת יצירת המודל)' : ''}</label>
@@ -407,57 +417,6 @@ function TimeLimit() {
           ? 'האימון רץ רק כשהמסך דולק והלשונית פתוחה. אימון קצר שנגמר בשמירה עדיף על ארוך שנעצר בכיס.'
           : 'האימון רץ רק כשהלשונית פתוחה. כשהזמן נגמר המודל נשמר, ואפשר להמשיך משם.'}
       </span>
-    </div>
-  );
-}
-
-/**
- * Train against a car from the championship.
- *
- * There is a leader, everybody trains against it, and it has to keep changing
- * to stay ahead - that loop is the point. Every car's weights are public
- * anyway (each browser runs the race), so this only puts one of them in the
- * last seat, frozen, while the models being trained learn to race it.
- */
-function RivalPicker() {
-  const { draft, patchDraft } = useApp();
-  const { state } = useChampionship();
-  const candidates = useMemo(() => {
-    if (!state) return [];
-    const standings = buildStandings({ cards: state.cards, results: settledResults(state.cards, state.results, Date.now()) });
-    const place = new Map<string, number>();
-    for (const d of standings.drivers) for (const id of d.entryIds) place.set(id, d.position);
-    return state.entries
-      .filter((e) => !e.retired && e.uid !== state.uid && e.gameId === 'racing' && e.obsVersion === OBS_VERSION)
-      .sort((a, b) => (place.get(a.id) ?? 999) - (place.get(b.id) ?? 999))
-      .map((e) => ({ e, place: place.get(e.id) }));
-  }, [state]);
-
-  if (candidates.length === 0) return null;
-  return (
-    <div className="card notched">
-      <div className="eyebrow" style={{ marginBottom: 8 }}>יריב מהאליפות</div>
-      <select
-        value={draft.rival?.entryId ?? ''}
-        onChange={(ev) => {
-          const pick = candidates.find((c) => c.e.id === ev.target.value)?.e;
-          patchDraft({
-            rival: pick ? { entryId: pick.id, driver: pick.driver, team: pick.team, arch: pick.arch } : null,
-          });
-        }}
-      >
-        <option value="">בלי יריב - רק המודלים שלי</option>
-        {candidates.map(({ e, place }) => (
-          <option key={e.id} value={e.id}>
-            {place ? `${place}. ` : ''}
-            {e.driver} · {e.team}
-          </option>
-        ))}
-      </select>
-      <div className="small muted" style={{ marginTop: 6 }}>
-        הרכב שנבחר נוהג במשקולות שלו מהאליפות, קפוא, במושב האחרון. הוא לא לומד; המודלים שלכם לומדים
-        להתמודד איתו. כדאי לבחור את המוביל לפני מרוץ על המסלול שלו.
-      </div>
     </div>
   );
 }
