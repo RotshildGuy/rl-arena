@@ -1,6 +1,6 @@
 /**
  * Correctness gate for the learning core. If these fail the bug is in backprop
- * or in DQN, not in the game simulation — so run this before debugging anything
+ * or in DQN, not in the game simulation - so run this before debugging anything
  * that looks like "the car won't learn".
  *
  *   npm run sanity
@@ -57,6 +57,7 @@ import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { Policy } from '../src/core/rl/policy';
 import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
 
@@ -239,7 +240,7 @@ function corridorTest(): void {
 /**
  * The walls are offset curves of the centreline. If a track bends tighter than
  * half its width the inner wall folds over itself and the car ends up trapped in
- * geometry that looks fine on screen — so check every track for self-crossings.
+ * geometry that looks fine on screen - so check every track for self-crossings.
  */
 function trackTest(): void {
   console.log('\ntrack geometry');
@@ -573,7 +574,7 @@ function timingTest(): void {
 
   // Regression: the classification used to be sorted on checkpoint count. Every
   // car that completes the distance has the identical count, so the tie fell to
-  // the lowest index — which in a race against a model is the human. The screen
+  // the lowest index - which in a race against a model is the human. The screen
   // cheerfully announced a win to a player who had just been beaten by nine
   // seconds. Rank has to come from *when* the flag was taken.
   // Physics 1 for the same reason as the flag test: the scenario needs every
@@ -841,7 +842,7 @@ function fakeResult(raceId: string, places: DayPlace[]): RaceResult {
  *
  * A car is meant to keep its entry for the whole season, but a delete and a
  * re-registration, or a model re-imported under a new id, could give the same
- * driver a second one — and then half the season's points sat in each, two rows
+ * driver a second one - and then half the season's points sat in each, two rows
  * apart in the table. History cannot be rewritten to fix it (cards and results
  * are create-only and name the entry that actually raced), so the table itself
  * has to put the pieces back together.
@@ -892,8 +893,8 @@ function splitDriverTest(): void {
     `${afterRename.drivers.length} rows`,
   );
 
-  // One team on two accounts — an anonymous identity left behind in another
-  // browser — is one driver, and one team.
+  // One team on two accounts - an anonymous identity left behind in another
+  // browser - is one driver, and one team.
   const leftBehind = asDriver(fakeCard(1, ['anon']), 'wow', 'Rotshild', 'anonymous');
   const signedIn = asDriver(fakeCard(2, ['google']), 'wow', 'Rotshild', 'google');
   const twoAccounts = buildStandings({
@@ -964,7 +965,7 @@ function splitDriverTest(): void {
  *
  * The garage refuses to register a third, but teams that were already over the
  * limit when the rule came in still have their entries, so the field itself has
- * to apply it — and it has to be the same two for everybody, or two clients
+ * to apply it - and it has to be the same two for everybody, or two clients
  * would build two different race cards.
  */
 function teamLimitTest(): void {
@@ -1019,7 +1020,7 @@ function teamLimitTest(): void {
  * Which name wins when the browser and the account disagree.
  *
  * The team name used to live only in localStorage, which made a second device
- * ask for it again — and a slightly different spelling is a different
+ * ask for it again - and a slightly different spelling is a different
  * constructor, with the season's points split across two rows of the teams'
  * table. It lives with the account now, and this is the rule that merges the
  * two copies.
@@ -1205,7 +1206,7 @@ function nameGenTest(): void {
  * What has to hold is a pair of opposites: a way into the broadcast exists
  * before the start, and nothing about the race itself moves an inch earlier.
  * The day is still 'upcoming', the results are still sealed, and the session
- * the viewer is let into has not started — they are watching a countdown on a
+ * the viewer is let into has not started - they are watching a countdown on a
  * stationary grid.
  */
 function earlyFeedTest(): void {
@@ -1309,9 +1310,9 @@ function metricsTest(): void {
     row('a', '2026-09-01'), row('a', '2026-09-02'), row('a', '2026-10-05'), row('a', '2026-09-01', 'enter'),
     // b: never back.
     row('b', '2026-09-01'),
-    // c: back after a week, on a later day only — and exactly 30 days old today.
+    // c: back after a week, on a later day only - and exactly 30 days old today.
     row('c', '2026-09-10'), row('c', '2026-09-20'), row('c', '2026-09-10', 'train'),
-    // d: arrived yesterday — too new to count as lost on day 7.
+    // d: arrived yesterday - too new to count as lost on day 7.
     row('d', '2026-10-09'),
   ];
   const s = summarize(rows, '2026-10-10');
@@ -1379,7 +1380,7 @@ function recapTest(): void {
   check('final place and the points it earned', mine.position === 3 && mine.points === POINTS[2]);
   check('two places lost from pole', mine.startPos === 1 && mine.gained === -2, String(mine.gained));
   check('its own quickest lap, marked as the fastest of the day', mine.bestLapMs === 41_200 && mine.fastestOfDay);
-  // After round 1: a 25, b0 18. After round 2: b0 43, a 40 — a drops to second.
+  // After round 1: a 25, b0 18. After round 2: b0 43, a 40 - a drops to second.
   check('the table move is worked out from before and after the round', mine.standingBefore === 1 && mine.standing === 2,
     `${mine.standingBefore} → ${mine.standing}`);
   check('a team with no car in the race gets no card', carRecaps(r2, [r1, r2], results, 'nobody').length === 0);
@@ -1416,8 +1417,8 @@ function targetTest(): void {
 // ---------------------------------------------------------------- sliders
 function sliderTest(): void {
   console.log(CHAPTER + 'Sliders and styles');
-  // Right always means "more of this": a bigger bonus, a harsher penalty, or —
-  // for contact, the one channel that crosses zero — more willingness to touch.
+  // Right always means "more of this": a bigger bonus, a harsher penalty, or -
+  // for contact, the one channel that crosses zero - more willingness to touch.
   const backwards = RACING_SPEC.rewardChannels.filter((c) => {
     const penalty = c.levels.every((v) => v <= 0) && c.key !== 'carHit';
     const strength = c.levels.map((v) => (penalty ? -v : v));
@@ -1487,7 +1488,7 @@ function houseTest(): void {
       sim.runToEnd();
       const lap = sim.env.telemetry(0).bestLapMs;
       ok = shape && lap !== null;
-      detail = `${shape ? '' : 'arch mismatch '}lap ${lap === null ? '—' : (lap / 1000).toFixed(2)}`;
+      detail = `${shape ? '' : 'arch mismatch '}lap ${lap === null ? '-' : (lap / 1000).toFixed(2)}`;
     } catch (e) {
       detail = String(e);
     }
@@ -1587,6 +1588,22 @@ function diagnoseTest(): void {
     result.places.map((p) => `${p.position}.${p.entryId}:${(advice.get(p.entryId) ?? []).map((a) => a.kind).join('+') || '-'}`).join(' '));
 }
 
+// ---------------------------------------------------------------- house style
+/** The em dash is not used in this project, anywhere (see CLAUDE.md). */
+function dashTest(): void {
+  console.log(CHAPTER + 'House style');
+  const banned = String.fromCharCode(0x2014);
+  const files = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean);
+  const hits = files.filter((f) => {
+    try {
+      return readFileSync(f, 'utf8').includes(banned);
+    } catch {
+      return false;
+    }
+  });
+  check('no em dash in any tracked file', hits.length === 0, hits.slice(0, 5).join(', '));
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1614,5 +1631,6 @@ sliderTest();
 houseTest();
 seasonTest();
 diagnoseTest();
+dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

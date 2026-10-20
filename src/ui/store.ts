@@ -9,8 +9,8 @@ import { isMobileClass } from './device';
 import { getCompetitor, pushCompetitor, setCompetitor as persistCompetitor } from './identity';
 
 /**
- * The app has two halves. The championship half — standings, race days, the
- * broadcast — is what most people open it for; the garage half is where models
+ * The app has two halves. The championship half - standings, race days, the
+ * broadcast - is what most people open it for; the garage half is where models
  * are made. Playing against a model yourself is a third, deliberately smaller
  * corner.
  */
@@ -34,7 +34,7 @@ export interface TrainSlot {
   modelId: string | null;
   name: string;
   algorithm: AlgorithmId;
-  /** This model's own reward table — its personality. */
+  /** This model's own reward table - its personality. */
   rewards: RewardConfig;
   /** Wipe the weights and start over, keeping the name and settings. */
   restart: boolean;
@@ -43,12 +43,12 @@ export interface TrainSlot {
 /**
  * What the training-setup screen is holding before a run starts.
  *
- * The environment is shared — one track, one grid — and every model in `slots`
+ * The environment is shared - one track, one grid - and every model in `slots`
  * drives part of it. Training two models together is how you find out whether a
  * model is actually fast or only fast when the road is empty.
  */
 export interface TrainDraft {
-  /** Competitor name — the team every model here races for. */
+  /** Competitor name - the team every model here races for. */
   owner: string;
   config: Record<string, unknown>;
   slots: TrainSlot[];
@@ -80,7 +80,7 @@ interface AppState {
    */
   competitor: string;
   /**
-   * The team name turned out to belong to another account — a name chosen
+   * The team name turned out to belong to another account - a name chosen
    * before names were unique. The championship screen asks for a new one.
    */
   nameTaken: boolean;
@@ -90,7 +90,7 @@ interface AppState {
   go(screen: Screen): void;
   openRace(raceId: string, screen: 'broadcast' | 'report'): void;
   setCompetitor(name: string): void;
-  /** The same, for a name that came *from* the account — so it is not sent back. */
+  /** The same, for a name that came *from* the account - so it is not sent back. */
   adoptCompetitor(name: string): void;
   setNameTaken(taken: boolean): void;
   openInfo(tab: InfoTab): void;
@@ -111,7 +111,7 @@ interface AppState {
  * Phone-class devices get lighter defaults.
  *
  * The genetic algorithm needs no gradients at all, which is exactly the operation
- * a mobile CPU is worst at — it runs roughly 25x more environment steps per second
+ * a mobile CPU is worst at - it runs roughly 25x more environment steps per second
  * than DQN on the same hardware, so it is the sane default where most of the
  * training will happen. A smaller network cuts the per-step cost further.
  * Nothing here is locked: the user can still pick DQN and a larger net.

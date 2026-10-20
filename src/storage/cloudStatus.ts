@@ -19,8 +19,8 @@ const listeners = new Set<() => void>();
  * Set when the app is asked to carry on without the cloud.
  *
  * The one thing that can reach this state is a project whose authentication is
- * broken — a provider switched off, an unauthorised domain, no network on a
- * first visit — where nobody can sign in and there is nothing to sign in to.
+ * broken - a provider switched off, an unauthorised domain, no network on a
+ * first visit - where nobody can sign in and there is nothing to sign in to.
  * From here on the stores behave exactly as they do with no Firebase keys at
  * all, which is a mode the whole app already supports, so the badge says
  * "local" rather than reporting an error over and over.
@@ -78,7 +78,7 @@ function explain(err: unknown): string {
     return 'שיטת ההתחברות הזאת כבויה בפרויקט. Firebase Console ← Authentication ← Sign-in method.';
   }
   if (/no-user/i.test(code)) {
-    return 'אין חשבון מחובר — המודלים נשמרים בדפדפן הזה בלבד.';
+    return 'אין חשבון מחובר - המודלים נשמרים בדפדפן הזה בלבד.';
   }
   if (/unauthorized-domain/i.test(code)) {
     return 'הדומיין הזה לא מורשה. Firebase Console ← Authentication ← Settings ← Authorized domains.';

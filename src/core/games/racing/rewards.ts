@@ -20,7 +20,7 @@ export const ACTION_LABELS = [
  * environment actually adds up; the user only ever sees the notch and the two
  * words at its ends.
  *
- * Every slider asks one question — how much does this matter to you — and 10 is
+ * Every slider asks one question - how much does this matter to you - and 10 is
  * always "a lot". For a bonus that means a bigger bonus; for a penalty it means
  * a *harsher* penalty, so those channels list their weights from 0 down. Moving
  * any slider right always means "more of this", which is what anybody expects
@@ -28,14 +28,14 @@ export const ACTION_LABELS = [
  * `levelOf` maps a weight back to its notch, so the order is display only.)
  *
  * `defaultLevel` is chosen so a fresh model starts on exactly the weights that
- * were the defaults before the sliders existed — the balance that is known to
- * train a decent driver — with one exception, the wall, explained there.
+ * were the defaults before the sliders existed - the balance that is known to
+ * train a decent driver - with one exception, the wall, explained there.
  */
 export const RACING_REWARDS: RewardChannelDef[] = [
   {
     key: 'checkpoint',
     label: 'התקדמות במסלול',
-    hint: 'על כל שער שנחצה בכיוון הנכון — זה מה שמלמד אותו לאן לנסוע',
+    hint: 'על כל שער שנחצה בכיוון הנכון - זה מה שמלמד אותו לאן לנסוע',
     levels: [0.25, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8],
     defaultLevel: 5,
     lowLabel: 'מטייל',
@@ -85,7 +85,7 @@ export const RACING_REWARDS: RewardChannelDef[] = [
     // car pays, and the model learns to lean on people instead of avoiding them.
     key: 'carHit',
     label: 'מגע עם רכב יריב',
-    hint: 'מקצה 8 ומעלה המגע מזכה בנקודות — המודל ילמד לדחוף במקום להתחמק',
+    hint: 'מקצה 8 ומעלה המגע מזכה בנקודות - המודל ילמד לדחוף במקום להתחמק',
     levels: [-4, -2.5, -1.5, -1, -0.5, -0.2, 0, 0.3, 0.8, 1.5],
     defaultLevel: 5,
     lowLabel: "ג'נטלמן",
@@ -112,7 +112,7 @@ export const RACING_REWARDS: RewardChannelDef[] = [
   {
     key: 'timeStep',
     label: 'לחץ זמן',
-    hint: 'קנס קטן בכל צעד, ללא תנאי — דוחף לסיים מהר',
+    hint: 'קנס קטן בכל צעד, ללא תנאי - דוחף לסיים מהר',
     levels: [0, -0.001, -0.002, -0.003, -0.005, -0.01, -0.015, -0.02, -0.03, -0.05],
     defaultLevel: 5,
     lowLabel: 'יש זמן',
@@ -132,8 +132,8 @@ export const RACING_REWARDS: RewardChannelDef[] = [
 /**
  * Three styles over the same table, for the first model of someone who does not
  * want to think about ten sliders yet. Balanced is the defaults themselves; the
- * other two move only the channels that decide character — speed, the wall,
- * contact, overtaking and the clock — and leave the ones that teach a car to
+ * other two move only the channels that decide character - speed, the wall,
+ * contact, overtaking and the clock - and leave the ones that teach a car to
  * follow the road alone, because a style should change how it drives, not
  * whether it learns to drive at all.
  */
@@ -147,7 +147,7 @@ export const RACING_PRESETS: RewardPreset[] = [
   {
     id: 'balanced',
     label: 'מאוזן',
-    hint: 'ברירת המחדל — האיזון שידוע שמלמד נהג סביר',
+    hint: 'ברירת המחדל - האיזון שידוע שמלמד נהג סביר',
     levels: {},
   },
   {

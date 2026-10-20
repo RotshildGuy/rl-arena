@@ -4,8 +4,8 @@ import { TRACK_DEFS } from '../games/racing/tracks';
  * Seasons.
  *
  * The first season ran without an end, and under Formula 1 scoring anybody who
- * joined two weeks in sat at the bottom for good. From round 42 — the same
- * Sunday the car physics changes and the house team arrives — a season is
+ * joined two weeks in sat at the bottom for good. From round 42 - the same
+ * Sunday the car physics changes and the house team arrives - a season is
  * eight rounds: twice round the four circuits, about a week and a half. Each
  * one has its champions, then the table starts again from zero, and the cars
  * on the grid simply carry on into the next one.
@@ -37,7 +37,7 @@ export function seasonRange(n: number): { first: number; last: number } {
   return { first, last: first + SEASON_ROUNDS - 1 };
 }
 
-/** The season a race belongs to, from its id — which is where it is stored. */
+/** The season a race belongs to, from its id - which is where it is stored. */
 export function seasonOfRaceId(raceId: string): string {
   return raceId.split('-')[0];
 }
@@ -51,7 +51,7 @@ export function displaySeason(now = Date.now()): number {
   return seasonNumber(Math.max(1, airingRound(now)));
 }
 
-/** "סבב 3 מתוך 8" — where a round sits in its season. */
+/** "סבב 3 מתוך 8" - where a round sits in its season. */
 export function roundInSeason(round: number): { index: number; of: number } {
   const n = seasonNumber(round);
   const { first, last } = seasonRange(n);
@@ -65,7 +65,7 @@ export function roundInSeason(round: number): { index: number; of: number } {
  *
  * The offset comes from Israel's rule written out below, not from the
  * browser's time-zone database. Every client must agree on when a round
- * starts — the card, the lock and the broadcast all hang off it — and a
+ * starts - the card, the lock and the broadcast all hang off it - and a
  * browser with stale zone data would otherwise put the race an hour away from
  * everybody else's.
  */
@@ -83,7 +83,7 @@ function lastSunday(year: number, month: number): number {
  * Israel's UTC offset at 20:00 on a given date, in hours.
  *
  * The law since 2013: summer time starts on the Friday before the last Sunday
- * of March and ends on the last Sunday of October, both at 02:00 — so by the
+ * of March and ends on the last Sunday of October, both at 02:00 - so by the
  * evening of either day the new offset already holds.
  */
 export function israelOffsetAt20(year: number, month: number, day: number): number {
@@ -119,7 +119,7 @@ export function lockLeadText(): string {
  * gone. So the feed opens on the grid a minute earlier and counts down to the
  * lights, and being there in time stops being a matter of reflexes.
  *
- * The cost is that the round's card — its qualifying and its grid — has to
+ * The cost is that the round's card - its qualifying and its grid - has to
  * exist before the round starts. That is safe only because the entry list has
  * already closed by then: everybody builds the card from the same frozen field
  * and gets the same card. Keep this shorter than `LOCK_BEFORE_MS`.
@@ -172,7 +172,7 @@ export function raceIdForRound(round: number): string {
 }
 
 /**
- * The first round raced on version 2 of the car physics — the one where tyres
+ * The first round raced on version 2 of the car physics - the one where tyres
  * can be overdriven and walls cost time.
  *
  * Training switches the moment the code ships; the championship waits a few

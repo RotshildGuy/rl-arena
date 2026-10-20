@@ -70,7 +70,7 @@ class SyncedStore implements ModelStore {
    * Push models the cloud has never seen.
    *
    * Without this, everything trained before cloud sync was switched on stays
-   * local forever — `save` only ever writes the model being saved, so an old
+   * local forever - `save` only ever writes the model being saved, so an old
    * model would need to be re-trained to reach another device. Runs detached so
    * opening the library stays instant.
    */
@@ -101,7 +101,7 @@ class SyncedStore implements ModelStore {
   }
 
   /**
-   * Local first, and a cloud failure never fails the save — the model is already
+   * Local first, and a cloud failure never fails the save - the model is already
    * safely on disk, and reporting "save failed" for a model that is saved is
    * worse than silently falling back to offline.
    */

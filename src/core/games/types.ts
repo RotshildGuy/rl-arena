@@ -28,7 +28,7 @@ export type RewardConfig = Record<string, number>;
 export interface EnvSpec {
   id: string;
   name: string;
-  /** Fixed for all maps and agent counts — a saved model depends on it. */
+  /** Fixed for all maps and agent counts - a saved model depends on it. */
   obsSize: number;
   /** Bumped whenever the observation layout changes, invalidating old models. */
   obsVersion: number;
@@ -59,7 +59,7 @@ export function presetRewards(spec: EnvSpec, preset: RewardPreset): RewardConfig
   return out;
 }
 
-/** The preset a table is exactly on, if any — so the editor can light it up. */
+/** The preset a table is exactly on, if any - so the editor can light it up. */
 export function matchingPreset(spec: EnvSpec, value: RewardConfig): RewardPreset | null {
   for (const p of spec.presets ?? []) {
     const table = presetRewards(spec, p);
@@ -81,7 +81,7 @@ export interface StepResult {
 export interface Env<Snap = unknown> {
   readonly spec: EnvSpec;
   readonly nAgents: number;
-  /** Live reward weights — swapped mid-training without touching the model. */
+  /** Live reward weights - swapped mid-training without touching the model. */
   rewards: RewardConfig;
   /**
    * Give one agent its own reward table, overriding `rewards` for that seat.
@@ -97,7 +97,7 @@ export interface Env<Snap = unknown> {
   step(actions: Int32Array): StepResult;
   /** True once this agent has finished or been eliminated for the episode. */
   isAgentDone(agent: number): boolean;
-  /** Game-native progress measure for the dashboard — laps, goals, distance. */
+  /** Game-native progress measure for the dashboard - laps, goals, distance. */
   score(agent: number): number;
   /** Structured-clone-safe view for rendering on the main thread. */
   snapshot(): Snap;

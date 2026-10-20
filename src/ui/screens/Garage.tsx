@@ -44,7 +44,7 @@ export function Garage() {
   const [renameText, setRenameText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [entering, setEntering] = useState<string | null>(null);
-  // The model waiting for a place on a full grid — the swap dialog is open for it.
+  // The model waiting for a place on a full grid - the swap dialog is open for it.
   const [swapFor, setSwapFor] = useState<ModelMeta | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown once per device on the first visit here, and reopenable from the header.
@@ -54,7 +54,7 @@ export function Garage() {
   const coach = useCoachStep();
 
   /**
-   * Every change to the library — a save, an import, a delete, a duplicate —
+   * Every change to the library - a save, an import, a delete, a duplicate -
    * comes back through here, which makes it the one place that has to tell the
    * first-run guide that the answer to "do you have a model yet" has moved.
    */
@@ -99,7 +99,7 @@ export function Garage() {
     [myEntries],
   );
 
-  /** Cars of mine already on the grid — the limit is per team, not per model. */
+  /** Cars of mine already on the grid - the limit is per team, not per model. */
   const myCars = useMemo(() => [...myEntries.values()].filter((e) => !e.retired), [myEntries]);
   const gridFull = myCars.length >= MAX_ENTRIES_PER_TEAM;
 
@@ -128,7 +128,7 @@ export function Garage() {
     if (!name || name === m.name) return;
 
     // A registered model's name is public, so the rename has to satisfy the
-    // public rules — otherwise the garage and the grid would drift apart again.
+    // public rules - otherwise the garage and the grid would drift apart again.
     const entry = myEntries.get(m.id);
     try {
       if (entry) await renameEntry(entry, name);
@@ -171,7 +171,7 @@ export function Garage() {
     try {
       const wasEntered = carOf(m.id) !== null;
       await enterChampionship(m);
-      showToast(wasEntered ? 'המשקולות עודכנו — הרכב ישתתף עם הגרסה החדשה' : `${m.name} נרשם לאליפות`);
+      showToast(wasEntered ? 'המשקולות עודכנו - הרכב ישתתף עם הגרסה החדשה' : `${m.name} נרשם לאליפות`);
       champ.reload();
     } catch (e) {
       showToast(e instanceof EntryError ? e.message : 'הרישום נכשל');
@@ -207,7 +207,7 @@ export function Garage() {
       // leave the team one down and none the wiser. The slot is free: say what
       // happened and the second half can simply be tried again.
       const why = e instanceof EntryError ? e.message : 'הרישום נכשל';
-      showToast(`${out.driver} הוסר, אבל ${m.name} לא נרשם — ${why}`);
+      showToast(`${out.driver} הוסר, אבל ${m.name} לא נרשם - ${why}`);
     } finally {
       setEntering(null);
       champ.reload();
@@ -243,7 +243,7 @@ export function Garage() {
   // Exactly the field the next round will be built from, so a car that is over
   // the team limit is told here rather than discovering it on race day.
   const onGrid = new Set(champ.state ? eligibleEntries(champ.state.entries, nextRound).map((e) => e.id) : []);
-  // One bubble, on the first car that has not been registered — the same note
+  // One bubble, on the first car that has not been registered - the same note
   // repeated down a list of models is noise.
   const firstUnregistered = models?.find((m) => !carOf(m.id))?.id ?? null;
 
@@ -263,7 +263,7 @@ export function Garage() {
           <button onClick={() => fileInput.current?.click()}>ייבוא מקובץ</button>
           <CoachAnchor
             on={coach === 'create'}
-            text="כאן נולד מודל חדש. בוחרים מסלול, מכוונים עשרה מחווני אופי נהיגה — או משאירים כמו שהם — והרכב יוצא לנסות בעצמו. הוא מתחיל בלי לדעת כלום ולומד מהניסיונות."
+            text="כאן נולד מודל חדש. בוחרים מסלול, מכוונים עשרה מחווני אופי נהיגה - או משאירים כמו שהם - והרכב יוצא לנסות בעצמו. הוא מתחיל בלי לדעת כלום ולומד מהניסיונות."
           >
             <button className="primary" onClick={startNew}>
               אמן מודל חדש
@@ -317,7 +317,7 @@ export function Garage() {
                 </span>
                 <span className="muted">
                   {gridFull
-                    ? 'הגריד מלא — רישום מודל נוסף יבקש לבחור איזה רכב יורד במקומו.'
+                    ? 'הגריד מלא - רישום מודל נוסף יבקש לבחור איזה רכב יורד במקומו.'
                     : 'מודל שנרשם לאליפות מתחרה בכל גרנד פרי יומי תחת השם הזה.'}
                 </span>
               </>
@@ -399,7 +399,7 @@ export function Garage() {
                     </span>
                     {/* The circuit that matters is the one the next Grand Prix
                         runs on, not whichever the model happened to train on
-                        last — so that is the time on the card, and a model that
+                        last - so that is the time on the card, and a model that
                         has never been there is told so plainly. */}
                     <span title={`השיא של המודל במסלול של ${grandPrixName(nextRound)}`}>
                       הקפה מהירה ב{gpTrack?.name ?? gpTrackId}{' '}
@@ -415,7 +415,7 @@ export function Garage() {
                       </span>
                     )}
                     <span>
-                      אימון אחרון ב <b>{trackName(m.config) || '—'}</b>
+                      אימון אחרון ב <b>{trackName(m.config) || '-'}</b>
                     </span>
                     <span>
                       זמן אימון <b>{durationText(m.training.trainedMs)}</b>
@@ -433,7 +433,7 @@ export function Garage() {
                         disabled={entering === m.id || !team}
                         title={
                           gridFull && !entry
-                            ? `לכל קבוצה ${MAX_ENTRIES_PER_TEAM} רכבים על המסלול — תתבקשו לבחור מי יורד`
+                            ? `לכל קבוצה ${MAX_ENTRIES_PER_TEAM} רכבים על המסלול - תתבקשו לבחור מי יורד`
                             : undefined
                         }
                         onClick={(ev) => {
@@ -538,7 +538,7 @@ export function Garage() {
                     <h3 style={{ margin: '14px 0 6px' }}>המחוונים שעיצבו אותו</h3>
                     <div className="small">
                       {game.spec.rewardChannels.map((c) => {
-                        // The same 1-10 notch the slider showed, not the raw weight —
+                        // The same 1-10 notch the slider showed, not the raw weight -
                         // otherwise the garage speaks a different language than setup.
                         const level = levelOf(c, m.rewards[c.key] ?? channelDefault(c));
                         const changed = level !== c.defaultLevel;
@@ -577,7 +577,7 @@ function trackName(config: Record<string, unknown>): string {
 /**
  * What a model has done on one circuit, across every distance it ran there.
  *
- * Lap times compare across distances — a lap is a lap — so the quickest lap of
+ * Lap times compare across distances - a lap is a lap - so the quickest lap of
  * any session on that circuit is the honest headline. A race time does not: six
  * laps and ten are different races, so only the Grand Prix distance counts.
  */
@@ -599,7 +599,7 @@ function gpRecord(model: ModelMeta, trackId: string): { lapMs: number | null; ra
  *
  * Shown instead of a disabled button when a team is already fielding its two
  * cars. It lists the cars that are out there with the one thing that decides
- * between them — how quick each is on the circuit the next Grand Prix uses —
+ * between them - how quick each is on the circuit the next Grand Prix uses -
  * and picking one is the whole swap: that car comes off, this model goes on.
  */
 function SwapDialog({
@@ -622,7 +622,7 @@ function SwapDialog({
   return (
     <Modal eyebrow="הגריד מלא" title={`מי יורד כדי ש"${model.name}" יעלה?`} onClose={onClose}>
       <p className="small muted">
-        לכל קבוצה {MAX_ENTRIES_PER_TEAM} רכבים על המסלול. הרכב שתבחרו יוסר מהאליפות — הנקודות שצבר
+        לכל קבוצה {MAX_ENTRIES_PER_TEAM} רכבים על המסלול. הרכב שתבחרו יוסר מהאליפות - הנקודות שצבר
         בעונה נשארות ברשומות, אבל הוא לא ייקח חלק בסבבים הבאים. אפשר לרשום אותו שוב בכל רגע.
       </p>
       {cars.map((e) => {
@@ -635,7 +635,7 @@ function SwapDialog({
             <span className="small muted">
               הקפה מהירה ב{trackLabel}{' '}
               <span className="mono" style={{ color: gp.lapMs != null ? 'var(--accent-2)' : 'var(--muted)' }}>
-                {gp.lapMs != null ? lapTime(gp.lapMs) : '—'}
+                {gp.lapMs != null ? lapTime(gp.lapMs) : '-'}
               </span>
             </span>
             <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} אפ׳</span>

@@ -24,7 +24,7 @@ import { isHouse, isHouseId, withHouse } from './house';
  * first. Every client computes the same field from the same entry list, so this
  * must stay a pure function of the data.
  *
- * A team is an account — together with any other account racing under the
+ * A team is an account - together with any other account racing under the
  * same team name, since a name belongs to one account (`names/{key}`) and the
  * other accounts are that same person's identities from before signing in.
  */
@@ -55,7 +55,7 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
     )
     .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
 
-  // Seniority decides which two: the cars that have been on the grid longest —
+  // Seniority decides which two: the cars that have been on the grid longest -
   // within the account the team races from now. One team can be spread over
   // several accounts (see `teamOf`), and the older ones are exactly the ones
   // nobody can reach any more: their cars could not be taken off, and by
@@ -90,7 +90,7 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
  * An account, and every other account racing under the same team name. A name
  * belongs to one account now, but before there was a sign-in screen every
  * browser minted an anonymous identity of its own, and signing in elsewhere
- * left its cars behind under a uid nobody can use again — still wearing the
+ * left its cars behind under a uid nobody can use again - still wearing the
  * team's name, and still entitled, per account, to two seats of their own.
  */
 function teamOf(entries: ArenaEntry[]): (e: ArenaEntry) => string {

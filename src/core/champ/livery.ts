@@ -3,7 +3,7 @@
  *
  * A championship is only readable if you can find your car at a glance, so a
  * team's colour is derived from its name and never changes: the same person gets
- * the same colour on every screen, in every race, on every device — no central
+ * the same colour on every screen, in every race, on every device - no central
  * registry needed.
  */
 export const TEAM_COLORS = [

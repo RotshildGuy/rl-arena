@@ -40,9 +40,9 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   // than at the keyboard: a model can be renamed at any time, and this is the
   // one moment the name becomes everybody else's problem.
   const teamIssue = teamNameProblem(team);
-  if (teamIssue) throw new EntryError(`שם המתחרה — ${teamIssue}`);
+  if (teamIssue) throw new EntryError(`שם המתחרה - ${teamIssue}`);
   const driverIssue = nameProblem(driver);
-  if (driverIssue) throw new EntryError(`שם המודל — ${driverIssue}`);
+  if (driverIssue) throw new EntryError(`שם המודל - ${driverIssue}`);
 
   // The name goes public here, so this is where it has to be ours. It is also
   // how a name chosen before names were unique gets claimed.
@@ -70,7 +70,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
    * Normally that is the entry made from this very model. The second lookup is
    * what stops a driver being split in two: a model that was exported and
    * imported again, or deleted and re-trained, arrives here with a new model id
-   * even though it is the same driver of the same team — and a fresh entry for
+   * even though it is the same driver of the same team - and a fresh entry for
    * it would mean a fresh set of points, with the season's results scattered
    * between two rows that are obviously one driver. The team name is not part
    * of it: every car of this account is this team, whatever it was called.
@@ -121,7 +121,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
  * Two things can drift, and they drift for different reasons: weights, because
  * training carries on after registration and is deliberately not pushed on its
  * own; and the name, because a rename before this was wired up never reached the
- * entry. Both are repaired by the same button, and both need saying out loud —
+ * entry. Both are repaired by the same button, and both need saying out loud -
  * a mismatch nobody is told about is one nobody fixes.
  */
 export type EntryDrift = 'none' | 'name' | 'weights' | 'both';
@@ -153,8 +153,8 @@ export async function myEntryFor(modelId: string): Promise<ArenaEntry | null> {
  *
  * The driver name is a copy of the model's name taken at registration, so
  * renaming in the garage used to leave the championship showing the old one
- * with no way to correct it. The entry id — and therefore every point it has
- * scored — is untouched; only the name and the three-letter code change.
+ * with no way to correct it. The entry id - and therefore every point it has
+ * scored - is untouched; only the name and the three-letter code change.
  *
  * Past results keep the old name, because a race card is a frozen snapshot of
  * who lined up. That is the intended behaviour: the results of a race are what
@@ -163,7 +163,7 @@ export async function myEntryFor(modelId: string): Promise<ArenaEntry | null> {
 export async function renameEntry(entry: ArenaEntry, driver: string): Promise<void> {
   const name = normalizeName(driver);
   const issue = nameProblem(name);
-  if (issue) throw new EntryError(`שם המודל — ${issue}`);
+  if (issue) throw new EntryError(`שם המודל - ${issue}`);
   const arena = await getArena();
   await arena.putEntry({ ...entry, driver: name, tag: driverTag(name), updatedAt: Date.now() }, null);
   invalidateChampionship();
@@ -173,13 +173,13 @@ export async function renameEntry(entry: ArenaEntry, driver: string): Promise<vo
  * Take a car off the grid.
  *
  * Used when its model is deleted, when a team swaps one of its cars for
- * another, and directly from the championship screen — which is the only way to
+ * another, and directly from the championship screen - which is the only way to
  * reach an entry whose model is already gone.
  *
  * Removal is the only way off the grid: a car is either registered or it is
  * not. There used to be a third, withdrawn state, which left a model wearing a
  * "withdrawn" badge for the rest of the season with nothing to do about it.
- * Past results are unaffected either way — a race card is a frozen snapshot of
+ * Past results are unaffected either way - a race card is a frozen snapshot of
  * who lined up, so a season never rewrites itself when someone leaves.
  */
 export async function removeEntry(entry: ArenaEntry): Promise<void> {

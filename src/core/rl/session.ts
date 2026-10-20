@@ -12,7 +12,7 @@ export interface SlotStats {
 export interface SessionInit {
   gameId: string;
   config: Record<string, unknown>;
-  /** One reward table per learner — each model can be shaped differently. */
+  /** One reward table per learner - each model can be shaped differently. */
   rewards: RewardConfig[];
   seed: number;
   /** Builds the learner for a slot once its seats are known. */

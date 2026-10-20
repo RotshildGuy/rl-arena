@@ -1,14 +1,14 @@
 /**
- * Train one of the house drivers — the cars that fill a thin grid (see
- * `core/champ/house.ts`) — and write its weights to `public/house/<id>.json`.
+ * Train one of the house drivers - the cars that fill a thin grid (see
+ * `core/champ/house.ts`) - and write its weights to `public/house/<id>.json`.
  *
  *   npx tsx scripts/trainHouse.ts <id> <preset> <generations> [seed]
  *   npx tsx scripts/trainHouse.ts house-3 aggressive 240
  *
  * Neuroevolution rather than DQN: headless it runs twenty-odd times faster, and
  * a house driver only needs to be *a* level, not the best possible one. The
- * calendar rotates through every circuit, so training does too — a block of
- * generations per track, carrying the best genome from one to the next — and
+ * calendar rotates through every circuit, so training does too - a block of
+ * generations per track, carrying the best genome from one to the next - and
  * the checkpoint kept is the one that drives best over all of them, on the
  * physics the championship races on.
  *
@@ -120,7 +120,7 @@ while (gen < generations) {
   const finished = ev.reduce((s, e) => s + e.trafficFinishes, 0);
   console.log(
     `${id} gen ${String(gen).padStart(4)} (${track.id.padEnd(9)})  traffic finishes ${finished}/${ev.length * TRAFFIC}  ` +
-      ev.map((e) => `${e.trackId}:${e.qualiMs ? (e.qualiMs / 1000).toFixed(1) : '—'}`).join(' ') +
+      ev.map((e) => `${e.trackId}:${e.qualiMs ? (e.qualiMs / 1000).toFixed(1) : '-'}`).join(' ') +
       `  ${((Date.now() - t0) / 1000).toFixed(0)}s`,
   );
 }
@@ -136,4 +136,4 @@ const out = {
   weightsB64: encodeWeights(best!.weights),
 };
 writeFileSync(`public/house/${id}.json`, JSON.stringify(out));
-console.log(`\nwrote public/house/${id}.json — best at gen ${best!.gen}`, JSON.stringify(best!.ev));
+console.log(`\nwrote public/house/${id}.json - best at gen ${best!.gen}`, JSON.stringify(best!.ev));

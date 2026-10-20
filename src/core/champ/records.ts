@@ -6,7 +6,7 @@ import type { RaceCard, RaceResult } from './types';
  * All-time records, per circuit.
  *
  * The calendar rotates through the four tracks, so each one comes round every
- * few days — which is what turns a lap record into something to aim at rather
+ * few days - which is what turns a lap record into something to aim at rather
  * than a trivium. Everything here is derived from race cards and results that
  * are already loaded; no extra reads, and no separate record to keep in step.
  */
@@ -26,7 +26,7 @@ export interface TrackRecord {
   races: number;
   /** Quickest lap ever set in a race on this circuit. */
   lap: RecordHolder | null;
-  /** Quickest qualifying lap — the pole record. */
+  /** Quickest qualifying lap - the pole record. */
   quali: RecordHolder | null;
   /** Quickest full-distance race. Heats are shorter and do not qualify. */
   distance: RecordHolder | null;
@@ -57,8 +57,8 @@ export function trackRecords(cards: RaceCard[], results: Map<string, RaceResult>
       const e = entries.get(entryId);
       return {
         entryId,
-        driver: e?.driver ?? '—',
-        team: e?.team ?? '—',
+        driver: e?.driver ?? '-',
+        team: e?.team ?? '-',
         ms,
         raceId: card.id,
         round: card.round,
@@ -103,7 +103,7 @@ export function nextRoundOnTrack(trackId: string, afterRound: number): number | 
  *
  * A lap time with nothing next to it does not say when a model is good enough
  * to enter. The nearest real yardstick is the pole of the last Grand Prix held
- * on the same circuit — a single flying lap on an empty track, which is exactly
+ * on the same circuit - a single flying lap on an empty track, which is exactly
  * what the best lap in training is. Before that circuit has had a Grand Prix
  * with a pole, the all-time lap record from the records tab stands in.
  *
@@ -139,7 +139,7 @@ export function trainingTarget(
     return {
       kind: 'pole',
       ms: q.bestLapMs,
-      driver: e?.driver ?? '—',
+      driver: e?.driver ?? '-',
       round: c.round,
       raceName: c.name,
       samePhysics: physicsOf(c) === physics,

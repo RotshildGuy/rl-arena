@@ -9,8 +9,8 @@ const KEY = 'rl-arena.competitor';
  *
  * The competitor name is the *team*: every model you enter races under it, and
  * their points add up into the constructors' table. localStorage is the copy
- * every screen reads while it renders — a header that waits on the network to
- * know your name is a header that pops in — and the account keeps the one that
+ * every screen reads while it renders - a header that waits on the network to
+ * know your name is a header that pops in - and the account keeps the one that
  * travels (`storage/profile.ts`).
  */
 export function getCompetitor(): string {

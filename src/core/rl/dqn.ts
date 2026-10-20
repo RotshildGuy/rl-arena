@@ -48,7 +48,7 @@ export class DqnAgent {
   readonly target: Net;
   readonly buffer: ReplayBuffer;
 
-  /** Environment steps seen — drives the epsilon schedule. */
+  /** Environment steps seen - drives the epsilon schedule. */
   envSteps = 0;
   /** Gradient steps taken. */
   gradSteps = 0;

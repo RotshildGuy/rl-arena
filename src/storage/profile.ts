@@ -5,7 +5,7 @@ import { cloudDisabled } from './cloudStatus';
  * The one thing about a person that is not a model and not a car: their name.
  *
  * It used to live only in this browser's localStorage, which was right when an
- * identity *was* a browser — anonymous auth hands out an id and nothing else.
+ * identity *was* a browser - anonymous auth hands out an id and nothing else.
  * Now that an account can be signed in to from anywhere, a team name that stays
  * behind is a trap: the second device asks for it again, a slightly different
  * spelling is a different constructor, and the points quietly split across two
@@ -17,9 +17,9 @@ import { cloudDisabled } from './cloudStatus';
  *
  *   users/{uid}/profile/main
  *
- * localStorage stays as the synchronous copy — every screen reads the name
+ * localStorage stays as the synchronous copy - every screen reads the name
  * while it renders, and waiting on the network for that would mean a header
- * that pops in — and it is the whole story for anyone who never signs in.
+ * that pops in - and it is the whole story for anyone who never signs in.
  */
 export interface Profile {
   competitor: string;

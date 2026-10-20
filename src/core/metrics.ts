@@ -4,8 +4,8 @@
  * An event carries no detail: no screen size, no referrer, no time of day, no
  * model name. It is the pseudonymous uid the account already has, one of a
  * handful of event names, and a UTC day. That is enough to answer the only
- * questions that matter right now — do people come back, and how many of the
- * people who visit get as far as putting a car on the grid — and too little to
+ * questions that matter right now - do people come back, and how many of the
+ * people who visit get as far as putting a car on the grid - and too little to
  * say anything else about anybody.
  *
  * Pure and deterministic so it can be checked in `npm run sanity`.
@@ -16,7 +16,7 @@ export type MetricEvent = (typeof METRIC_EVENTS)[number];
 export interface MetricRow {
   uid: string;
   event: MetricEvent;
-  /** `YYYY-MM-DD`, UTC — the same clock the race calendar runs on. */
+  /** `YYYY-MM-DD`, UTC - the same clock the race calendar runs on. */
   day: string;
 }
 
@@ -54,7 +54,7 @@ export interface MetricsSummary {
  * keep coming back" is the honest question.
  *
  * An account only joins a cohort once `today` is far enough past its first
- * visit — a person who arrived yesterday has not had a chance to come back a
+ * visit - a person who arrived yesterday has not had a chance to come back a
  * week later, and counting them as lost would make every week look worse.
  */
 export function summarize(rows: MetricRow[], today: string, horizons = [1, 7, 30]): MetricsSummary {

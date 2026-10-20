@@ -37,7 +37,7 @@ export class SegmentGrid {
     const nCells = this.cols * this.rows;
     const counts = new Int32Array(nCells);
 
-    // Pass 1: count segments per cell (AABB rasterisation — slightly over-inclusive,
+    // Pass 1: count segments per cell (AABB rasterisation - slightly over-inclusive,
     // which only costs a few extra intersection tests).
     for (let s = 0; s < this.nSegs; s++) {
       const o = s << 2;

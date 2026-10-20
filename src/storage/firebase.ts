@@ -1,5 +1,5 @@
 /**
- * Config detection only — deliberately free of any Firebase import.
+ * Config detection only - deliberately free of any Firebase import.
  *
  * The SDK is ~500 KB, and most runs never configure cloud sync, so it lives
  * behind the dynamic import in `firestore.ts` and never reaches the main bundle

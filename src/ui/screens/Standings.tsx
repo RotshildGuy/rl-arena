@@ -125,7 +125,7 @@ export function Standings() {
         <div className="empty">
           <h2 style={{ marginBottom: 6 }}>עונה {season} עוד לא התחילה</h2>
           <p style={{ margin: 0 }}>
-            הטבלה מתחילה מאפס בכל עונה, ותיבנה אחרי הגרנד פרי הראשון שלה — סבב {seasonRange(season).first}.
+            הטבלה מתחילה מאפס בכל עונה, ותיבנה אחרי הגרנד פרי הראשון שלה - סבב {seasonRange(season).first}.
           </p>
         </div>
       )}
@@ -159,12 +159,12 @@ export function Standings() {
                     <td className="mono num" style={{ fontWeight: 800, fontSize: 15 }}>
                       {d.points}
                     </td>
-                    <td className="mono num">{d.wins || '—'}</td>
-                    <td className="mono num">{d.podiums || '—'}</td>
-                    <td className="mono num">{d.poles || '—'}</td>
-                    <td className="mono num">{d.fastestLaps || '—'}</td>
+                    <td className="mono num">{d.wins || '-'}</td>
+                    <td className="mono num">{d.podiums || '-'}</td>
+                    <td className="mono num">{d.poles || '-'}</td>
+                    <td className="mono num">{d.fastestLaps || '-'}</td>
                     <td className="mono num muted">{d.starts}</td>
-                    <td className="mono num muted">{d.dnfs || '—'}</td>
+                    <td className="mono num muted">{d.dnfs || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -205,8 +205,8 @@ export function Standings() {
                     <td className="mono num" style={{ fontWeight: 800, fontSize: 15 }}>
                       {t.points}
                     </td>
-                    <td className="mono num">{t.wins || '—'}</td>
-                    <td className="mono num">{t.podiums || '—'}</td>
+                    <td className="mono num">{t.wins || '-'}</td>
+                    <td className="mono num">{t.podiums || '-'}</td>
                   </tr>
                 );
               })}
@@ -254,7 +254,7 @@ export function Standings() {
                         return (
                           <td key={c.id} className="mono num">
                             {!cell ? (
-                              <span className="dim">—</span>
+                              <span className="dim">-</span>
                             ) : (
                               <span
                                 className={posClass(cell.position, cell.status === 'dnf')}
@@ -298,8 +298,8 @@ export function Standings() {
           <span className="pill hot">הקפה מהירה +{FASTEST_LAP_BONUS}</span>
         </div>
         <div className="small muted" style={{ marginTop: 8 }}>
-          שיטת הניקוד המקובלת במרוצי מכוניות: נקודות לעשרת הראשונים, ונקודת בונוס להקפה המהירה ביותר —
-          אך ורק אם הנהג סיים בעשירייה. שוויון נקודות נשבר לפי מספר הנצחונות, ואם גם הוא שווה — לפי
+          שיטת הניקוד המקובלת במרוצי מכוניות: נקודות לעשרת הראשונים, ונקודת בונוס להקפה המהירה ביותר -
+          אך ורק אם הנהג סיים בעשירייה. שוויון נקודות נשבר לפי מספר הנצחונות, ואם גם הוא שווה - לפי
           מספר המקומות השניים, וכן הלאה. רכב שלא השלים לפחות מחצית מהמרחק של המנצח אינו מסווג
           ואינו צובר נקודות, גם אם דורג בעשירייה.
         </div>
@@ -311,7 +311,7 @@ export function Standings() {
 
 /**
  * The record book. With four circuits on a four-day rotation, every track comes
- * back within the week — which is what makes a lap record worth chasing rather
+ * back within the week - which is what makes a lap record worth chasing rather
  * than just worth reading.
  */
 function Records({
@@ -381,7 +381,7 @@ function RecordCell({
         className="mono"
         style={{ fontSize: 19, fontWeight: 800, color: purple ? 'var(--purple)' : 'var(--text)' }}
       >
-        {holder ? (full ? raceTime(holder.ms) : lapTime(holder.ms)) : '—'}
+        {holder ? (full ? raceTime(holder.ms) : lapTime(holder.ms)) : '-'}
       </div>
       {holder && (
         <div className="small">
@@ -437,7 +437,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                   </div>
                 </>
               ) : (
-                <span className="muted">—</span>
+                <span className="muted">-</span>
               )}
             </div>
             <div>
@@ -457,7 +457,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                   </div>
                 </>
               ) : (
-                <span className="muted">—</span>
+                <span className="muted">-</span>
               )}
             </div>
           </div>

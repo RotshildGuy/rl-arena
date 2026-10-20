@@ -7,7 +7,7 @@ interface Props {
   /** Options that cannot change once a run is under way. */
   disabledKeys?: string[];
   /**
-   * Per-option floors that come from elsewhere on the screen — the grid cannot
+   * Per-option floors that come from elsewhere on the screen - the grid cannot
    * be smaller than the number of models training on it.
    */
   minima?: Record<string, number>;

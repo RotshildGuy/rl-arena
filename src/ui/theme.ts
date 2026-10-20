@@ -1,7 +1,7 @@
 /**
  * Light or dark.
  *
- * By default the app follows the device, and keeps following it — a phone that
+ * By default the app follows the device, and keeps following it - a phone that
  * switches to dark at sunset takes the app with it. Somebody who picks one
  * explicitly gets that one on this browser from then on; picking "device"
  * again hands it back.

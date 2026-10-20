@@ -17,7 +17,7 @@ import type {
 
 /** Laps of a qualifying run. Every one is timed; the best counts. */
 export const QUALI_LAPS = 3;
-/** A car with no gate for this long has parked it in the wall — retirement. */
+/** A car with no gate for this long has parked it in the wall - retirement. */
 const STUCK_LIMIT = 480;
 
 function maxStepsFor(laps: number): number {
@@ -25,8 +25,8 @@ function maxStepsFor(laps: number): number {
 }
 
 /**
- * Rewards do not exist during a race — the network is frozen and only its greedy
- * action matters — but the environment still needs a table, so it gets the
+ * Rewards do not exist during a race - the network is frozen and only its greedy
+ * action matters - but the environment still needs a table, so it gets the
  * defaults. Using each model's own training rewards here would change nothing
  * except make two identical cars simulate differently.
  */
@@ -86,7 +86,7 @@ export class SessionSim {
     const env = this.env;
     for (let i = 0; i < this.cars.length; i++) {
       if (env.isAgentDone(i)) {
-        this.actions[i] = 4; // coast, straight — ignored for finished cars anyway
+        this.actions[i] = 4; // coast, straight - ignored for finished cars anyway
         continue;
       }
       env.observe(i, this.obs);
@@ -109,7 +109,7 @@ export class SessionSim {
     this.done = true;
   }
 
-  /** Fast-forward without rendering — how a late viewer joins a race in progress. */
+  /** Fast-forward without rendering - how a late viewer joins a race in progress. */
   advanceTo(elapsedMs: number): void {
     const target = Math.floor(elapsedMs / STEP_MS);
     while (!this.done && this.env.step_ < target) this.step();

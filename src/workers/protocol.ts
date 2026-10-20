@@ -10,7 +10,7 @@ export type SpeedMode = 'watch' | 'fast' | 'turbo';
 /** One model in the session. Several of them share one grid and race each other. */
 export interface TrainSlotInit {
   algorithm: AlgorithmId;
-  /** This model's own reward table — models on the same grid may differ. */
+  /** This model's own reward table - models on the same grid may differ. */
   rewards: RewardConfig;
   hyper: Partial<DqnHyper>;
   gaHyper: Partial<GaHyper>;

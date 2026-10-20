@@ -7,7 +7,7 @@ import type { RaceCard, RaceResult } from './types';
  * The last-result panel shows the podium and the pole, which is the race as a
  * spectator sees it. A team whose car finished seventh is not on it, and finding
  * out how its own day went meant opening the full report. Everything needed is
- * already in memory — the card, the results and the table — so this is arithmetic
+ * already in memory - the card, the results and the table - so this is arithmetic
  * over it, and no reads.
  */
 export interface CarRecap {
@@ -35,7 +35,7 @@ export interface CarRecap {
 /**
  * Pass the results the table may count (`settledResults`), so a race still on
  * air never shows up here before it has been seen. Empty when none of `uid`'s
- * cars raced in `card` — and then there is nothing new to say.
+ * cars raced in `card` - and then there is nothing new to say.
  */
 export function carRecaps(
   card: RaceCard,

@@ -35,7 +35,7 @@ export function estimateTraining(
 
 function estimateDqn(obsSize: number, nActions: number, hyper: DqnHyper, target: number): TimeEstimate {
   // The gradient step is ~100% of DQN's cost (see scripts/bench.ts), so timing it
-  // alone is enough — no environment needed.
+  // alone is enough - no environment needed.
   const agent = new DqnAgent(obsSize, nActions, { ...hyper, warmup: 0, bufferSize: 4096 }, 1);
   const rng = mulberry32(7);
   const obs = new Float32Array(obsSize);

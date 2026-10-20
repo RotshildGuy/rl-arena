@@ -14,7 +14,7 @@ export interface GameOption {
   min?: number;
   max?: number;
   hint?: string;
-  /** Hidden in race setup — derived from the grid instead. */
+  /** Hidden in race setup - derived from the grid instead. */
   trainingOnly?: boolean;
 }
 
@@ -86,7 +86,7 @@ const racing: GameModule = {
       min: 1,
       max: 8,
       trainingOnly: true,
-      hint: 'הרכבים מתחלקים בין המודלים שמתאמנים. יותר רכבים — יותר תנועה להתמודד איתה',
+      hint: 'הרכבים מתחלקים בין המודלים שמתאמנים. יותר רכבים - יותר תנועה להתמודד איתה',
     },
     { key: 'laps', label: 'הקפות', kind: 'number', min: 1, max: 10 },
     { key: 'carCollisions', label: 'מגע בין רכבים', kind: 'toggle', hint: 'כשכבוי, הרכבים עוברים זה דרך זה' },
@@ -131,7 +131,7 @@ const racing: GameModule = {
   touchControls: {
     // Throttle left, steering right. `start` is the physical left edge whatever
     // the page's writing direction, and a stacked column reads top-down, so gas
-    // sits above the brake — the pedal you hold under the one you tap.
+    // sits above the brake - the pedal you hold under the one you tap.
     start: [
       { code: 'ArrowUp', glyph: '▲', caption: 'גז' },
       { code: 'ArrowDown', glyph: '▼', caption: 'בלם' },

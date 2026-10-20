@@ -4,7 +4,7 @@
  * The account's, whenever it has one: it is the name every other device of this
  * person already races under, and the case this exists for is the second
  * device, where the browser knows nothing. A browser name only travels upwards
- * — into an account that has none yet, which is exactly what signing in for the
+ * - into an account that has none yet, which is exactly what signing in for the
  * first time after typing a name looks like.
  *
  * On its own, free of storage and of the browser, so `npm run sanity` can check

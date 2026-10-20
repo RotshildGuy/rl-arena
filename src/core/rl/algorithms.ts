@@ -5,7 +5,7 @@ export type AlgorithmId = 'dqn' | 'ga';
  *
  * The technical name is kept, but it is not what the button says: "DQN" tells a
  * newcomer nothing about what will happen to their car, while "לומד תוך כדי
- * נסיעה" does. The labels also keep the dashboard honest — a generation is not
+ * נסיעה" does. The labels also keep the dashboard honest - a generation is not
  * an episode, and the two methods count progress differently.
  */
 export interface AlgorithmInfo {
@@ -30,7 +30,7 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmInfo> = {
     name: 'לומד תוך כדי נסיעה',
     technical: 'DQN',
     blurb:
-      'רכב אחד שמתקן את עצמו אחרי כל טעות, צעד אחר צעד. לומד מהר ממעט ניסיון, אבל כל צעד דורש חישוב כבד — עדיף על מחשב.',
+      'רכב אחד שמתקן את עצמו אחרי כל טעות, צעד אחר צעד. לומד מהר ממעט ניסיון, אבל כל צעד דורש חישוב כבד - עדיף על מחשב.',
     episodeLabel: 'ניסיון',
     episodesLabel: 'ניסיונות',
     exploreLabel: 'סקרנות',
@@ -40,7 +40,7 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmInfo> = {
     name: 'דור אחרי דור',
     technical: 'אלגוריתם גנטי',
     blurb:
-      'קבוצה שלמה של נהגים מתחרה, הטובים שורדים ויוצרים גרסאות מוטציה של עצמם. צריך הרבה יותר נסיעות, אבל כל נסיעה זולה — מומלץ בנייד.',
+      'קבוצה שלמה של נהגים מתחרה, הטובים שורדים ויוצרים גרסאות מוטציה של עצמם. צריך הרבה יותר נסיעות, אבל כל נסיעה זולה - מומלץ בנייד.',
     episodeLabel: 'דור',
     episodesLabel: 'דורות',
     exploreLabel: 'עוצמת מוטציה',

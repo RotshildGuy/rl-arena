@@ -42,8 +42,8 @@ const TABS: Tab[] = [
  *
  * Nothing under it may mount before there is an account to own what it reads:
  * every screen goes to the library or to the grid, and both are per-identity.
- * Keeping the whole app behind one branch — rather than letting each screen
- * cope with "no user yet" — is also what keeps the stores simple, because by
+ * Keeping the whole app behind one branch - rather than letting each screen
+ * cope with "no user yet" - is also what keeps the stores simple, because by
  * the time anything calls them the answer exists.
  *
  * Somebody who signed in on this device before never sees any of this: Firebase
@@ -54,7 +54,7 @@ const TABS: Tab[] = [
  * `needsDoor` is the third case, and the reason the gate is not simply "is
  * anybody signed in". Before there was a sign-in screen the app minted an
  * anonymous identity by itself on first load, so a browser can hold a session
- * nobody ever chose — and a session nobody chose would otherwise sail past the
+ * nobody ever chose - and a session nobody chose would otherwise sail past the
  * door forever, which is how somebody signs into their account on a second
  * device and lands in an empty garage that is not theirs.
  */
@@ -127,7 +127,7 @@ function Arena() {
             on={nudge}
             text={
               coach === 'garage'
-                ? 'עכשיו למוסך — שם מאמנים את המודל שינהג בשבילכם.'
+                ? 'עכשיו למוסך - שם מאמנים את המודל שינהג בשבילכם.'
                 : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
             }
           >
@@ -163,7 +163,7 @@ function Arena() {
         <ThemeButton />
         <AccountButton />
         {competitor && (
-          <span className="pill" title="שם המתחרה שלך — הקבוצה שהמודלים שלך מתחרים בשמה">
+          <span className="pill" title="שם המתחרה שלך - הקבוצה שהמודלים שלך מתחרים בשמה">
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
             {competitor}
           </span>
@@ -198,7 +198,7 @@ function Arena() {
  * The half-second before Firebase says who is signed in.
  *
  * It is the difference between a returning visitor seeing their championship
- * appear and seeing a sign-in screen flash past first — which would read as
+ * appear and seeing a sign-in screen flash past first - which would read as
  * having been logged out.
  */
 function Splash() {
@@ -261,7 +261,7 @@ function Footer({ onOpen }: { onOpen: (tab: 'how' | 'terms' | 'privacy' | 'notic
 function CloudBadge({ state, message }: { state: string; message: string | null }) {
   if (state === 'local') {
     return (
-      <span className="pill small" title="אין חיבור ענן — האליפות רצה מול המודלים של הדפדפן הזה בלבד">
+      <span className="pill small" title="אין חיבור ענן - האליפות רצה מול המודלים של הדפדפן הזה בלבד">
         💾 מקומי
       </span>
     );

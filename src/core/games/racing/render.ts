@@ -198,7 +198,7 @@ function drawWorld(
 
   // Cars are the subject, and on a whole-track overview a true-to-scale car is
   // eight pixels of nothing. Below a readable size they are drawn larger than
-  // life — the geometry stays exact, only the marker grows.
+  // life - the geometry stays exact, only the marker grows.
   const minPx = 13;
   const bump = Math.max(1, minPx / (CAR_RADIUS * view.scale));
   const len = CAR_RADIUS * 1.7 * bump;

@@ -76,7 +76,7 @@ export function TrainSetup() {
         The way in and the way out, above everything that can be fiddled with.
         Every setting below this has a default that works, so somebody who only
         wants to watch a car learn should not have to scroll past ten sliders to
-        find the button — and the estimate belongs up here with it, because how
+        find the button - and the estimate belongs up here with it, because how
         long it will take is the one thing worth knowing before starting.
       */}
       <div className="card notched start-bar">
@@ -134,7 +134,7 @@ export function TrainSetup() {
             </div>
 
             {/* Under the list, not above it: a new slot is appended, so the
-                button sits exactly where the card it creates will appear — the
+                button sits exactly where the card it creates will appear - the
                 finger is already there and nothing scrolls out from under it. */}
             {slots.length < MAX_TRAIN_SLOTS && (
               <button
@@ -156,7 +156,7 @@ export function TrainSetup() {
             {!competitor || editingName ? (
               <div className="field">
                 <TeamNameForm
-                  label="שם המתחרה — הקבוצה שכל המודלים כאן מתחרים בשמה"
+                  label="שם המתחרה - הקבוצה שכל המודלים כאן מתחרים בשמה"
                   onSaved={() => setEditingName(false)}
                   onCancel={competitor ? () => setEditingName(false) : undefined}
                 />
@@ -168,7 +168,7 @@ export function TrainSetup() {
               </div>
             ) : (
               <div className="field">
-                <label>שם המתחרה — הקבוצה שכל המודלים כאן מתחרים בשמה</label>
+                <label>שם המתחרה - הקבוצה שכל המודלים כאן מתחרים בשמה</label>
                 <div className="row">
                   <b>{competitor}</b>
                   <button className="ghost small" onClick={() => setEditingName(true)}>
@@ -257,7 +257,7 @@ function SlotCard({
 
       <div className="cols-2">
         <div className="field">
-          <label>שם המודל — כך הוא יופיע כנהג בטבלה</label>
+          <label>שם המודל - כך הוא יופיע כנהג בטבלה</label>
           <input
             type="text"
             value={slot.name}
@@ -293,7 +293,7 @@ function SlotCard({
       </div>
 
       <div className="field" style={{ marginBottom: 0 }}>
-        <label>איך הוא לומד {locked ? '(נעול — נקבע בעת יצירת המודל)' : ''}</label>
+        <label>איך הוא לומד {locked ? '(נעול - נקבע בעת יצירת המודל)' : ''}</label>
         <div className="segmented" style={{ width: '100%' }}>
           {(Object.keys(ALGORITHMS) as AlgorithmId[]).map((id) => (
             <button
@@ -369,7 +369,7 @@ function Estimate() {
       )}
       {!measuring && !result && <span className="muted small">לא הצלחתי למדוד את המכשיר.</span>}
       {isMobileClass && (
-        <span className="pill warn small">זוהה מכשיר נייד — נבחרו ברירות מחדל קלות יותר</span>
+        <span className="pill warn small">זוהה מכשיר נייד - נבחרו ברירות מחדל קלות יותר</span>
       )}
     </div>
   );

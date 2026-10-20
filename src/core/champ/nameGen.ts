@@ -5,13 +5,13 @@
  * Most people overwrite the suggestion, some keep it, and the ones that are
  * kept end up on a public leaderboard next to everybody else's. So the
  * generator is built around one invariant: **every pair the lists can produce
- * has to be inoffensive** — not most pairs, every pair. Three things hold it
+ * has to be inoffensive** - not most pairs, every pair. Three things hold it
  * up, and none of them is a filter running over free text:
  *
  * 1. The words are split by role. An adjective is never drawn into the noun
  *    slot, so the result stays grammatical and the space of outcomes is the
  *    product of two curated lists rather than of one big bag of words.
- * 2. The vocabulary stays inside safe domains — speed, light, weather, stone,
+ * 2. The vocabulary stays inside safe domains - speed, light, weather, stone,
  *    animals, space, machinery. No people, places, body parts, food, weapons
  *    or instruments: that is where English keeps most of its double meanings.
  * 3. `scripts/sanity.ts` walks the entire cross product on every run and fails
@@ -72,9 +72,9 @@ export const NAME_NOUNS = [
 
 /**
  * A tripwire, not a filter. Nothing in the lists above comes close to these,
- * which is exactly the point: the check exists so that a word added later —
+ * which is exactly the point: the check exists so that a word added later -
  * or a pair whose two halves only spell something together, with the space
- * removed — fails the sanity run instead of reaching a leaderboard. Free text
+ * removed - fails the sanity run instead of reaching a leaderboard. Free text
  * typed by a person is a different path entirely; see `names.ts` for what is
  * enforced there, and the moderation list for what a filter cannot decide.
  */
@@ -97,7 +97,7 @@ export function isCleanName(name: string): boolean {
 }
 
 /**
- * A fresh "Adjective Noun", avoiding any name in `avoid` — pass the names
+ * A fresh "Adjective Noun", avoiding any name in `avoid` - pass the names
  * already on screen and the grid comes out without two identical cars.
  *
  * `rng` is injectable so a test can replay the same draw.

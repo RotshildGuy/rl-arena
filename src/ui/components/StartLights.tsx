@@ -1,7 +1,7 @@
 /**
  * The five-light gantry.
  *
- * Lights come on one a second and the race starts the instant they go out —
+ * Lights come on one a second and the race starts the instant they go out -
  * which is why the last second before a start is the one everybody watches. It
  * is also a countdown you can read without reading, at any size.
  */

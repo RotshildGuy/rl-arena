@@ -13,7 +13,7 @@ export function TeamNameForm({
   autoFocus,
   onSaved,
   onCancel,
-  label = 'שם המתחרה — זה יהיה שם הקבוצה שלכם בטבלה',
+  label = 'שם המתחרה - זה יהיה שם הקבוצה שלכם בטבלה',
   onTyping,
   wrap,
 }: {

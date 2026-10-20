@@ -13,7 +13,7 @@ interface Props {
   height?: number;
   /** Pin the y-axis instead of auto-scaling (used for epsilon, which is 0..1). */
   fixedRange?: [number, number];
-  /** Draw the y axis on a log scale — loss spans orders of magnitude. */
+  /** Draw the y axis on a log scale - loss spans orders of magnitude. */
   log?: boolean;
 }
 

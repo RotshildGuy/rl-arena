@@ -3,8 +3,8 @@ import type { Screen } from './store';
 /**
  * Which step of the first run somebody is on.
  *
- * Getting a car onto the grid takes four things — a team name, a model, a
- * training run, a registration — and none of them is guessable from the screen
+ * Getting a car onto the grid takes four things - a team name, a model, a
+ * training run, a registration - and none of them is guessable from the screen
  * the app opens on. So one bubble at a time sits next to the control that does
  * the next thing, and the walkthrough ends by itself the moment there is a car
  * on the grid.
@@ -16,17 +16,17 @@ import type { Screen } from './store';
  * day or another device, and the guide is wherever the account actually is.
  */
 export type CoachStep =
-  /** No team name yet — the input on the championship screen. */
+  /** No team name yet - the input on the championship screen. */
   | 'name'
   /** Name saved, nothing built: the way to the garage is the nav tab. */
   | 'garage'
-  /** In the garage with nothing in it — the button that starts a new model. */
+  /** In the garage with nothing in it - the button that starts a new model. */
   | 'create'
-  /** Setting a training run up — the button that starts it. */
+  /** Setting a training run up - the button that starts it. */
   | 'setup'
   /** Training is running: stop when the driving is good enough. */
   | 'save'
-  /** A saved model with no car on the grid — the register button on its card. */
+  /** A saved model with no car on the grid - the register button on its card. */
   | 'enter'
   /** The same, from another screen: the garage is where that button lives. */
   | 'unregistered'

@@ -36,7 +36,7 @@ export function RaceSetup() {
     return champ.state.entries.filter((e) => !e.retired && e.gameId === 'racing' && e.obsVersion === game.spec.obsVersion);
   }, [champ.state, gameId, game.spec.obsVersion]);
 
-  /** Best qualifying lap each entry has set this season — a rough form guide. */
+  /** Best qualifying lap each entry has set this season - a rough form guide. */
   const formGuide = useMemo(() => {
     const out = new Map<string, number>();
     if (!champ.state) return out;
@@ -73,7 +73,7 @@ export function RaceSetup() {
         <div className="eyebrow">מחוץ לאליפות</div>
         <h1 className="display">אתה מול המודלים</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 640 }}>
-          {game.seatHint} — {isTouchDevice ? game.touchHint : game.controlsHint}. תוצאות כאן אינן משפיעות
+          {game.seatHint} - {isTouchDevice ? game.touchHint : game.controlsHint}. תוצאות כאן אינן משפיעות
           על טבלת האליפות; זה מגרש אימונים.
         </p>
       </div>

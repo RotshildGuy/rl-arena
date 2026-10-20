@@ -6,7 +6,7 @@
  * of them reads as a ladder.
  */
 export function lapTime(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || !isFinite(ms)) return '—';
+  if (ms === null || ms === undefined || !isFinite(ms)) return '-';
   const total = Math.max(0, ms);
   const m = Math.floor(total / 60000);
   const s = (total % 60000) / 1000;
@@ -14,7 +14,7 @@ export function lapTime(ms: number | null | undefined): string {
 }
 
 export function raceTime(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || !isFinite(ms)) return '—';
+  if (ms === null || ms === undefined || !isFinite(ms)) return '-';
   const total = Math.max(0, ms);
   const m = Math.floor(total / 60000);
   const s = (total % 60000) / 1000;
@@ -22,13 +22,13 @@ export function raceTime(ms: number | null | undefined): string {
 }
 
 export function gapTime(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || !isFinite(ms)) return '—';
+  if (ms === null || ms === undefined || !isFinite(ms)) return '-';
   return '+' + lapTime(Math.abs(ms));
 }
 
 /** Short gap for a live tower, where three decimals are more noise than signal. */
 export function shortGap(ms: number): string {
-  if (!isFinite(ms) || ms <= 0) return '—';
+  if (!isFinite(ms) || ms <= 0) return '-';
   if (ms >= 60000) return '+' + Math.floor(ms / 60000) + ':' + ((ms % 60000) / 1000).toFixed(1).padStart(4, '0');
   return '+' + (ms / 1000).toFixed(1);
 }
@@ -76,7 +76,7 @@ export function posClass(position: number, dnf = false): string {
 
 /**
  * Which colour a lap time gets: purple for the fastest of the session, green for
- * a driver's own best, yellow otherwise — the same three colours every real
+ * a driver's own best, yellow otherwise - the same three colours every real
  * timing graphic uses, so nobody has to be told what they mean.
  */
 export function lapClass(ms: number | null, sessionBest: number | null, personalBest: number | null): string {

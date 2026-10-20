@@ -12,9 +12,9 @@ export interface ArenaEntry {
   id: string;
   /** Anonymous Firebase uid of the owner. Only used to enforce write access. */
   uid: string;
-  /** Shown as the driver name — the model's name. */
+  /** Shown as the driver name - the model's name. */
   driver: string;
-  /** Shown as the team name — the competitor who trained it. */
+  /** Shown as the team name - the competitor who trained it. */
   team: string;
   gameId: string;
   algorithm: AlgorithmId;
@@ -28,11 +28,11 @@ export interface ArenaEntry {
   updatedAt: number;
   /** Model id in the owner's private library, for their own reference. */
   modelId: string;
-  /** Episodes of training behind the current weights — shown on the entry list. */
+  /** Episodes of training behind the current weights - shown on the entry list. */
   episodes: number;
   /**
    * Legacy: an entry withdrawn back when withdrawal existed. Taking a car off
-   * the grid deletes its entry now, so nothing sets this any more — it is still
+   * the grid deletes its entry now, so nothing sets this any more - it is still
    * honoured on read so a car withdrawn under the old rules stays off the grid
    * and reads as unregistered until its model is entered again.
    */
@@ -51,7 +51,7 @@ export type SessionKind = 'race' | 'heat' | 'final';
 export interface SessionPlan {
   id: string;
   kind: SessionKind;
-  /** Hebrew label — "מרוץ", "מקצה 2", "חצי גמר 1", "גמר". */
+  /** Hebrew label - "מרוץ", "מקצה 2", "חצי גמר 1", "גמר". */
   name: string;
   /** Index of the elimination round this belongs to; the final is last. */
   round: number;
@@ -65,7 +65,7 @@ export interface SessionPlan {
 
 export interface QualiLap {
   entryId: string;
-  /** null when the car never completed a clean lap — it starts from the back. */
+  /** null when the car never completed a clean lap - it starts from the back. */
   bestLapMs: number | null;
   sectorsMs: (number | null)[];
   topSpeed: number;
@@ -89,7 +89,7 @@ export interface RaceCard {
   createdAt: number;
   /**
    * The car physics this round runs on. Absent on cards from before there was
-   * more than one, which ran on version 1 — and a replay has to as well, or it
+   * more than one, which ran on version 1 - and a replay has to as well, or it
    * would no longer produce the result that was published.
    */
   physics?: number;

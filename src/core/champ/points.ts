@@ -16,11 +16,11 @@ export function pointsForPosition(position: number): number {
 }
 
 export interface DriverStanding {
-  /** The driver's current car. Several ids can be the same driver — see below. */
+  /** The driver's current car. Several ids can be the same driver - see below. */
   entryId: string;
   /** Every entry id that turned out to be this driver, newest last. */
   entryIds: string[];
-  /** The account the driver belongs to — what the team table groups by. */
+  /** The account the driver belongs to - what the team table groups by. */
   uid: string;
   driver: string;
   team: string;
@@ -34,7 +34,7 @@ export interface DriverStanding {
   finishes: number;
   dnfs: number;
   bestFinish: number | null;
-  /** How many times this car took each position — the championship tie-break. */
+  /** How many times this car took each position - the championship tie-break. */
   counts: number[];
   /** Position per race id, for the results grid. */
   byRace: Record<string, { position: number; points: number; status: 'finished' | 'dnf' }>;
@@ -47,7 +47,7 @@ export interface TeamStanding {
    * whatever name it shows, plus any other account racing under the same name.
    */
   uid: string;
-  /** The name to print — the newest one any of its drivers raced under. */
+  /** The name to print - the newest one any of its drivers raced under. */
   team: string;
   points: number;
   wins: number;
@@ -60,7 +60,7 @@ export interface TeamStanding {
 
 /**
  * Formula 1's countback. Equal points are split by who has the most wins, then
- * the most second places, and so on down the order — never alphabetically and
+ * the most second places, and so on down the order - never alphabetically and
  * never by who scored first.
  */
 function countback(a: number[], b: number[]): number {
@@ -106,10 +106,10 @@ function unionFind() {
  *
  * Two keys, and sharing either one is enough:
  *
- * - **one account, one model name** — the car was taken off and registered
+ * - **one account, one model name** - the car was taken off and registered
  *   again, or the model was re-imported under a new id. The team name is not
  *   part of it: renaming the team must not split every one of its drivers.
- * - **one team name, one model name** — the same person under two accounts.
+ * - **one team name, one model name** - the same person under two accounts.
  *   Before there was a sign-in screen every browser minted an anonymous
  *   identity of its own, and signing in to Google on a device that already had
  *   one leaves the old identity's cars behind under a uid nobody can reach. The
@@ -117,7 +117,7 @@ function unionFind() {
  *   A team name belongs to one account (`names/{key}`), so the name is what
  *   says these accounts are one team; the model name on top of it is what says
  *   these cars are one driver. Two people may still both have a model called
- *   "wow" — under two different team names they stay two drivers.
+ *   "wow" - under two different team names they stay two drivers.
  *
  * Both compare names the way the name registry does: case and Unicode
  * compatibility forms are not a different name.
@@ -137,7 +137,7 @@ function teamKeys(d: { uid: string; team: string }): string[] {
 /**
  * Entry ids that are really one driver.
  *
- * A car is supposed to keep its entry — and therefore its points — for the
+ * A car is supposed to keep its entry - and therefore its points - for the
  * whole season, but several things could hand the same driver a second one:
  * taking a car off the grid and registering it again, re-importing the model so
  * that the garage gives it a new id, a failed read at exactly the wrong moment,
@@ -147,7 +147,7 @@ function teamKeys(d: { uid: string; team: string }): string[] {
  * It repairs it here rather than by rewriting the database, because it cannot
  * be rewritten: race cards and results are create-only, and every one of them
  * names the entry that actually lined up. So the history stays exactly as it
- * was raced, and only the championship table — which is a view over it — puts
+ * was raced, and only the championship table - which is a view over it - puts
  * the pieces back together.
  *
  * Renames are why this is a union and not a lookup: an entry can appear under
@@ -187,14 +187,14 @@ export function buildStandings({ cards, results }: SeasonInput): {
   teams: TeamStanding[];
 } {
   const byEntry = new Map<string, DriverStanding>();
-  /** Every account a driver raced under — more than one when it was merged across them. */
+  /** Every account a driver raced under - more than one when it was merged across them. */
   const driverUids = new Map<string, Set<string>>();
   const canonical = sameDriver(cards);
   const canon = (entryId: string): string => canonical.get(entryId) ?? entryId;
 
   const ensure = (entryId: string, e: ArenaEntry | undefined): DriverStanding => {
-    const driver = e?.driver ?? '—';
-    const team = e?.team ?? '—';
+    const driver = e?.driver ?? '-';
+    const team = e?.team ?? '-';
     const tag = e?.tag ?? '???';
     const id = canon(entryId);
     let d = byEntry.get(id);
@@ -257,8 +257,8 @@ export function buildStandings({ cards, results }: SeasonInput): {
       if (d.bestFinish === null || place.position < d.bestFinish) d.bestFinish = place.position;
       d.counts[place.position - 1] = (d.counts[place.position - 1] ?? 0) + 1;
       // A merged driver can have two places in one race, if both of its cars
-      // were on that grid. The points are added up — none of them were made up,
-      // and none may be dropped — and the results grid shows the better finish.
+      // were on that grid. The points are added up - none of them were made up,
+      // and none may be dropped - and the results grid shows the better finish.
       const had = d.byRace[card.id];
       d.byRace[card.id] = had
         ? {
@@ -281,7 +281,7 @@ export function buildStandings({ cards, results }: SeasonInput): {
 
   // Grouped by account, and accounts are joined by the team name they race
   // under: one person on two accounts is one team, the same way it is one
-  // driver above. A team is keyed by its drivers' newest name only — a name
+  // driver above. A team is keyed by its drivers' newest name only - a name
   // an account has since let go of may belong to somebody else by now.
   // The name shown is the newest one: drivers are updated card by card above,
   // so the driver whose last race is latest carries it.
@@ -328,7 +328,7 @@ export function buildStandings({ cards, results }: SeasonInput): {
  *
  * Formula 1 uses 90%. Half is the right number here: these are learned drivers,
  * not professional ones, and a model that spins into the wall on lap two should
- * not collect eight points for having been on the grid — but one that races most
+ * not collect eight points for having been on the grid - but one that races most
  * of the distance and then retires deserves to be in the results.
  */
 export const CLASSIFY_FRACTION = 0.5;

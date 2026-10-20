@@ -42,8 +42,8 @@ export function ensureApp(): { auth: Auth; db: Firestore } {
 /**
  * Who is signed in, as Firebase last reported it.
  *
- * Signing in is a choice now — Google, an email and password, or an anonymous
- * identity — so nothing here starts a session on its own. The UI gate does
+ * Signing in is a choice now - Google, an email and password, or an anonymous
+ * identity - so nothing here starts a session on its own. The UI gate does
  * that, and everything underneath simply waits for an identity to exist.
  */
 let user: User | null = null;
@@ -77,7 +77,7 @@ function observe(): void {
       notify();
     },
     (err) => {
-      // Authentication itself is broken — usually a console setting. Failing
+      // Authentication itself is broken - usually a console setting. Failing
       // the waiting calls is what turns it into a message on screen instead of
       // a library that never finishes loading.
       ready = true;
@@ -101,7 +101,7 @@ export function watchUser(fn: Watcher): () => void {
 /**
  * The identity models are owned by.
  *
- * Resolves as soon as somebody is signed in and waits patiently until then —
+ * Resolves as soon as somebody is signed in and waits patiently until then -
  * the stores are built before the sign-in screen is answered, and a store that
  * throws because the answer has not arrived yet would turn a normal first visit
  * into an error. `abandonCloud` is the way out when there will be no answer.
@@ -145,7 +145,7 @@ function refresh(): User | null {
  *
  * The redirect flow needs the auth domain's cookies to survive a round trip
  * through Google, which is exactly what browsers with partitioned third-party
- * storage no longer allow — it fails silently there, which is the worst way to
+ * storage no longer allow - it fails silently there, which is the worst way to
  * fail. A popup is blockable, but a blocked popup says so, and email and
  * password is always there as the way through.
  */
@@ -198,7 +198,7 @@ export async function signOutUser(): Promise<void> {
  * a second door. Nothing is copied and nothing is migrated.
  *
  * The one case that cannot work this way is a Google account or an email that
- * already belongs to another identity here — two accounts cannot merge, because
+ * already belongs to another identity here - two accounts cannot merge, because
  * there is no server to merge them. `auth/credential-already-in-use` and
  * `auth/email-already-in-use` are how that surfaces, and the caller offers
  * signing in to that account instead.

@@ -49,8 +49,8 @@ export async function exportModel(id: string): Promise<string> {
 }
 
 /**
- * Everything here is checked. A model file is untrusted input — it arrives from
- * a disk, possibly from someone else — and a malformed one must fail with a
+ * Everything here is checked. A model file is untrusted input - it arrives from
+ * a disk, possibly from someone else - and a malformed one must fail with a
  * sentence rather than a stack trace, or worse, a model that races as garbage.
  */
 function validate(raw: unknown): ModelRecord {

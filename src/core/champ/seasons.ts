@@ -7,7 +7,7 @@ import type { RaceCard, RaceResult } from './types';
  *
  * Nothing here is stored. A season's champion is what its table says once its
  * last race is over, and the table is computed from race results that are
- * create-only — so the archive cannot drift from the races, and there is no
+ * create-only - so the archive cannot drift from the races, and there is no
  * "close the season" step that somebody would have to be online to run.
  */
 
@@ -17,7 +17,7 @@ export function seasonCards(cards: RaceCard[], n: number): RaceCard[] {
 }
 
 /**
- * Over: its final round has been run and settled — or, on a grid too thin to
+ * Over: its final round has been run and settled - or, on a grid too thin to
  * race that day, its lights went out hours ago and nothing came of it.
  *
  * `settled` is `settledResults`, so a final still on air does not crown anybody.

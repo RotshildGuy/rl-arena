@@ -40,8 +40,8 @@ function load(): Promise<ChampionshipState> {
 /**
  * Re-sync without taking down what is on screen.
  *
- * The two moments the season is guaranteed to be stale — the feed opening and
- * the lights going out — are also the two moments somebody is most likely to be
+ * The two moments the season is guaranteed to be stale - the feed opening and
+ * the lights going out - are also the two moments somebody is most likely to be
  * watching. Clearing the cache first would replace their broadcast with "no
  * race to show" for as long as the simulation takes, so the old state stays up
  * until the new one is ready to take its place.
@@ -113,7 +113,7 @@ export function useChampionship(): ChampionshipView {
   return { state: cache, progress: note, error, reload };
 }
 
-/** A clock that re-renders once a second — countdowns and live windows need it. */
+/** A clock that re-renders once a second - countdowns and live windows need it. */
 export function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

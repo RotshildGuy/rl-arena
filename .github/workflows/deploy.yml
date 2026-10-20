@@ -1,7 +1,7 @@
 # Build and publish the site to Firebase Hosting.
 #
 # Only Hosting. `firestore.rules` is deliberately not in the repository, so
-# nothing here can deploy or overwrite the security rules — those stay a manual,
+# nothing here can deploy or overwrite the security rules - those stay a manual,
 # deliberate act from a machine that has the file.
 name: Deploy to Firebase Hosting
 
@@ -35,8 +35,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run sanity
 
-      # The Firebase web keys are public identifiers — they are served to every
-      # browser that loads the site — so they may live in either repository
+      # The Firebase web keys are public identifiers - they are served to every
+      # browser that loads the site - so they may live in either repository
       # variables or secrets, and this reads whichever is set.
       #
       # They are checked before the build rather than after it, because without
@@ -67,15 +67,15 @@ jobs:
           VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID }}
-          # Optional in `storage/firebase.ts` — the app counts as configured
-          # without them — so they are passed but not required above.
+          # Optional in `storage/firebase.ts` - the app counts as configured
+          # without them - so they are passed but not required above.
           VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET || secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID || secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
         run: npm run build
 
       # And that they actually reached the bundle. Vite inlines them at build
       # time, so the project id is in the output of a cloud build and absent
-      # from a local-only one — the one signal that tells the two apart. (The
+      # from a local-only one - the one signal that tells the two apart. (The
       # auth SDK itself ships either way, so its presence proves nothing.)
       - name: Check the bundle carries the cloud config
         env:
