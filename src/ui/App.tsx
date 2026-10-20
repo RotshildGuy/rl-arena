@@ -22,6 +22,7 @@ import { ThemeButton } from './components/ThemeButton';
 import { CoachAnchor, useCoachStep } from './coach';
 import { useIsNarrow } from './device';
 import { track } from '../storage/metrics';
+import { joinLeague, leaguesAvailable } from '../storage/leagues';
 
 interface Tab {
   id: Screen;
@@ -85,6 +86,27 @@ function Arena() {
 
   // Counted once a day, behind the gate: a visit is somebody who came in.
   useEffect(() => track('visit'), []);
+
+  // An invitation link (?league=id): join, then show that league's table. Done
+  // here, behind the gate, because joining needs the account to join with -
+  // somebody who arrives signed out comes back to it once they are in.
+  const setLeague = useApp((s) => s.setLeague);
+  const showToast = useApp((s) => s.showToast);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('league');
+    if (!id || !leaguesAvailable()) return;
+    params.delete('league');
+    const rest = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+    void joinLeague(id)
+      .then((league) => {
+        setLeague(league.id);
+        go('standings');
+        showToast(`הצטרפתם לליגה "${league.name}"`);
+      })
+      .catch(() => showToast('הקישור לליגה לא עבד - אולי הליגה נמחקה'));
+  }, [go, setLeague, showToast]);
 
   // The team name lives with the account, not with the browser, so the first
   // thing to do behind the gate is ask the account what it is. On the device

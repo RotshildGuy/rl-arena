@@ -250,6 +250,37 @@
 אותו ותמיד מעל רכב שעוד נוסע - אחרת ההובלה הייתה נופלת למי שבמקרה חצה את הקו הכי רחוק בצעד
 האחרון.
 
+### ליגת חברים
+
+ליגה היא **מסנן, לא אליפות נוספת**: אותם מרוצים יומיים, וטבלה שסופרת רק את הרכבים של חברי הליגה,
+עם הנקודות שהם באמת צברו (`leagueView` ב-`core/champ/league.ts`). בטבלאות יש "ליגת חברים":
+יוצרים ליגה עם שם, ומקבלים קישור הזמנה (`?league=<id>`). מי שלוחץ עליו מצטרף אחרי שנכנס, ורואה
+מיד את הטבלה של הליגה. בטבלאות בוחרים בין "כל המתחרים" לכל ליגה שאתם בה.
+
+```
+leagues/{id}   { name, owner, members: [uid...], createdAt }
+```
+
+הכלל, בתוך `match /databases/{database}/documents`:
+
+```
+match /leagues/{id} {
+  allow read: if request.auth != null;
+  allow create: if request.auth != null
+    && request.resource.data.owner == request.auth.uid
+    && request.resource.data.members == [request.auth.uid]
+    && request.resource.data.name is string
+    && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 32;
+  // Join or leave: only your own uid moves in or out, and nothing else changes.
+  allow update: if request.auth != null
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+    && request.resource.data.members.size() <= 50
+    && (request.resource.data.members.toSet() == resource.data.members.toSet().union([request.auth.uid].toSet())
+      || request.resource.data.members.toSet() == resource.data.members.toSet().difference([request.auth.uid].toSet()));
+  allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+}
+```
+
 ### לשתף תוצאה
 
 בכרטיס "מה קרה לרכב שלך" לכל רכב יש **↗ שתף**: תמונה מרובעת (`ui/shareCard.ts`) עם המקום,

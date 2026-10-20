@@ -57,6 +57,7 @@ import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
 import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
+import { leagueView, newLeagueId } from '../src/core/champ/league';
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { Policy } from '../src/core/rl/policy';
@@ -1591,6 +1592,22 @@ function diagnoseTest(): void {
 
 // ---------------------------------------------------------------- house style
 /** The em dash is not used in this project, anywhere (see CLAUDE.md). */
+function leagueTest(): void {
+  console.log(CHAPTER + 'Friends leagues');
+  // Alpha (uid u) finishes 3rd behind two Beta cars; the league is Alpha alone with b1's owner moved in.
+  const card = fakeCard(42, ['b0', 'a', 'b1']);
+  card.entries = card.entries.map((e) => (e.id === 'b1' ? { ...e, uid: 'friend', team: 'Gamma' } : e));
+  const result = fakeResult(card.id, [fakePlace('b0', 1), fakePlace('b1', 2), fakePlace('a', 3)]);
+  const view = leagueView([card], new Map([[card.id, result]]), ['u', 'friend']);
+  const table = buildStandings(view);
+  check('a league table has only its members', table.drivers.map((d) => d.entryId).sort().join() === 'a,b1');
+  check('with the points they really scored', table.drivers[0].entryId === 'b1' && table.drivers[0].points === POINTS[1] &&
+    table.drivers[1].points === POINTS[2]);
+  check('a race none of them ran is not in it', leagueView([card], new Map([[card.id, result]]), ['nobody']).cards.length === 0);
+  const id = newLeagueId();
+  check('an invitation code is ten readable characters', /^[a-km-z2-9]{10}$/.test(id) && !/[ilo01]/.test(id), id);
+}
+
 function feedbackTest(): void {
   console.log(CHAPTER + 'Feedback');
   check('a one-word report is sent back for more', feedbackProblem('broken') !== null);
@@ -1640,6 +1657,7 @@ houseTest();
 seasonTest();
 diagnoseTest();
 feedbackTest();
+leagueTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
