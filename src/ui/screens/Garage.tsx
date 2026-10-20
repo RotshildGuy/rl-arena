@@ -31,6 +31,7 @@ import { RACE_LAPS } from '../../core/champ/format';
 import { Modal } from '../components/Modal';
 import { durationText, lapTime, raceTime, whenText } from '../format';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
+import { TeamNameForm } from '../components/TeamNameForm';
 import { TrainingPrimer, hasSeenPrimer, markPrimerSeen } from '../components/TrainingPrimer';
 import { exportModel, importModel, ModelFileError } from '../modelFile';
 import { CoachAnchor, modelsChanged, useCoachStep } from '../coach';
@@ -50,6 +51,7 @@ export function Garage() {
   const fileInput = useRef<HTMLInputElement>(null);
   // Shown once per device on the first visit here, and reopenable from the header.
   const [primer, setPrimer] = useState(() => !hasSeenPrimer());
+  const [naming, setNaming] = useState(false);
   const detailRef = useRef<HTMLDivElement>(null);
 
   const coach = useCoachStep();
@@ -329,11 +331,20 @@ export function Garage() {
               </>
             ) : (
               <>
-                <span className="pill warn">אין שם מתחרה</span>
-                <span className="muted">בלי שם מתחרה אי אפשר להירשם לאליפות.</span>
-                <button className="small" onClick={() => go('championship')}>
-                  הגדר שם
-                </button>
+                {/* Right here, rather than a trip to another tab and back. */}
+                {naming ? (
+                  <div style={{ flex: '1 1 260px' }}>
+                    <TeamNameForm autoFocus label="שם הקבוצה" onSaved={() => setNaming(false)} onCancel={() => setNaming(false)} />
+                  </div>
+                ) : (
+                  <>
+                    <span className="pill warn">אין שם מתחרה</span>
+                    <span className="muted">בלי שם מתחרה אי אפשר להירשם לאליפות.</span>
+                    <button className="small" onClick={() => setNaming(true)}>
+                      בחירת שם
+                    </button>
+                  </>
+                )}
               </>
             )}
             <div style={{ flex: 1 }} />
@@ -400,9 +411,12 @@ export function Garage() {
                       {ALGORITHMS[m.algorithm]?.episodesLabel ?? 'סבבים'}{' '}
                       <b>{m.training.episodes.toLocaleString('he-IL')}</b>
                     </span>
-                    <span title="הכי רחוק שהמודל הגיע בניסיון אחד">
-                      הכי רחוק <b>{m.training.bestScore.toFixed(1)}</b> {game.spec.scoreLabel}
-                    </span>
+                    {/* Distance is only news until there is a full race to show. */}
+                    {gp.raceMs == null && (
+                      <span title="הכי רחוק שהמודל הגיע בניסיון אחד">
+                        הכי רחוק <b>{m.training.bestScore.toFixed(1)}</b> {game.spec.scoreLabel}
+                      </span>
+                    )}
                     {/* The circuit that matters is the one the next Grand Prix
                         runs on, not whichever the model happened to train on
                         last - so that is the time on the card, and a model that
@@ -421,7 +435,7 @@ export function Garage() {
                       </span>
                     )}
                     <span>
-                      אימון אחרון ב <b>{trackName(m.config) || '-'}</b>
+                      אימון אחרון: <b>{trackName(m.config) || '-'}</b>
                     </span>
                     <span>
                       זמן אימון <b>{durationText(m.training.trainedMs)}</b>

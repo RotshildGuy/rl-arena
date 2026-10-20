@@ -94,8 +94,8 @@ export function RaceSetup() {
           <div className="head">
             <div className="eyebrow">יריבים</div>
             <div className="fill" />
-            <span className="muted small mono">
-              {race.opponents.length} / {maxOpponents}
+            <span className="muted small">
+              נבחרו <span className="mono">{race.opponents.length}</span> מתוך {maxOpponents}
             </span>
           </div>
 

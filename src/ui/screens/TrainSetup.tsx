@@ -233,7 +233,7 @@ export function TrainSetup() {
                     className={i === slotIndex ? 'on' : ''}
                     onClick={() => setTab(i)}
                   >
-                    {s.name.trim() || `מודל ${i + 1}`}
+                    {s.name.trim() || suggestFor(i)}
                   </button>
                 ))}
               </div>
@@ -241,6 +241,13 @@ export function TrainSetup() {
             {multi && (
               <div className="small" style={{ marginBottom: 8 }}>
                 המחוונים של <b>{slot.name.trim() || suggestFor(slotIndex)}</b> בלבד
+                {slotIndex > 0 && !slot.modelId && (
+                  <span className="muted">
+                    {' '}
+                    - הוא מתחיל קצת יותר נועז מהראשון (מהירות, מגע ועקיפות), כדי שיהיה מעניין לראות אותם
+                    נוהגים אחרת.
+                  </span>
+                )}
               </div>
             )}
             {/* Keyed by slot: each model gets its own editor, so nothing the

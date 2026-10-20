@@ -261,8 +261,8 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                 <th className="num">זמן / פער</th>
                 <th className="num">הקפה מהירה</th>
                 <th className="num">מהירות שיא</th>
-                <th className="num">עקיפות</th>
-                <th className="num">פגיעות</th>
+                <th className="num" title="כל עקיפה נספרת, גם אם המקום אבד שוב אחר כך">עקיפות</th>
+                <th className="num" title="פגיעות בקיר ומגע עם רכבים אחרים, יחד">פגיעות (קיר+רכב)</th>
                 <th className="num">הובלה</th>
                 <th className="num">נק׳</th>
               </tr>
@@ -301,6 +301,10 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                         <span className="muted">פרש</span>
                       ) : f.position === 1 ? (
                         raceTime(f.totalMs)
+                      ) : f.laps < (session.classification[0]?.laps ?? f.laps) ? (
+                        // A lapped car's time gap is measured at a different
+                        // line crossing and reads as smaller than it is.
+                        `+${session.classification[0].laps - f.laps} ${session.classification[0].laps - f.laps === 1 ? 'הקפה' : 'הקפות'}`
                       ) : (
                         gapTime(f.gapMs)
                       )}

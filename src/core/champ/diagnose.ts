@@ -61,7 +61,7 @@ function decidingSession(result: RaceResult, entryId: string): { session: Sessio
   return null;
 }
 
-export function diagnoseCar(card: RaceCard, result: RaceResult, entryId: string): Advice[] {
+export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string): Advice[] {
   const decided = decidingSession(result, entryId);
   const place = result.places.find((p) => p.entryId === entryId);
   if (!decided || !place) return [];
@@ -75,7 +75,7 @@ export function diagnoseCar(card: RaceCard, result: RaceResult, entryId: string)
     out.push({
       kind: 'unready',
       finding: `השלים ${finish.laps} מתוך ${winnerLaps} הקפות`,
-      action: `המודל לא מוכן למרוץ מלא. אמנו אותו על ${card.laps} הקפות, כדי שילמד להחזיק מרחק ולא רק הקפה אחת.`,
+      action: 'המודל לא מוכן למרוץ מלא. תנו לו עוד זמן אימון, עד שבאימון הוא משלים את כל ההקפות ברצף.',
     });
   }
 
@@ -98,7 +98,7 @@ export function diagnoseCar(card: RaceCard, result: RaceResult, entryId: string)
   if (avgTop > 0 && finish.topSpeed > 0 && finish.topSpeed < avgTop * SLOW_TOP_SPEED) {
     out.push({
       kind: 'speed',
-      finding: `מהירות שיא ${finish.topSpeed.toFixed(1)}, מול ממוצע ${avgTop.toFixed(1)} של השאר`,
+      finding: `מהירות שיא ${kmh(finish.topSpeed)} קמ״ש, מול ממוצע ${kmh(avgTop)} קמ״ש של השאר`,
       action: `הזיזו ימינה את "${label('speed')}" - הוא נוהג לאט מדי בישורות.`,
       slider: 'speed',
       direction: 'right',
@@ -144,4 +144,9 @@ export function diagnoseDay(card: RaceCard, result: RaceResult): Map<string, Adv
   const out = new Map<string, Advice[]>();
   for (const p of result.places) out.set(p.entryId, diagnoseCar(card, result, p.entryId));
   return out;
+}
+
+/** The same scale the tables use (`speedText` in the UI): the car's top speed reads as 320 km/h. */
+function kmh(simSpeed: number): number {
+  return Math.round((simSpeed / 7) * 320);
 }

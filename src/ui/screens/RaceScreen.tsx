@@ -423,8 +423,10 @@ export function RaceScreen() {
     );
   }
 
+  // The race screen is "bare" (no page padding) for the landscape phone, so on
+  // a desktop it brings its own - without it the title sat under the header.
   return (
-    <>
+    <div className="race-page">
       <div className="toolbar">
         <div className="title">
           <div className="eyebrow">מגרש אימונים</div>
@@ -492,6 +494,6 @@ export function RaceScreen() {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

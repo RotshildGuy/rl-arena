@@ -168,7 +168,9 @@ export function Championship() {
         </p>
       </div>
 
-      {editingName || nameTaken ? (
+      {/* Not while on the way to the broadcast: the name form flashing past
+          for a moment, unexplained, was the first thing a watcher saw. */}
+      {(editingName || nameTaken) && !watchFirst ? (
         <div className="card notched" style={{ marginBottom: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>מי אתם</div>
           {nameTaken && (
@@ -596,7 +598,7 @@ function NextRace({
 
         <div className="row wrap">
           <button className="primary" onClick={onEnter}>
-            {field.length ? 'רשום עוד מודל' : 'רשום מודל לאליפות'}
+            רשמו מודל לאליפות
           </button>
           <AddToCalendar round={round} />
           <PushToggle />

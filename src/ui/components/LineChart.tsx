@@ -15,13 +15,19 @@ interface Props {
   fixedRange?: [number, number];
   /** Draw the y axis on a log scale - loss spans orders of magnitude. */
   log?: boolean;
+  /** Never let the axis go below zero - a lap time cannot be negative. */
+  nonNegative?: boolean;
+  /** Said inside the chart while it has nothing to draw. */
+  emptyText?: string;
+  /** An index to mark with a dashed vertical line - where something changed. */
+  marker?: number;
 }
 
 /**
  * Small canvas chart. Hand-drawn rather than pulled from a charting library:
  * three of these redraw on every stats tick and the whole thing is 60 lines.
  */
-export function LineChart({ series, height = 120, fixedRange, log }: Props) {
+export function LineChart({ series, height = 120, fixedRange, log, nonNegative, emptyText, marker }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const theme = useSyncExternalStore(subscribeTheme, currentTheme);
 
@@ -68,6 +74,17 @@ export function LineChart({ series, height = 120, fixedRange, log }: Props) {
     const pad2 = (hi - lo) * 0.08;
     lo -= pad2;
     hi += pad2;
+    if (nonNegative && lo < 0) lo = 0;
+    const empty = !series.some((s) => s.values.some((v) => isFinite(v)));
+    if (empty && emptyText) {
+      ctx.font = '13px system-ui, sans-serif';
+      ctx.fillStyle = cssVar('--muted', '#888');
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.direction = 'rtl';
+      ctx.fillText(emptyText, w / 2, height / 2);
+      return;
+    }
 
     const maxLen = Math.max(2, ...series.map((s) => s.values.length));
     const X = (i: number) => pad.left + (i / (maxLen - 1)) * plotW;
@@ -91,6 +108,18 @@ export function LineChart({ series, height = 120, fixedRange, log }: Props) {
       ctx.fillText(formatTick(shown), pad.left - 6, y);
     }
 
+    if (marker !== undefined && marker > 0 && marker < maxLen) {
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = cssVar('--warn', '#f5a623');
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(X(marker), pad.top);
+      ctx.lineTo(X(marker), pad.top + plotH);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     for (const s of series) {
       if (s.values.length < 2) continue;
       ctx.strokeStyle = s.color.startsWith('--') ? cssVar(s.color, '#888') : s.color;
@@ -112,7 +141,7 @@ export function LineChart({ series, height = 120, fixedRange, log }: Props) {
       }
       ctx.stroke();
     }
-  }, [theme, series, height, fixedRange, log]);
+  }, [theme, series, height, fixedRange, log, nonNegative, emptyText, marker]);
 
   return <canvas ref={ref} style={{ width: '100%', height, display: 'block' }} />;
 }

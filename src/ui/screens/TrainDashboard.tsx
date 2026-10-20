@@ -55,6 +55,8 @@ export function TrainDashboard() {
   const savedLen = useRef<number[]>([]);
   const dirtyRef = useRef(false);
   const [tab, setTab] = useState(0);
+  /** Per model, where on the chart its sliders last changed - the points are counted differently from there. */
+  const [retuned, setRetuned] = useState<Record<number, number>>({});
   const boot = useRef<SlotBoot[]>([]);
   const started = useRef(false);
 
@@ -459,14 +461,29 @@ export function TrainDashboard() {
             <div className="small muted" style={{ marginBottom: 4 }}>
               נקודות ל{algo.episodeLabel} - כמה הוא צובר לפי המחוונים שלו
             </div>
-            <LineChart height={140} series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]} />
+            <LineChart
+              height={140}
+              marker={retuned[slotIndex]}
+              series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]}
+            />
+            {retuned[slotIndex] !== undefined && (
+              <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
+                הקו המקווקו: כאן שיניתם מחוונים. מאז הנקודות נספרות אחרת, אז קפיצה
+                בקו הזה לא אומרת שהנהיגה השתנתה - את זה מראה גרף ההקפה.
+              </div>
+            )}
 
             {hasLaps && (
               <>
                 <div className="small muted" style={{ marginTop: 10 }}>
                   ההקפה המהירה שלו ל{algo.episodeLabel} (שניות) - זה מה שהאליפות מודדת
                 </div>
-                <LineChart height={110} series={[{ label: 'lap', color: '--purple', values: charts.laps }]} />
+                <LineChart
+                  height={110}
+                  nonNegative
+                  emptyText="עוד אין הקפה שלמה - הקו יופיע אחרי ההקפה הראשונה"
+                  series={[{ label: 'lap', color: '--purple', values: charts.laps }]}
+                />
               </>
             )}
           </div>
@@ -504,10 +521,32 @@ export function TrainDashboard() {
           <div className="card notched">
             <div className="cols-3">
               <Stat k={algo.episodesLabel} v={(slotLive?.live.episode ?? 0).toLocaleString('he-IL')} />
-              <Stat k={game.spec.scoreLabel} v={history.length ? history[history.length - 1].score.toFixed(2) : '-'} />
+              <Stat k={game.spec.scoreLabel} v={history.length ? history[history.length - 1].score.toFixed(1) : '-'} />
               <Stat k="זמן אימון" v={durationText((boot.current[slotIndex]?.baseTrainedMs ?? 0) + trainer.elapsedMs())} />
             </div>
           </div>
+
+          <UnderTheHood
+            algorithm={slot.algorithm}
+            hidden={slot.algorithm === 'ga' ? draft.gaHyper.hidden : draft.hyper.hidden}
+            obsSize={game.spec.obsSize}
+            actions={game.spec.actions}
+            extra={
+              slot.algorithm === 'ga'
+                ? [
+                    ['גודל אוכלוסייה', String(draft.gaHyper.populationSize)],
+                    ['שורדים בכל דור', `${Math.round(draft.gaHyper.eliteFraction * 100)}%`],
+                    ['עוצמת מוטציה', String(draft.gaHyper.mutationScale)],
+                  ]
+                : [
+                    ['קצב למידה', String(draft.hyper.lr)],
+                    ['gamma', String(draft.hyper.gamma)],
+                    ['batch', String(draft.hyper.batchSize)],
+                    ['זיכרון חוויות', draft.hyper.bufferSize.toLocaleString('he-IL')],
+                    ['epsilon', `${draft.hyper.epsStart} עד ${draft.hyper.epsEnd}`],
+                  ]
+            }
+          />
 
           <div className="card notched">
             {multi && (
@@ -521,6 +560,7 @@ export function TrainDashboard() {
               value={slot.rewards}
               live
               onChange={(rewards) => {
+                setRetuned((r) => ({ ...r, [slotIndex]: live[slotIndex]?.history.length ?? 0 }));
                 patchSlot(slotIndex, { rewards });
                 trainer.setRewards(slotIndex, rewards);
               }}
@@ -643,5 +683,54 @@ function Stat({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
         {v}
       </div>
     </div>
+  );
+}
+
+/**
+ * For whoever wants to know what is actually running. Folded by default: the
+ * screen is built around the sliders, and none of this is a setting - but a
+ * student who knows what a Q-network is asked where it was.
+ */
+function UnderTheHood({
+  algorithm,
+  hidden,
+  obsSize,
+  actions,
+  extra,
+}: {
+  algorithm: keyof typeof ALGORITHMS;
+  hidden: number[];
+  obsSize: number;
+  actions: readonly string[];
+  extra: Array<[string, string]>;
+}) {
+  const algo = ALGORITHMS[algorithm];
+  return (
+    <details className="card notched under-hood">
+      <summary className="eyebrow">מאחורי הקלעים</summary>
+      <div className="small" style={{ display: 'grid', gap: 4, marginTop: 10 }}>
+        <div>
+          שיטה: <b>{algo.name}</b> <span className="muted">({algo.technical})</span>
+        </div>
+        <div>
+          רשת: <span className="mono" dir="ltr">{[obsSize, ...hidden, actions.length].join(' → ')}</span>
+        </div>
+        <div>
+          קלט: <span className="mono">{obsSize}</span> מספרים - חיישני מרחק לקיר, מהירות, כיוון והרכבים הקרובים
+        </div>
+        <div>
+          פעולות ({actions.length}): <span className="muted">{actions.join(' · ')}</span>
+        </div>
+        {extra.map(([k, v]) => (
+          <div key={k}>
+            {k}: <span className="mono">{v}</span>
+          </div>
+        ))}
+        <div className="muted">
+          הנקודות בכל צעד הן סכום המחוונים כפול מה שקרה בצעד הזה (התקדמות, מהירות, פגיעות וכו׳). המשקל
+          של כל דרגה במחוון קבוע בקוד.
+        </div>
+      </div>
+    </details>
   );
 }

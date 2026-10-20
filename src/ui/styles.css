@@ -2100,3 +2100,5 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   background: rgba(255, 46, 77, 0.08);
 }
 .try-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.race-page { padding: 22px 20px; max-width: 1280px; margin: 0 auto; height: 100%; overflow-y: auto; }
+.under-hood summary { cursor: pointer; list-style: revert; }
