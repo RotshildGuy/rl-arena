@@ -16,6 +16,7 @@ import { compactNumber, durationText, lapTime, raceTime } from '../format';
 import type { RacingSnapshot } from '../../core/games/racing/env';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { CoachAnchor, useCoachStep } from '../coach';
+import { track } from '../../storage/metrics';
 
 const SPEEDS: Array<{ id: SpeedMode; label: string; hint: string }> = [
   { id: 'watch', label: '×1', hint: 'זמן אמת — לראות מה המודל עושה' },
@@ -109,6 +110,7 @@ export function TrainDashboard() {
       );
       setBooting(false);
       trainer.play();
+      track('train');
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,6 +154,7 @@ export function TrainDashboard() {
         patchSlot(i, { modelId: rec.id, restart: false });
         saved.push(rec.name);
       }
+      track('save');
       showToast(thenLeave ? `נשמר: ${saved.join(' · ')}` : `נקודת שמירה נוצרה ל-${saved.length} מודלים`);
       if (thenLeave) go('library');
     } catch (e) {

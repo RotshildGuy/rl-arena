@@ -487,6 +487,34 @@ match /names/{key} {
 עד שהכלל מתפרסם, Firestore דוחה כל גישה ל-`names` והאפליקציה ממשיכה כרגיל, בלי ייחודיות.
 היא לא נועלת אף אחד מחוץ לשם שלו בגלל כלל חסר.
 
+### מדדי שימור
+
+כדי לדעת אם אנשים חוזרים, האפליקציה כותבת אירוע אחד לכל חשבון, לכל סוג אירוע, לכל יום:
+`metrics/{day}/events/{uid}_{event}` עם `{ uid, event, day }` בלבד. חמשת האירועים הם `visit`,
+`train`, `save`, `enter` ו-`watch` (`core/metrics.ts`). המזהה של המסמך הוא כל הרשומה, ולכן אותה
+פעולה פעמיים באותו יום לא כותבת כלום חדש. אין שעה, מכשיר או צד שלישי, ומדיניות הפרטיות אומרת
+את זה.
+
+`summarize` ב-`core/metrics.ts` מחשב מזה שימור ליום 1, 7 ו-30 ואת אחוז המבקרים שהגיעו לרישום,
+ונבדק ב-`npm run sanity`. מי שמופיע ב-`admins()` רואה את המספרים במידע ← קרדיטים; לכל אחד אחר
+הקריאה נדחית והסעיף לא מופיע.
+
+הכלל, בתוך `match /databases/{database}/documents`:
+
+```
+match /metrics/{day}/events/{id} {
+  allow read: if request.auth != null && request.auth.uid in admins();
+  allow create: if request.auth != null
+    && id == request.auth.uid + '_' + request.resource.data.event
+    && request.resource.data.uid == request.auth.uid
+    && request.resource.data.day == day
+    && request.resource.data.event in ['visit', 'train', 'save', 'enter', 'watch']
+    && request.resource.data.keys().hasOnly(['uid', 'event', 'day']);
+}
+```
+
+עד שהכלל מתפרסם, Firestore דוחה את הכתיבות והאפליקציה ממשיכה כרגיל — האירוע פשוט לא נספר.
+
 ### מה קורה כשההתחברות עצמה שבורה
 
 ספק כבוי בקונסולה או דומיין לא מורשה הם תקלות שאי אפשר לפתור מהדפדפן, ולכן הם לא משאירים

@@ -46,6 +46,7 @@ import {
 } from '../src/core/champ/timing';
 import type { DayPlace, RaceCard, RaceResult } from '../src/core/champ/types';
 import { coachStepFor, type CoachState } from '../src/ui/coachStep';
+import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -1266,6 +1267,30 @@ function coachTest(): void {
   check('withdrawing a car brings it back', at({ ...named, models: 1, screen: 'library' }) === 'enter');
 }
 
+// ---------------------------------------------------------------- metrics
+function metricsTest(): void {
+  console.log(CHAPTER + 'Retention metrics');
+  const row = (uid: string, day: string, event: MetricRow['event'] = 'visit'): MetricRow => ({ uid, event, day });
+  const rows: MetricRow[] = [
+    // a: back the next day and a month later.
+    row('a', '2026-09-01'), row('a', '2026-09-02'), row('a', '2026-10-05'), row('a', '2026-09-01', 'enter'),
+    // b: never back.
+    row('b', '2026-09-01'),
+    // c: back after a week, on a later day only — and exactly 30 days old today.
+    row('c', '2026-09-10'), row('c', '2026-09-20'), row('c', '2026-09-10', 'train'),
+    // d: arrived yesterday — too new to count as lost on day 7.
+    row('d', '2026-10-09'),
+  ];
+  const s = summarize(rows, '2026-10-10');
+  const at = (d: number) => s.retention.find((r) => r.day === d)!;
+  check('every account is counted once', s.accounts === 4, String(s.accounts));
+  check('day 1: a and c came back, b did not, d is counted', at(1).cohort === 4 && at(1).returned === 2, JSON.stringify(at(1)));
+  check('day 7 leaves out an account too new to have had the chance', at(7).cohort === 3 && at(7).returned === 2, JSON.stringify(at(7)));
+  check('day 30 counts only accounts a month old', at(30).cohort === 3 && at(30).returned === 1, JSON.stringify(at(30)));
+  check('the funnel counts accounts, not events', s.funnel.visit === 4 && s.funnel.enter === 1 && s.funnel.train === 1);
+  check('days are UTC', dayKey(Date.UTC(2026, 9, 10, 23, 30)) === '2026-10-10');
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1285,5 +1310,6 @@ competitorTest();
 broadcastClockTest();
 earlyFeedTest();
 coachTest();
+metricsTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

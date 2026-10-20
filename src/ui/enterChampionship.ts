@@ -6,6 +6,7 @@ import { getStore, newModelId, type ModelMeta } from '../storage';
 import { getCompetitor } from './identity';
 import { claimName, NameTakenError } from '../storage/teamNames';
 import { invalidateChampionship } from './useChampionship';
+import { track } from '../storage/metrics';
 
 export class EntryError extends Error {}
 
@@ -109,6 +110,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   };
 
   await arena.putEntry(entry, rec.weightsB64);
+  track('enter');
   invalidateChampionship();
   return entry;
 }

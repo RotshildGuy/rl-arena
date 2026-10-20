@@ -14,6 +14,7 @@ import { STEP_MS, type RacingSnapshot } from '../../core/games/racing/env';
 import type { RaceCard } from '../../core/champ/types';
 import { lapTime, raceTime, timeText, untilText } from '../format';
 import { useIsPortrait, useWakeLock } from '../device';
+import { track } from '../../storage/metrics';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -112,6 +113,7 @@ function BroadcastStage({
   const [endMs, setEndMs] = useState<number | null>(null);
 
   useWakeLock(true);
+  useEffect(() => track('watch'), []);
 
   // A live day pulls the viewer along with it: when the next session starts, the
   // broadcast follows, the same way a television feed would.
