@@ -21,6 +21,7 @@ import { eligibleEntries } from '../../core/champ/card';
 import { carRecaps, type CarRecap } from '../../core/champ/recap';
 import { diagnoseCar } from '../../core/champ/diagnose';
 import { AdviceLine } from '../components/AdviceLine';
+import { shareResult } from '../shareCard';
 import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
@@ -32,7 +33,7 @@ import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
-import { dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
+import { dateText, dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
 import { downloadRaceCalendar, googleCalendarUrl, REMINDER_MINUTES } from '../calendar';
 
 /**
@@ -885,6 +886,7 @@ function MyRaceCard({
             </span>
           )}
           {r.standing !== null && <StandingMove now={r.standing} before={r.standingBefore} />}
+          <ShareButton card={card} recap={r} />
           {result && r.position > 1 && (() => {
             // The first thing to fix, right under the line it explains.
             const first = diagnoseCar(card, result, r.entryId)[0];
@@ -940,5 +942,40 @@ function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen()
         </button>
       </div>
     </div>
+  );
+}
+
+/** One tap to a picture of this car's race, for a group chat. */
+function ShareButton({ card, recap }: { card: RaceCard; recap: CarRecap }) {
+  const showToast = useApp((s) => s.showToast);
+  const [busy, setBusy] = useState(false);
+  const share = async () => {
+    setBusy(true);
+    try {
+      const outcome = await shareResult({
+        driver: recap.driver,
+        team: recap.team,
+        color: teamColor(recap.team),
+        position: recap.position,
+        dnf: recap.status === 'dnf',
+        points: recap.points,
+        raceName: card.name,
+        trackName: TRACK_DEFS.find((t) => t.id === card.trackId)?.name ?? card.trackId,
+        date: dateText(card.startsAt),
+        bestLap: recap.bestLapMs !== null ? lapTime(recap.bestLapMs) : null,
+        gained: recap.gained,
+        site: window.location.origin,
+      });
+      if (outcome === 'downloaded') showToast('התמונה ירדה - אפשר לשלוח אותה לכל מקום');
+    } catch {
+      showToast('לא הצלחתי ליצור את התמונה');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button className="ghost small" onClick={() => void share()} disabled={busy} title="תמונה של התוצאה, לשליחה">
+      {busy ? '…' : '↗ שתף'}
+    </button>
   );
 }
