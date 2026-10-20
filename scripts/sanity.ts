@@ -48,6 +48,7 @@ import type { DayPlace, RaceCard, RaceResult } from '../src/core/champ/types';
 import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
 import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
+import { carRecaps } from '../src/core/champ/recap';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -1315,6 +1316,39 @@ function calendarTest(): void {
     g.searchParams.get('dates')?.startsWith(`${start}/`) === true && g.searchParams.get('recur') === 'RRULE:FREQ=DAILY');
 }
 
+// ---------------------------------------------------------------- recap
+function recapTest(): void {
+  console.log(CHAPTER + 'What happened to my car');
+  // Round 1: a wins. Round 2: a starts from pole but finishes third, b0 wins.
+  const ids = ['a', 'b0', 'b1', 'b2'];
+  const r1 = fakeCard(1, ids);
+  const r2 = fakeCard(2, ids);
+  const results = new Map<string, RaceResult>([
+    [r1.id, fakeResult(r1.id, [fakePlace('a', 1), fakePlace('b0', 2), fakePlace('b1', 3), fakePlace('b2', 4)])],
+    [r2.id, fakeResult(r2.id, [fakePlace('b0', 1), fakePlace('b1', 2), fakePlace('a', 3), fakePlace('b2', 4)])],
+  ]);
+  const res2 = results.get(r2.id)!;
+  res2.sessions = [{
+    sessionId: 'race', grid: ids, fastestLap: { entryId: 'a', ms: 41_200 },
+    classification: [{
+      entryId: 'a', position: 3, laps: RACE_LAPS, totalMs: 1, gapMs: 1, bestLapMs: 41_200, bestSectorsMs: [],
+      lapTimesMs: [], lapPositions: [], topSpeed: 1, overtakes: 0, wallHits: 0, carHits: 0, lapsLed: 0,
+      status: 'finished', gridPos: 1,
+    }],
+  }];
+  res2.fastestLap = { entryId: 'a', ms: 41_200 };
+  const [mine, ...more] = carRecaps(r2, [r1, r2], results, 'u');
+  check('one line per car of the team, and only theirs', !!mine && more.length === 0 && mine.entryId === 'a');
+  check('final place and the points it earned', mine.position === 3 && mine.points === POINTS[2]);
+  check('two places lost from pole', mine.startPos === 1 && mine.gained === -2, String(mine.gained));
+  check('its own quickest lap, marked as the fastest of the day', mine.bestLapMs === 41_200 && mine.fastestOfDay);
+  // After round 1: a 25, b0 18. After round 2: b0 43, a 40 — a drops to second.
+  check('the table move is worked out from before and after the round', mine.standingBefore === 1 && mine.standing === 2,
+    `${mine.standingBefore} → ${mine.standing}`);
+  check('a team with no car in the race gets no card', carRecaps(r2, [r1, r2], results, 'nobody').length === 0);
+  check('nor does a race whose result is not out yet', carRecaps(r2, [r1, r2], new Map([[r1.id, results.get(r1.id)!]]), 'u').length === 0);
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1336,5 +1370,6 @@ earlyFeedTest();
 coachTest();
 metricsTest();
 calendarTest();
+recapTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

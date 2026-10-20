@@ -15,6 +15,7 @@ import {
   trackForRound,
 } from '../../core/champ/schedule';
 import { eligibleEntries } from '../../core/champ/card';
+import { carRecaps, type CarRecap } from '../../core/champ/recap';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
@@ -90,6 +91,17 @@ export function Championship() {
     );
     return done.length ? done[done.length - 1] : null;
   }, [state, now]);
+
+  // Recomputed when the season reloads, and when the clock settles a race day
+  // that was still on air — keyed on the round, not the second, because building
+  // the table twice is not free.
+  const lastRound = lastFinished?.round ?? 0;
+  const recaps = useMemo(() => {
+    if (!state || !lastFinished) return [];
+    const settled = settledResults(state.cards, state.results, now);
+    return carRecaps(lastFinished, state.cards, settled, state.uid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, lastRound]);
 
   // A car is either on the grid or it is not: an entry left retired under the
   // old withdrawal rules is filtered out here, so its model reads as
@@ -180,6 +192,10 @@ export function Championship() {
       )}
 
       <PhysicsNotice now={now} onTrain={() => go('library')} />
+
+      {lastFinished && recaps.length > 0 && (
+        <MyRaceCard card={lastFinished} recaps={recaps} onOpen={() => openRace(lastFinished.id, 'report')} />
+      )}
 
       <StaleCarNotice entries={myEntries} models={myModels} now={now} round={upcoming} onFix={() => go('library')} />
 
@@ -759,5 +775,68 @@ function LastRace({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * How the last race went for this team's own cars, one line each.
+ *
+ * The podium below is the race as everybody saw it; this is the race as the
+ * team cares about it — seventh is not on any podium. Shown only when one of
+ * their cars was in the latest race, so it never repeats old news.
+ */
+function MyRaceCard({ card, recaps, onOpen }: { card: RaceCard; recaps: CarRecap[]; onOpen(): void }) {
+  return (
+    <div className="card notched" style={{ marginBottom: 14 }}>
+      <div className="head">
+        <div className="eyebrow">מה קרה לרכב שלך · {card.name}</div>
+        <div className="fill" />
+        <button className="ghost small" onClick={onOpen}>
+          הדוח המלא →
+        </button>
+      </div>
+      {recaps.map((r) => (
+        <div className="row wrap" key={r.entryId} style={{ padding: '6px 0' }}>
+          <span className={posClass(r.position, r.status === 'dnf')}>{r.position}</span>
+          <DriverCell driver={r.driver} team={r.team} tag={r.tag} />
+          <div style={{ flex: 1 }} />
+          {(r.status === 'dnf' || !r.classified) && (
+            <span className="pill warn small">{r.status === 'dnf' ? 'פרש' : 'לא מדורג'}</span>
+          )}
+          <span className="mono small" style={{ fontWeight: 700 }} title="נקודות בסבב">
+            +{r.points}
+          </span>
+          {r.gained !== null && (
+            <span
+              className="mono small"
+              style={{ color: r.gained > 0 ? 'var(--good)' : r.gained < 0 ? 'var(--warn)' : undefined }}
+              title={`זינק ממקום ${r.startPos}`}
+            >
+              {r.gained > 0 ? `▲${r.gained}` : r.gained < 0 ? `▼${-r.gained}` : '＝'} מהזינוק
+            </span>
+          )}
+          {r.bestLapMs !== null && (
+            <span
+              className="mono small"
+              style={r.fastestOfDay ? { color: 'var(--purple)' } : undefined}
+              title={r.fastestOfDay ? 'ההקפה המהירה של היום' : 'ההקפה המהירה שלו'}
+            >
+              {lapTime(r.bestLapMs)}
+            </span>
+          )}
+          {r.standing !== null && <StandingMove now={r.standing} before={r.standingBefore} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StandingMove({ now, before }: { now: number; before: number | null }) {
+  const moved = before === null ? null : before - now;
+  return (
+    <span className="small muted" title="המקום באליפות הנהגים">
+      בטבלה: <span className="mono">{now}</span>
+      {moved === null ? ' (חדש)' : moved > 0 ? ` ▲${moved}` : moved < 0 ? ` ▼${-moved}` : ''}
+    </span>
   );
 }
