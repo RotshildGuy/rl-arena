@@ -212,59 +212,8 @@
   color-scheme: light;
 }
 
-/* The race itself stays at night. The track is drawn dark on the canvas, and
-   the broadcast and the match screens - with everything laid over the canvas -
-   are a screen within the screen, so in the light theme they get the dark
-   palette back. Custom properties inherit, which is what makes one rule enough. */
-:root[data-theme='light']
-  :is(.match-fill, .stage-overlay, .stage-overlay-end, .canvas-host, .tower, .lights, .touchpad, .rotate-gate) {
-  --bg: #07080d;
-  --bg-2: #0a0c13;
-  --panel: #101320;
-  --panel-2: #161a2a;
-  --panel-3: #1d2234;
-  --line: #232a3d;
-  --line-2: #323a52;
-  --text: #e9edf7;
-  --muted: #8590a8;
-  --dim: #5b657d;
-
-  --accent: #ff2e4d;
-  --accent-ink: #fff5f6;
-  --accent-dim: #3d0f1a;
-  --accent-2: #00e0ff;
-  --accent-2-dim: #063845;
-
-  --good: #3de87a;
-  --warn: #ffc53d;
-  --danger: #ff5470;
-
-  /* Timing-screen semantics. Do not reuse these for chrome. */
-  --purple: #c77dff;
-  --green: #3de87a;
-  --yellow: #ffd84d;
-  --p1: #ffd84d;
-  --p1-bg: #2a2410;
-  --p2: #c8d2e4;
-  --p2-bg: #1e2028;
-  --p3: #d08a45;
-  --p3-bg: #2a1c12;
-  --hi: 255, 255, 255;
-  --deep: 10, 12, 20;
-  --well: rgba(0, 0, 0, 0.28);
-  --raise: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
-  --glass-tint: rgba(17, 21, 35, 0.58);
-  --glass-tint-strong: rgba(14, 17, 29, 0.82);
-  --glass-sheen: linear-gradient(170deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015) 55%);
-  --glass-edge: rgba(255, 255, 255, 0.1);
-  --glass-edge-strong: rgba(255, 255, 255, 0.16);
-  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
-  --state-hover: rgba(255, 255, 255, 0.07);
-  --state-press: rgba(255, 255, 255, 0.12);
-  --surface-solid: #0e111c;
-  color-scheme: dark;
-  color: var(--text);
-}
+/* The race screens follow the theme like every other screen. Only the road
+   itself stays dark: it is drawn on the canvas (`render.ts`, `daylight`). */
 .match-fill { background: var(--bg); }
 
 * { box-sizing: border-box; }
@@ -715,7 +664,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 
 .canvas-host {
   position: relative;
-  background: #05060a;
+  background: var(--bg);
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius-lg);
   box-shadow: var(--elev-1);
