@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
-import { useApp, type Screen } from '../store';
+import { useApp } from '../store';
 import { Modal } from '../components/Modal';
 import { useTrainer } from '../useTrainer';
 import { Canvas } from '../components/Canvas';
@@ -226,7 +226,7 @@ export function TrainDashboard() {
               ? `${saved.length} המודלים נשמרו - האימון ממשיך`
               : 'נשמר - האימון ממשיך',
       );
-      if (thenLeave) leaveNow(leaveTo ?? 'library');
+      if (thenLeave) leaveNow(leaveTo?.run ?? (() => useApp.getState().go('library')));
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'השמירה נכשלה');
     } finally {
@@ -248,17 +248,18 @@ export function TrainDashboard() {
    */
   const dirty = !booting && live.some((sl, i) => sl.history.length > (savedLen.current[i] ?? 0));
   dirtyRef.current = dirty;
-  const [leaveTo, setLeaveTo] = useState<Screen | null>(null);
+  /** The navigation waiting on the "save before leaving?" question. */
+  const [leaveTo, setLeaveTo] = useState<{ run: () => void } | null>(null);
   const setLeaveGuard = useApp((st) => st.setLeaveGuard);
-  const leaveNow = (to: Screen) => {
+  const leaveNow = (proceed: () => void) => {
     setLeaveGuard(null);
     setLeaveTo(null);
-    useApp.getState().go(to);
+    proceed();
   };
   useEffect(() => {
-    setLeaveGuard((to) => {
+    setLeaveGuard((proceed) => {
       if (!dirtyRef.current) return true;
-      setLeaveTo(to);
+      setLeaveTo({ run: proceed });
       return false;
     });
     return () => setLeaveGuard(null);
@@ -323,6 +324,24 @@ export function TrainDashboard() {
     return { lap, race };
   }, [history, slotIndex, draft.config]);
 
+  /**
+   * Milestones, said once each as they happen. Watching a curve creep is
+   * abstract; "first full lap" is the moment people tell somebody about.
+   */
+  const told = useRef(new Map<number, { lap: boolean; race: boolean; target: boolean }>());
+  const announce = useRef<(lap: number | null, race: number | null, targetMs: number | null) => void>(() => {});
+  announce.current = (lap, race, targetMs) => {
+    const was = told.current.get(slotIndex);
+    const now = { lap: lap !== null, race: race !== null, target: lap !== null && targetMs !== null && lap <= targetMs };
+    told.current.set(slotIndex, now);
+    // The first look at a model only records where it already is.
+    if (!was) return;
+    const who = slot.name || `מודל ${slotIndex + 1}`;
+    if (now.target && !was.target) showToast(`⚡ ${who} מהיר מהיעד!`);
+    else if (now.race && !was.race) showToast(`🏁 ${who} סיים מרוץ מלא!`);
+    else if (now.lap && !was.lap) showToast(`🎉 ההקפה השלמה הראשונה של ${who}!`);
+  };
+
   // The season is usually already loaded by the time anybody trains - the app
   // opens on the championship - so this costs nothing in the common case.
   const champ = useChampionship().state;
@@ -331,6 +350,10 @@ export function TrainDashboard() {
     const physics = Number(draft.config.physics ?? PHYSICS_VERSION);
     return trainingTarget(champ.cards, champ.results, String(draft.config.trackId ?? ''), physics, Date.now());
   }, [champ, hasLaps, draft.config]);
+
+  useEffect(() => {
+    if (hasLaps && !booting) announce.current(records.lap, records.race, target?.ms ?? null);
+  }, [records.lap, records.race, target, hasLaps, booting]);
 
   return (
     <>
@@ -397,7 +420,7 @@ export function TrainDashboard() {
               <button className="ghost" onClick={() => setLeaveTo(null)}>
                 להמשיך לאמן
               </button>
-              <button onClick={() => leaveNow(leaveTo)}>לצאת בלי לשמור</button>
+              <button onClick={() => leaveNow(leaveTo.run)}>לצאת בלי לשמור</button>
               <button className="primary" disabled={saving} onClick={() => void save('leave')}>
                 {saving ? 'שומר…' : 'לשמור ולצאת'}
               </button>
@@ -622,7 +645,7 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
   if (!leader) return null;
 
   return (
-    <div className="stage-overlay-end" style={{ display: 'grid', gap: 5, justifyItems: 'end' }}>
+    <div className="stage-overlay-end train-timing">
       <div className="pill mono" title="זמן הניסיון הנוכחי">
         {raceTime(snap.raceMs)}
       </div>

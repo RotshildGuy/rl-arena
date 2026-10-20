@@ -2127,3 +2127,14 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   z-index: 3;
   pointer-events: none;
 }
+/* The far (left, in RTL) edge of a table that scrolls fades out while there is more. */
+.scroll-x.more {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 36px);
+  mask-image: linear-gradient(to left, transparent 0, #000 36px);
+}
+/* Training's live timing: over the canvas where there is room, under it on a
+   phone, where three pills over a 340px track cover the cars. */
+.train-timing { display: grid; gap: 5px; justify-items: end; }
+@media (max-width: 600px) {
+  .train-timing { position: static; display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; justify-content: flex-start; }
+}

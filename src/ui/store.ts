@@ -111,10 +111,12 @@ interface AppState {
   /**
    * A screen that must not be left silently - training, with progress nobody
    * saved - registers this. It is asked before every navigation and returns
-   * false to keep the screen where it is (and ask the person itself).
+   * false to keep the screen where it is (and ask the person itself), holding
+   * on to `proceed` - the navigation exactly as it was asked for, info tab or
+   * race included - to run once they decide to go.
    */
-  leaveGuard: ((to: Screen) => boolean) | null;
-  setLeaveGuard(guard: ((to: Screen) => boolean) | null): void;
+  leaveGuard: ((proceed: () => void) => boolean) | null;
+  setLeaveGuard(guard: ((proceed: () => void) => boolean) | null): void;
   /** The screen the feedback form was opened from: it goes with the report. */
   feedbackFrom: Screen;
   openFeedback(): void;
@@ -236,14 +238,23 @@ export function withTrainingDefaults(gameId: GameId, config: Record<string, unkn
   };
 }
 
+/**
+ * A game against the models is a quick one: three laps, not the ten a
+ * championship runs. Ten laps of somebody's first drive was where people gave up.
+ */
+function playDefaults(gameId: GameId): Record<string, unknown> {
+  const config = getGame(gameId).defaultConfig();
+  return gameId === 'racing' ? { ...config, laps: 3 } : config;
+}
+
 function withSeats(config: Record<string, unknown>, slots: number): Record<string, unknown> {
   const nCars = Number(config.nCars ?? slots);
   return nCars >= slots ? config : { ...config, nCars: slots };
 }
 
-function mayLeave(state: AppState, to: Screen): boolean {
-  if (to === state.screen || !state.leaveGuard) return true;
-  return state.leaveGuard(to);
+/** Run a navigation now, or hand it to the guard to run after asking. */
+function leave(state: AppState, to: Screen, proceed: () => void): void {
+  if (to === state.screen || !state.leaveGuard || state.leaveGuard(proceed)) proceed();
 }
 
 export const useApp = create<AppState>((set, get) => ({
@@ -255,12 +266,9 @@ export const useApp = create<AppState>((set, get) => ({
   nameTaken: false,
   infoTab: 'how',
   draft: freshDraft(GAME_IDS[0]),
-  race: { config: getGame(GAME_IDS[0]).defaultConfig(), opponents: [] },
+  race: { config: playDefaults(GAME_IDS[0]), opponents: [] },
 
-  go: (screen) => {
-    if (!mayLeave(get(), screen)) return;
-    set({ screen });
-  },
+  go: (screen) => leave(get(), screen, () => set({ screen })),
   leaveGuard: null,
   setLeaveGuard: (leaveGuard) => set({ leaveGuard }),
   feedbackFrom: 'championship',
@@ -268,20 +276,14 @@ export const useApp = create<AppState>((set, get) => ({
   setLeague: (leagueId) => set({ leagueId }),
   watchFirst: false,
   setWatchFirst: (watchFirst) => set({ watchFirst }),
-  openFeedback: () => {
-    if (!mayLeave(get(), 'feedback')) return;
-    set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' }));
-  },
+  openFeedback: () =>
+    leave(get(), 'feedback', () =>
+      set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' })),
+    ),
 
-  openRace: (viewRaceId, screen) => {
-    if (!mayLeave(get(), screen)) return;
-    set({ viewRaceId, screen });
-  },
+  openRace: (viewRaceId, screen) => leave(get(), screen, () => set({ viewRaceId, screen })),
 
-  openInfo: (infoTab) => {
-    if (!mayLeave(get(), 'info')) return;
-    set({ infoTab, screen: 'info' });
-  },
+  openInfo: (infoTab) => leave(get(), 'info', () => set({ infoTab, screen: 'info' })),
 
   setCompetitor: (name) => {
     persistCompetitor(name);
@@ -300,7 +302,7 @@ export const useApp = create<AppState>((set, get) => ({
     set({
       gameId,
       draft: freshDraft(gameId),
-      race: { config: getGame(gameId).defaultConfig(), opponents: [] },
+      race: { config: playDefaults(gameId), opponents: [] },
     }),
 
   showToast: (msg) => {

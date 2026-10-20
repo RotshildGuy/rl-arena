@@ -16,6 +16,13 @@ export function ScrollX({ children }: { children: ReactNode }) {
   const top = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [needed, setNeeded] = useState(false);
+  /** More table past the far edge: a fade there says "this scrolls" on a phone too. */
+  const [more, setMore] = useState(false);
+  const checkMore = () => {
+    const el = box.current;
+    // RTL: scrollLeft runs from 0 towards negative as the table moves on.
+    if (el) setMore(Math.abs(el.scrollLeft) + el.clientWidth < el.scrollWidth - 2);
+  };
 
   useEffect(() => {
     const el = box.current;
@@ -24,6 +31,7 @@ export function ScrollX({ children }: { children: ReactNode }) {
     const measure = () => {
       setWidth(el.scrollWidth);
       setNeeded(mouse.matches && el.scrollWidth > el.clientWidth + 1);
+      checkMore();
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -48,7 +56,14 @@ export function ScrollX({ children }: { children: ReactNode }) {
           <div style={{ width, height: 1 }} />
         </div>
       )}
-      <div className="scroll-x" ref={box} onScroll={() => follow(box.current, top.current)}>
+      <div
+        className={more ? 'scroll-x more' : 'scroll-x'}
+        ref={box}
+        onScroll={() => {
+          follow(box.current, top.current);
+          checkMore();
+        }}
+      >
         {children}
       </div>
     </>

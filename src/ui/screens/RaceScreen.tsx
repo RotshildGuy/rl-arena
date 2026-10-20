@@ -283,7 +283,7 @@ export function RaceScreen() {
   const countdownOverlay = phase === 'countdown' && (
     <div className={`countdown ${compact ? 'small' : ''}`}>
       <StartLights secondsLeft={countdown / 1000} />
-      {countdown <= 0 && <div className="word">צא!</div>}
+      {countdown <= 0 && <div className="word">צאו!</div>}
     </div>
   );
 
@@ -292,14 +292,20 @@ export function RaceScreen() {
   // "Won" is reserved for taking the flag. Being ahead when someone stopped the
   // clock is leading, not winning, and calling it a win is exactly the kind of
   // scoreboard nobody believes twice.
+  // By how much, which is the number anybody asks next.
+  const second = standings[1];
+  const margin =
+    leader?.finished && leader.timeMs !== null && second?.timeMs != null
+      ? ` ב-${((second.timeMs - leader.timeMs) / 1000).toFixed(1)} שנ׳`
+      : '';
   const winnerLine = !leader
     ? ''
     : leader.finished
       ? won
-        ? 'ניצחת! 🏆'
-        : `${leader.name} ניצח`
+        ? `ניצחתם${margin}! 🏆`
+        : `${leader.name} ניצח${margin}`
       : won
-        ? `הובלת כש${game.matchNoun} נעצר`
+        ? `הובלתם כש${game.matchNoun} נעצר`
         : `${leader.name} הוביל כש${game.matchNoun} נעצר`;
   const snap = envRef.current ? (envRef.current.snapshot() as Partial<RacingSnapshot>) : null;
 

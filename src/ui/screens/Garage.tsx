@@ -165,7 +165,7 @@ export function Garage() {
   };
 
   const race = (m: ModelMeta) => {
-    patchRace({ config: { ...m.config }, opponents: [m.id] });
+    patchRace({ config: { ...m.config, laps: 3 }, opponents: [m.id] });
     go('raceSetup');
   };
 
