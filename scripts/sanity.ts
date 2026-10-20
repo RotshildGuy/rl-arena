@@ -33,7 +33,7 @@ import {
   LOCK_BEFORE_MS,
   DAY_MS,
 } from '../src/core/champ/schedule';
-import { nextRoundOnTrack } from '../src/core/champ/records';
+import { nextRoundOnTrack, trainingTarget } from '../src/core/champ/records';
 import { eligibleEntries, MAX_CARS_PER_TEAM } from '../src/core/champ/card';
 import {
   broadcastOpensAt,
@@ -1349,6 +1349,33 @@ function recapTest(): void {
   check('nor does a race whose result is not out yet', carRecaps(r2, [r1, r2], new Map([[r1.id, results.get(r1.id)!]]), 'u').length === 0);
 }
 
+// ---------------------------------------------------------------- target
+function targetTest(): void {
+  console.log(CHAPTER + 'Training target');
+  const ids = ['a', 'b0'];
+  const pole = (c: RaceCard, ms: number, physics?: number): RaceCard => ({
+    ...c,
+    physics,
+    qualifying: [{ entryId: 'b0', bestLapMs: ms, sectorsMs: [], topSpeed: 1 }, { entryId: 'a', bestLapMs: ms + 500, sectorsMs: [], topSpeed: 1 }],
+  });
+  const n = TRACK_DEFS.length;
+  const track = trackForRound(1);
+  // Rounds 1 and 1+n run the same circuit; 1+2n is in the future.
+  const cards = [
+    pole({ ...fakeCard(1, ids), trackId: track }, 42_000, 1),
+    pole({ ...fakeCard(1 + n, ids), trackId: track }, 41_000, 2),
+    pole({ ...fakeCard(1 + 2 * n, ids), trackId: track }, 30_000, 2),
+    pole({ ...fakeCard(2, ids), trackId: trackForRound(2) }, 20_000, 2),
+  ];
+  const now = startsAtForRound(1 + n) + 1000;
+  const t = trainingTarget(cards, new Map(), track, 2, now);
+  check('the latest pole on this circuit, not a future one or another track', t?.kind === 'pole' && t.ms === 41_000, String(t?.ms));
+  check('and who set it', t?.driver === 'b0' && t.round === 1 + n && t.samePhysics);
+  const old = trainingTarget(cards, new Map(), track, 2, startsAtForRound(1) + 1000);
+  check('a pole from the old physics is used, but flagged', old?.ms === 42_000 && old.samePhysics === false);
+  check('no Grand Prix on this circuit, no target', trainingTarget(cards, new Map(), trackForRound(3), 2, now) === null);
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1371,5 +1398,6 @@ coachTest();
 metricsTest();
 calendarTest();
 recapTest();
+targetTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

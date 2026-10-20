@@ -13,10 +13,12 @@ import type { SpeedMode, TrainSlotInit } from '../../workers/protocol';
 import { ALGORITHMS } from '../../core/rl/algorithms';
 import { useWakeLock } from '../device';
 import { compactNumber, durationText, lapTime, raceTime } from '../format';
-import type { RacingSnapshot } from '../../core/games/racing/env';
+import { PHYSICS_VERSION, type RacingSnapshot } from '../../core/games/racing/env';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { track } from '../../storage/metrics';
+import { useChampionship } from '../useChampionship';
+import { trainingTarget, type TrainingTarget } from '../../core/champ/records';
 
 const SPEEDS: Array<{ id: SpeedMode; label: string; hint: string }> = [
   { id: 'watch', label: '×1', hint: 'זמן אמת — לראות מה המודל עושה' },
@@ -207,6 +209,15 @@ export function TrainDashboard() {
     return { lap, race };
   }, [history, slotIndex, draft.config]);
 
+  // The season is usually already loaded by the time anybody trains — the app
+  // opens on the championship — so this costs nothing in the common case.
+  const champ = useChampionship().state;
+  const target = useMemo(() => {
+    if (!hasLaps || !champ) return null;
+    const physics = Number(draft.config.physics ?? PHYSICS_VERSION);
+    return trainingTarget(champ.cards, champ.results, String(draft.config.trackId ?? ''), physics, Date.now());
+  }, [champ, hasLaps, draft.config]);
+
   return (
     <>
       <div className="toolbar">
@@ -334,6 +345,7 @@ export function TrainDashboard() {
                 <Stat k="הקפה מהירה" v={lapTime(records.lap)} accent />
                 <Stat k="מרוץ מלא" v={raceTime(records.race)} />
               </div>
+              {target && <TargetLine target={target} lap={records.lap} />}
               <div className="small muted" style={{ marginTop: 8 }}>
                 {records.race === null
                   ? `עוד לא הושלמו ${String(draft.config.laps ?? 3)} הקפות ברצף. השיא ייקבע ברגע שהרכב יראה את הדגל המשובץ.`
@@ -439,6 +451,37 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
 function setupLabel(config: Record<string, unknown>): string {
   const track = TRACK_DEFS.find((t) => t.id === config.trackId)?.name ?? String(config.trackId ?? '');
   return `${track} · ${String(config.laps ?? '?')} הקפות`;
+}
+
+/**
+ * The one number that says when a model is good enough: how far its best lap is
+ * from the pole of the last Grand Prix on this circuit.
+ */
+function TargetLine({ target, lap }: { target: TrainingTarget; lap: number | null }) {
+  const gap = lap === null ? null : (lap - target.ms) / 1000;
+  const label = target.kind === 'pole' ? `הפול של ${target.raceName} (סבב ${target.round})` : 'שיא ההקפה במסלול';
+  return (
+    <div className="small" style={{ marginTop: 10 }}>
+      <div>
+        {label}: <span className="mono" style={{ color: 'var(--purple)' }}>{lapTime(target.ms)}</span>
+        <span className="dim"> · {target.driver}</span>
+        {' · '}אתה: <span className="mono">{lapTime(lap)}</span>
+        {gap !== null && (
+          <>
+            {' · '}
+            <b className="mono" style={{ color: gap <= 0 ? 'var(--good)' : 'var(--warn)' }}>
+              {gap <= 0 ? `מהיר ב-${(-gap).toFixed(1)} שנ׳` : `+${gap.toFixed(1)} שנ׳`}
+            </b>
+          </>
+        )}
+      </div>
+      {!target.samePhysics && (
+        <div className="dim tiny" style={{ marginTop: 2 }}>
+          נקבע בפיזיקה הקודמת, כשהצמיגים לא החליקו — היעד האמיתי כנראה איטי יותר.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Stat({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
