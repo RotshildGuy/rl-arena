@@ -378,7 +378,7 @@ export function TrainDashboard() {
           </button>
           <CoachAnchor
             step={coach === 'save' ? coach : null}
-            text="הרכב לומד תוך כדי נסיעה - אפשר לצפות, להזיז מחוונים ולתת לו זמן. כשאתם מרוצים מהנהג, לחצו סיים ושמור."
+            text="הרכב מתאמן מול העיניים - אפשר לצפות, להזיז מחוונים ולתת לו זמן. כשאתם מרוצים מהנהג, לחצו סיים ושמור."
           >
             <button className="primary" onClick={() => save('leave')} disabled={saving || booting}>
               {saving ? 'שומר…' : 'סיים ושמור'}
@@ -417,11 +417,11 @@ export function TrainDashboard() {
             <Canvas
               aspect={16 / 10}
               draw={(ctx) => {
-                if (speed === 'turbo') {
-                  drawPlaceholder(ctx, ['מצב טורבו - מאמן הכי מהר', 'המסלול מוסתר כדי לא לבזבז זמן על ציור.', 'לחצו ×4 כדי לצפות שוב.']);
+                const snap = snapRef.current;
+                if (speed === 'turbo' && !snap) {
+                  drawPlaceholder(ctx, ['מצב טורבו - מאמן הכי מהר', 'תמונה מהמסלול פעם בשנייה.']);
                   return;
                 }
-                const snap = snapRef.current;
                 if (!snap) {
                   drawPlaceholder(ctx, ['ממתין לסימולציה…']);
                   return;
@@ -430,6 +430,11 @@ export function TrainDashboard() {
               }}
             />
             {hasLaps && speed !== 'turbo' && <LiveTiming snapRef={snapRef} />}
+            {speed === 'turbo' && (
+              <div className="stage-overlay-end">
+                <span className="pill">⚡ טורבו · תמונה פעם בשנייה</span>
+              </div>
+            )}
           </div>
 
           {multi && (

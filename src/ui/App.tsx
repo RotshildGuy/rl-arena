@@ -328,7 +328,7 @@ function Footer({
       </button>
       <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('notices')}>
-        קרדיטים
+        חשבון ונתונים
       </button>
       <div className="grow" />
       <span className="dim tiny">פרויקט חובבים · ללא קשר לשום סדרת מרוצים אמיתית</span>
@@ -357,8 +357,8 @@ function CloudBadge({ state, message }: { state: string; message: string | null 
   }
   if (state === 'ok') {
     return (
-      <span className="pill small good" title="מחובר לאליפות המשותפת">
-        ☁ מחובר
+      <span className="pill small good" title="המודלים והאליפות מסונכרנים עם השרת. זה לא אומר שיש חשבון - את זה מראה כפתור החשבון.">
+        ☁ מסונכרן
       </span>
     );
   }

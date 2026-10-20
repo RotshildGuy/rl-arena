@@ -353,9 +353,9 @@ export function RaceScreen() {
           {/* Over the track, not below it. Stacking the pedals into a column
               made the control strip tall enough to take a third of a landscape
               phone away from the thing being controlled. */}
-          <TouchPad layout={game.touchControls} keys={keysRef} />
+          {phase !== 'done' && <TouchPad layout={game.touchControls} keys={keysRef} />}
           {phase === 'racing' && snap?.raceMs !== undefined && (
-            <div className="stage-overlay-end">
+            <div className="race-hud">
               <span className="pill mono">
                 {raceTime(snap.raceMs)}
                 {snap.cars?.[0] && snap.laps ? ` · הקפה ${Math.min(snap.cars[0].lap + 1, snap.laps)}/${snap.laps}` : ''}

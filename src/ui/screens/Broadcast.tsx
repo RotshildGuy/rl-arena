@@ -396,7 +396,7 @@ function BroadcastStage({
     <div className="match-fill">
       <div className="match-bar">
         <button className="ghost small" onClick={onHome}>
-          ← אליפות
+          אליפות →
         </button>
         <strong style={{ fontSize: 13 }}>{card.name}</strong>
         {isLive ? (

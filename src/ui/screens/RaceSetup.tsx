@@ -86,7 +86,9 @@ export function RaceSetup() {
           <div className="small muted">
             {maxOpponents === 1
               ? 'משחק אחד מול אחד: אתם מול מודל אחד.'
-              : 'מספר המשתתפים נקבע לפי מספר היריבים שבחרתם: ' + (race.opponents.length + 1) + '.'}
+              : race.opponents.length === 0
+                ? 'בחרו יריבים מהרשימה - כל יריב הוא רכב נוסף על המסלול.'
+                : `על המסלול: אתם ועוד ${race.opponents.length === 1 ? 'יריב אחד' : `${race.opponents.length} יריבים`}.`}
           </div>
         </div>
 

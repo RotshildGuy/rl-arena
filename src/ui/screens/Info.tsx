@@ -24,7 +24,7 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'how', label: 'איך זה עובד' },
   { id: 'terms', label: 'תנאי שימוש' },
   { id: 'privacy', label: 'פרטיות' },
-  { id: 'notices', label: 'קרדיטים' },
+  { id: 'notices', label: 'חשבון ונתונים' },
 ];
 
 export function Info() {
@@ -222,7 +222,7 @@ function Terms() {
         <li>
           <b>כניסה בלי חשבון היא זהות של דפדפן.</b> ניקוי נתוני האתר, מעבר למכשיר אחר או חלון
           פרטי מנתקים אתכם ממנה בלי דרך חזרה - כולל מהרכבים והנקודות שצברתם. אפשר לקשר אליה
-          חשבון בכל רגע מתוך מידע ← קרדיטים, וזה שומר על הכל.
+          חשבון בכל רגע מתוך מידע - "חשבון ונתונים", וזה שומר על הכל.
         </li>
         <li>אנחנו רשאים להשעות או להסיר חשבון שמפר את התנאים האלה.</li>
       </ul>
@@ -361,7 +361,7 @@ function Privacy() {
 
       <h3>הזכויות שלכם</h3>
       <p>
-        אתם יכולים למחוק את כל מה שלכם בלחיצה אחת, בטאב "קרדיטים" כאן למעלה. המחיקה מסירה את כל
+        אתם יכולים למחוק את כל מה שלכם בלחיצה אחת, בטאב "חשבון ונתונים" כאן למעלה. המחיקה מסירה את כל
         המודלים ואת כל הרישומים לאליפות, ומסירה אתכם ממרוצים עתידיים. ספירת השימוש לא נמחקת:
         היא מחזיקה רק את המזהה האקראי ותאריכים, ואחרי המחיקה המזהה הזה כבר לא מקושר לשום דבר.
       </p>
@@ -402,7 +402,10 @@ function Notices() {
     setBusy(true);
     try {
       const report = await deleteMyData();
-      showToast(`נמחקו ${report.models} מודלים ו-${report.entries} רישומים`);
+      // The name lives in the store too, and every header reads it from there.
+      useApp.getState().adoptCompetitor('');
+      const count = (n: number, one: string, many: string) => (n === 1 ? one : `${n} ${many}`);
+      showToast(`נמחקו ${count(report.models, 'מודל אחד', 'מודלים')} ו-${count(report.entries, 'רישום אחד', 'רישומים')}`);
       go('championship');
     } catch {
       showToast('המחיקה נכשלה - נסו שוב');

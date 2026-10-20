@@ -86,7 +86,10 @@ function tick(): void {
   spsWindowSteps += done;
 
   const t = performance.now();
-  if (speed !== 'turbo' && t - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS) {
+  // Turbo still sends a still once a second: one snapshot costs nothing next to
+  // a second of uncapped training, and a blank canvas made the fastest mode
+  // look like the one where nothing happens.
+  if (t - lastSnapshotAt >= (speed === 'turbo' ? 1000 : SNAPSHOT_INTERVAL_MS)) {
     lastSnapshotAt = t;
     post({ type: 'snapshot', snap: session.snapshot() });
   }

@@ -13,7 +13,6 @@ import {
   seasonNumber,
   grandPrixName,
   lockAtForRound,
-  raceIdForRound,
   startsAtForRound,
   trackForRound,
 } from '../../core/champ/schedule';
@@ -34,7 +33,7 @@ import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
-import { dateText, dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
+import { dateText, dateTimeText, lapTime, posClass, timeText, untilText, untilWords } from '../format';
 import { googleCalendarUrl } from '../calendar';
 
 /**
@@ -258,6 +257,7 @@ export function Championship() {
           round={upcoming}
           now={now}
           field={nextField}
+          mine={myEntries.length}
           onEnter={() => go('library')}
         />
         <div className="grid">
@@ -496,11 +496,14 @@ function NextRace({
   round,
   now,
   field,
+  mine,
   onEnter,
 }: {
   round: number;
   now: number;
   field: ArenaEntry[];
+  /** How many of the field are this team's cars. */
+  mine: number;
   onEnter(): void;
 }) {
   const startsAt = startsAtForRound(round);
@@ -523,14 +526,14 @@ function NextRace({
           {grandPrixName(round)}
         </h1>
         <div className="muted small" style={{ marginBottom: 16 }}>
-          {dateTimeText(startsAt)} · מסלול {track?.name ?? '-'} · {raceIdForRound(round)}
+          {dateTimeText(startsAt)} · מסלול {track?.name ?? '-'}
         </div>
 
-        <div className="countdown-big" style={{ marginBottom: 4 }}>
-          {untilText(startsAt - now)}
+        <div className="dim small" style={{ marginBottom: 2 }}>
+          כיבוי האורות בעוד
         </div>
-        <div className="dim tiny" style={{ marginBottom: 18, letterSpacing: '0.1em' }}>
-          עד כיבוי האורות
+        <div className="countdown-big" style={{ marginBottom: 18 }}>
+          {untilWords(startsAt - now)}
         </div>
 
         <div className="cols-3" style={{ gap: 10, marginBottom: 16 }}>
@@ -598,7 +601,7 @@ function NextRace({
 
         <div className="row wrap">
           <button className="primary" onClick={onEnter}>
-            רשמו מודל לאליפות
+            {mine > 0 ? 'למוסך - הרכבים שלי' : 'רשמו מודל לאליפות'}
           </button>
           <AddToCalendar round={round} />
           <PushToggle />
@@ -723,7 +726,7 @@ function MyTeam({
                 רישום כפול
               </span>
             )}
-            <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} אפ׳</span>
+            <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} ניסיונות</span>
             {/* Kept together: a lone "remove" orphaned onto its own line reads
                 as if it belonged to the row below it. */}
             <div className="row" style={{ gap: 6, flex: '0 0 auto' }}>

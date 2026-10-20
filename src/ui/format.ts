@@ -33,6 +33,22 @@ export function shortGap(ms: number): string {
   return '+' + (ms / 1000).toFixed(1);
 }
 
+/**
+ * The same countdown in words while it is long: "20:28:37" next to a race
+ * time of "20:00" read as a time of day. Under an hour it ticks as mm:ss.
+ */
+export function untilWords(ms: number): string {
+  if (ms >= 60 * 60 * 1000) {
+    const totalMin = Math.floor(ms / 60000);
+    const days = Math.floor(totalMin / (24 * 60));
+    const hours = Math.floor((totalMin % (24 * 60)) / 60);
+    const mins = totalMin % 60;
+    const parts = [days > 0 ? `${days} ימ׳` : '', hours > 0 ? `${hours} שע׳` : '', `${mins} דק׳`].filter(Boolean);
+    return parts.join(' ');
+  }
+  return untilText(ms);
+}
+
 /** Countdown to a moment, as `d ימים hh:mm:ss`. */
 export function untilText(ms: number): string {
   if (ms <= 0) return '00:00:00';

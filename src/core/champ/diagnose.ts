@@ -111,7 +111,7 @@ export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string
   if (finish.carHits >= 3 && contactRate >= CONTACT_PER_LAP && contactRate > fieldContact * STANDS_OUT && lostPlaces > 0) {
     out.push({
       kind: 'contact',
-      finding: `${finish.carHits} מגעים עם רכבים, ו-${lostPlaces} מקומות שאבדו מהזינוק`,
+      finding: `${finish.carHits} מגעים עם רכבים, ו-${lostPlaces === 1 ? 'מקום אחד שאבד' : `${lostPlaces} מקומות שאבדו`} מהזינוק`,
       action: `הזיזו שמאלה את "${label('carHit')}" - המגעים עולים לו מקומות.`,
       slider: 'carHit',
       direction: 'left',
@@ -131,7 +131,9 @@ export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string
             : `ההקפה המהירה שלו איטית ב-${(gap * 100).toFixed(1)}% מהמהירה במרוץ`,
       action:
         gap !== null && gap <= 0.005
-          ? 'הקצב קיים; המקום הלך בזינוק או בתנועה. אמנו עם יותר רכבים על המסלול כדי שילמד לעקוף.'
+          ? lostPlaces > 0
+            ? 'הקצב קיים; המקום הלך בזינוק או בתנועה. אמנו עם יותר רכבים על המסלול כדי שילמד לעקוף.'
+            : 'הקצב קיים ולא אבד אף מקום. הניצחון מתחיל במוקדמות: הקפה מהירה יותר שם פירושה זינוק מקדימה.'
           : 'הוא נקי אבל איטי. המשיכו לאמן אותו על המסלול הזה - זמן אימון הוא מה שחסר כאן.',
     });
   }

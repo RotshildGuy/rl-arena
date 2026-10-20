@@ -177,7 +177,7 @@ export function Garage() {
       // Say when it races: "registered" alone left people asking which race, and when.
       const round = Date.now() >= lockAtForRound(currentRound() + 1) ? currentRound() + 2 : currentRound() + 1;
       const when = `סבב ${round}, ${whenText(startsAtForRound(round))}`;
-      showToast(wasEntered ? `הרכב עודכן - יתחרה בגרסה החדשה ב${when}` : `${m.name} נרשם - יתחרה ב${when}`);
+      showToast(wasEntered ? `הרכב עודכן - יתחרה בגרסה החדשה ב${when}` : `⁨${m.name}⁩ נרשם - יתחרה ב${when}`);
       champ.reload();
     } catch (e) {
       showToast(e instanceof EntryError ? e.message : 'הרישום נכשל');
@@ -656,7 +656,7 @@ function SwapDialog({
                 {gp.lapMs != null ? lapTime(gp.lapMs) : '-'}
               </span>
             </span>
-            <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} אפ׳</span>
+            <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} ניסיונות</span>
             <button className="danger small" onClick={() => onPick(e)}>
               הורד את {e.driver}
             </button>

@@ -10,6 +10,18 @@
       ],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "rl-arena-build",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }
