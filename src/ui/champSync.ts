@@ -136,13 +136,13 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
 
   // Walk the calendar rather than listing the collection. Race ids are derived
   // from the round number, so the app already knows every document that could
-  // exist and can ask only about the ones it has not seen — which is what keeps
+  // exist and can ask only about the ones it has not seen - which is what keeps
   // a visit costing the same on day 400 as on day 4.
   const lastRound = airingRound();
   /** Rounds whose lights have gone out: these can be raced. */
   const runnable = new Set(roundsToBackfill());
   /**
-   * Rounds whose card may be built — the raceable ones plus, from the moment
+   * Rounds whose card may be built - the raceable ones plus, from the moment
    * the feed opens, the one about to start. The card is the qualifying result
    * and the grid, and the broadcast cannot show a grid that does not exist yet.
    * The day itself is *not* run early: the result is of no use before the race

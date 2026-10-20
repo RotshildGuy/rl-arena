@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 /**
  * Touch capability, not screen size. A narrow desktop window is still a keyboard
- * device, and a large tablet is still a touch device — the two questions have
+ * device, and a large tablet is still a touch device - the two questions have
  * different answers and different consequences.
  */
 export const isTouchDevice =
@@ -65,7 +65,7 @@ export function useWakeLock(active: boolean): void {
         }
         sentinel = s;
       } catch {
-        // Denied (low battery, unsupported) — training still runs, the screen
+        // Denied (low battery, unsupported) - training still runs, the screen
         // just may sleep. Nothing useful to tell the user here.
       }
     };
@@ -104,7 +104,7 @@ export async function goFullscreenLandscape(el: HTMLElement): Promise<void> {
  *
  * Dragging a slider does not move focus on a phone: a number field the user
  * typed into a moment ago keeps it, the keyboard stays up, and the browser keeps
- * scrolling that field back into view on every touch — so each nudge of a reward
+ * scrolling that field back into view on every touch - so each nudge of a reward
  * slider threw the page back to "number of laps". Nothing here fires on a
  * desktop worth noticing: the field was going to lose focus on the next click
  * anyway.

@@ -16,7 +16,7 @@ function sdk(): Promise<Sdk> {
 }
 
 export type AuthPhase =
-  /** No cloud at all — this browser is the whole world, and nothing is gated. */
+  /** No cloud at all - this browser is the whole world, and nothing is gated. */
   | 'off'
   /** Asking Firebase who, if anyone, is already signed in here. */
   | 'loading'
@@ -33,7 +33,7 @@ export interface AuthView {
   /** Durable ways back in: `google.com`, `password`. Empty while anonymous. */
   providers: string[];
   /**
-   * Signed in with an identity nobody in this browser ever chose — so the door
+   * Signed in with an identity nobody in this browser ever chose - so the door
    * still has to be answered. See `claimIdentity`.
    */
   needsDoor: boolean;
@@ -55,7 +55,7 @@ const SIGNED_OUT: AuthView = {
  * session somebody chose and wrong for one they never did: until there was a
  * sign-in screen the app minted an anonymous identity on load, all by itself,
  * and every browser that ever opened the site still carries one. Those browsers
- * would go straight past the door forever — which is exactly how somebody ends
+ * would go straight past the door forever - which is exactly how somebody ends
  * up staring at a stranger's empty garage on their own second device,
  * wondering where the account they signed into went.
  *
@@ -68,7 +68,7 @@ function readDoor(): boolean {
   try {
     return localStorage.getItem(DOOR_KEY) === '1';
   } catch {
-    // No storage to remember an answer in — private mode, or storage blocked.
+    // No storage to remember an answer in - private mode, or storage blocked.
     // Treating it as answered is the safe end: a door that cannot record being
     // answered is a door nobody can ever get through.
     return true;
@@ -184,7 +184,7 @@ export class AuthError extends Error {
 /**
  * Firebase reports everything as a code. Most of them mean one of a handful of
  * things a person can actually do something about, so they are said in those
- * terms — and the few that mean "the project is not set up" name the console
+ * terms - and the few that mean "the project is not set up" name the console
  * screen that fixes them, the same way the cloud badge does.
  */
 export function authError(err: unknown): AuthError {
@@ -199,7 +199,7 @@ function explain(code: string, raw: string): string {
 
   if (is('invalid-email')) return 'כתובת המייל אינה תקינה.';
   if (is('missing-password')) return 'צריך להקליד סיסמה.';
-  if (is('weak-password')) return 'הסיסמה קצרה מדי — לפחות 6 תווים.';
+  if (is('weak-password')) return 'הסיסמה קצרה מדי - לפחות 6 תווים.';
   if (is('email-already-in-use')) return 'כבר יש חשבון עם המייל הזה. התחברו אליו במקום להירשם.';
   if (is('invalid-credential', 'wrong-password', 'user-not-found', 'invalid-login'))
     return 'המייל או הסיסמה אינם נכונים.';
@@ -241,7 +241,7 @@ async function run<T>(work: (s: Sdk) => Promise<T>): Promise<T> {
  *
  * "Without an account" is the one with a twist: when this browser already holds
  * an anonymous identity it adopts *that* one instead of minting a second. The
- * person means the same thing either way — carry on with no account — and the
+ * person means the same thing either way - carry on with no account - and the
  * version that keeps their models is obviously the one they meant.
  */
 export const signIn = {
@@ -286,8 +286,8 @@ export function resetPassword(email: string): Promise<void> {
 /**
  * Leaving, and arriving as somebody else, both reload the page.
  *
- * Half the app caches per identity — the model store, the championship state,
- * the race weights — and those caches are module-level on purpose. Rebuilding
+ * Half the app caches per identity - the model store, the championship state,
+ * the race weights - and those caches are module-level on purpose. Rebuilding
  * them by hand at sign-out would be a list that silently goes stale every time
  * a new one is added; a reload cannot.
  */
@@ -303,7 +303,7 @@ export async function signOutNow(): Promise<void> {
  * already has, so somebody who once tapped "כניסה מהירה" here never sees the door again
  * and would otherwise have no way to say "that account is mine".
  *
- * Signing in is enough on its own — it replaces the current user — and the
+ * Signing in is enough on its own - it replaces the current user - and the
  * missing `signOut` is deliberate. Signing out first put two awaits between the
  * tap and `window.open`, which on Safari and on iOS is no longer a user gesture
  * and gets the Google popup blocked; it also flashed the sign-in screen while
@@ -323,7 +323,7 @@ export async function switchAccount(to: 'google' | { email: string; password: st
  * The escape hatch for a project whose authentication is misconfigured: without
  * it, a console setting nobody can fix from here would leave the app stuck on a
  * sign-in screen that cannot succeed. Training and the garage work offline, so
- * that is where it lands — with the cloud badge saying so.
+ * that is where it lands - with the cloud badge saying so.
  */
 export function continueOffline(): void {
   // Both halves matter: the switch is what the stores read when they are built,

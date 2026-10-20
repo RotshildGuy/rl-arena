@@ -2,12 +2,12 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 /**
- * A dialog that can be dismissed three ways — the button, the backdrop, and
- * Escape — because a modal that traps someone is worse than no modal at all.
+ * A dialog that can be dismissed three ways - the button, the backdrop, and
+ * Escape - because a modal that traps someone is worse than no modal at all.
  *
  * Rendered into `document.body` rather than where it is written. A dialog is
  * over the whole page, so it must be compared against the whole page: opened
- * from inside the header — which has a z-index of its own — its backdrop was
+ * from inside the header - which has a z-index of its own - its backdrop was
  * trapped in that stacking context and came out *underneath* the first-run
  * guide's bubble, however high its own z-index was.
  */

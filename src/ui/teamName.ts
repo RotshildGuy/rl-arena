@@ -11,8 +11,8 @@ export class TeamNameError extends Error {}
 /**
  * Change this account's team name, everywhere it shows.
  *
- * The name is checked, then claimed — which is where a name somebody else
- * already uses is refused — and only then carried onto the cars this account
+ * The name is checked, then claimed - which is where a name somebody else
+ * already uses is refused - and only then carried onto the cars this account
  * has on the grid. The cars are the same cars either way: the grid, the
  * drivers and the team table all belong to the account, and the name on an
  * entry is only what gets printed next to it.

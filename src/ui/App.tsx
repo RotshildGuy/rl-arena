@@ -15,12 +15,15 @@ import { TrainDashboard } from './screens/TrainDashboard';
 import { RaceSetup } from './screens/RaceSetup';
 import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
+import { Feedback } from './screens/Feedback';
+import { Shop } from './screens/Shop';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
 import { ThemeButton } from './components/ThemeButton';
 import { CoachAnchor, useCoachStep } from './coach';
 import { useIsNarrow } from './device';
 import { track } from '../storage/metrics';
+import { joinLeague, leaguesAvailable } from '../storage/leagues';
 
 interface Tab {
   id: Screen;
@@ -35,6 +38,7 @@ const TABS: Tab[] = [
   { id: 'standings', label: 'טבלאות', glyph: '📊' },
   { id: 'library', label: 'המוסך', glyph: '🔧', also: ['trainSetup', 'training'] },
   { id: 'raceSetup', label: 'לשחק', glyph: '🎮', also: ['race'] },
+  { id: 'shop', label: 'חנות', glyph: '🪙' },
 ];
 
 /**
@@ -42,8 +46,8 @@ const TABS: Tab[] = [
  *
  * Nothing under it may mount before there is an account to own what it reads:
  * every screen goes to the library or to the grid, and both are per-identity.
- * Keeping the whole app behind one branch — rather than letting each screen
- * cope with "no user yet" — is also what keeps the stores simple, because by
+ * Keeping the whole app behind one branch - rather than letting each screen
+ * cope with "no user yet" - is also what keeps the stores simple, because by
  * the time anything calls them the answer exists.
  *
  * Somebody who signed in on this device before never sees any of this: Firebase
@@ -54,7 +58,7 @@ const TABS: Tab[] = [
  * `needsDoor` is the third case, and the reason the gate is not simply "is
  * anybody signed in". Before there was a sign-in screen the app minted an
  * anonymous identity by itself on first load, so a browser can hold a session
- * nobody ever chose — and a session nobody chose would otherwise sail past the
+ * nobody ever chose - and a session nobody chose would otherwise sail past the
  * door forever, which is how somebody signs into their account on a second
  * device and lands in an empty garage that is not theirs.
  */
@@ -77,12 +81,34 @@ function Arena() {
   const toast = useApp((s) => s.toast);
   const go = useApp((s) => s.go);
   const openInfo = useApp((s) => s.openInfo);
+  const openFeedback = useApp((s) => s.openFeedback);
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
   const competitor = useApp((s) => s.competitor);
   const coach = useCoachStep();
 
   // Counted once a day, behind the gate: a visit is somebody who came in.
   useEffect(() => track('visit'), []);
+
+  // An invitation link (?league=id): join, then show that league's table. Done
+  // here, behind the gate, because joining needs the account to join with -
+  // somebody who arrives signed out comes back to it once they are in.
+  const setLeague = useApp((s) => s.setLeague);
+  const showToast = useApp((s) => s.showToast);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('league');
+    if (!id || !leaguesAvailable()) return;
+    params.delete('league');
+    const rest = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+    void joinLeague(id)
+      .then((league) => {
+        setLeague(league.id);
+        go('standings');
+        showToast(`הצטרפתם לליגה "${league.name}"`);
+      })
+      .catch(() => showToast('הקישור לליגה לא עבד - אולי הליגה נמחקה'));
+  }, [go, setLeague, showToast]);
 
   // The team name lives with the account, not with the browser, so the first
   // thing to do behind the gate is ask the account what it is. On the device
@@ -127,7 +153,7 @@ function Arena() {
             on={nudge}
             text={
               coach === 'garage'
-                ? 'עכשיו למוסך — שם מאמנים את המודל שינהג בשבילכם.'
+                ? 'עכשיו למוסך - שם מאמנים את המודל שינהג בשבילכם.'
                 : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
             }
           >
@@ -163,7 +189,7 @@ function Arena() {
         <ThemeButton />
         <AccountButton />
         {competitor && (
-          <span className="pill" title="שם המתחרה שלך — הקבוצה שהמודלים שלך מתחרים בשמה">
+          <span className="pill" title="שם המתחרה שלך - הקבוצה שהמודלים שלך מתחרים בשמה">
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
             {competitor}
           </span>
@@ -183,7 +209,9 @@ function Arena() {
           {screen === 'raceSetup' && <RaceSetup />}
           {screen === 'race' && <RaceScreen />}
           {screen === 'info' && <Info />}
-          {!bare && screen !== 'info' && <Footer onOpen={openInfo} />}
+          {screen === 'feedback' && <Feedback />}
+          {screen === 'shop' && <Shop />}
+          {!bare && screen !== 'info' && <Footer onOpen={openInfo} onFeedback={openFeedback} />}
         </div>
       </main>
 
@@ -198,7 +226,7 @@ function Arena() {
  * The half-second before Firebase says who is signed in.
  *
  * It is the difference between a returning visitor seeing their championship
- * appear and seeing a sign-in screen flash past first — which would read as
+ * appear and seeing a sign-in screen flash past first - which would read as
  * having been logged out.
  */
 function Splash() {
@@ -230,9 +258,19 @@ function GateInfo() {
  * in the header alone is a link nobody finds on a phone, where the header is
  * three things wide.
  */
-function Footer({ onOpen }: { onOpen: (tab: 'how' | 'terms' | 'privacy' | 'notices') => void }) {
+function Footer({
+  onOpen,
+  onFeedback,
+}: {
+  onOpen: (tab: 'how' | 'terms' | 'privacy' | 'notices') => void;
+  onFeedback(): void;
+}) {
   return (
     <footer className="site-foot">
+      <button className="ghost small" onClick={onFeedback}>
+        🐞 באג או רעיון?
+      </button>
+      <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('how')}>
         איך זה עובד
       </button>
@@ -261,7 +299,7 @@ function Footer({ onOpen }: { onOpen: (tab: 'how' | 'terms' | 'privacy' | 'notic
 function CloudBadge({ state, message }: { state: string; message: string | null }) {
   if (state === 'local') {
     return (
-      <span className="pill small" title="אין חיבור ענן — האליפות רצה מול המודלים של הדפדפן הזה בלבד">
+      <span className="pill small" title="אין חיבור ענן - האליפות רצה מול המודלים של הדפדפן הזה בלבד">
         💾 מקומי
       </span>
     );

@@ -2,7 +2,7 @@
  * End-to-end championship probe with genuinely trained models.
  *
  * Trains a handful of cars, builds a race card, runs the day and prints the
- * classification — then runs the whole thing again to confirm it is bit-for-bit
+ * classification - then runs the whole thing again to confirm it is bit-for-bit
  * reproducible. That last check is the one that matters: the broadcast replays
  * a race by re-simulating it, so a result that is not reproducible is a
  * broadcast that disagrees with its own timing sheet.
@@ -68,7 +68,7 @@ for (let i = 0; i < N; i++) {
 console.log(`אימון ${N} מודלים · ${GENERATIONS} דורות · ${((Date.now() - t0) / 1000).toFixed(1)}s\n`);
 
 function fmt(ms: number | null): string {
-  if (ms === null) return '—';
+  if (ms === null) return '-';
   const m = Math.floor(ms / 60000);
   const s = (ms % 60000) / 1000;
   return m > 0 ? `${m}:${s.toFixed(3).padStart(6, '0')}` : s.toFixed(3);
@@ -104,11 +104,11 @@ for (const p of result.places) {
   const e = entries.find((x) => x.id === p.entryId)!;
   console.log(`  ${String(p.position).padStart(2)}  ${e.driver}  ${e.team.padEnd(10)} ${String(p.points).padStart(3)} נק׳  ${p.status}`);
 }
-console.log(`pole=${result.pole}  fastestLap=${result.fastestLap ? `${result.fastestLap.entryId} ${fmt(result.fastestLap.ms)}` : '—'}`);
+console.log(`pole=${result.pole}  fastestLap=${result.fastestLap ? `${result.fastestLap.entryId} ${fmt(result.fastestLap.ms)}` : '-'}`);
 
 // --- determinism ---
 const again = runRaceDay(buildRaceCard(2, entries, weights), weights);
 const a = JSON.stringify(result.places) + JSON.stringify(result.sessions);
 const b = JSON.stringify(again.places) + JSON.stringify(again.sessions);
-console.log(`\nשחזוריות: ${a === b ? 'PASS — הרצה חוזרת זהה לחלוטין' : 'FAIL — התוצאה השתנתה'}`);
+console.log(`\nשחזוריות: ${a === b ? 'PASS - הרצה חוזרת זהה לחלוטין' : 'FAIL - התוצאה השתנתה'}`);
 process.exit(a === b ? 0 : 1);

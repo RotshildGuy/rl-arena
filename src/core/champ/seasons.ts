@@ -7,7 +7,7 @@ import type { RaceCard, RaceResult } from './types';
  *
  * Nothing here is stored. A season's champion is what its table says once its
  * last race is over, and the table is computed from race results that are
- * create-only — so the archive cannot drift from the races, and there is no
+ * create-only - so the archive cannot drift from the races, and there is no
  * "close the season" step that somebody would have to be online to run.
  */
 
@@ -17,7 +17,7 @@ export function seasonCards(cards: RaceCard[], n: number): RaceCard[] {
 }
 
 /**
- * Over: its final round has been run and settled — or, on a grid too thin to
+ * Over: its final round has been run and settled - or, on a grid too thin to
  * race that day, its lights went out hours ago and nothing came of it.
  *
  * `settled` is `settledResults`, so a final still on air does not crown anybody.
@@ -62,4 +62,22 @@ export function hallOfFame(cards: RaceCard[], settled: Map<string, RaceResult>, 
     });
   }
   return out;
+}
+
+/**
+ * Teams in their first season: accounts whose first race of all is in season
+ * `n`. Their own table is somewhere a newcomer can win something this week,
+ * whoever has been piling up points since September. House cars are not
+ * rookies; they are furniture.
+ */
+export function rookieUids(cards: RaceCard[], n: number): Set<string> {
+  const first = new Map<string, number>();
+  for (const c of cards) {
+    for (const e of c.entries) {
+      if (e.uid === 'house') continue;
+      first.set(e.uid, Math.min(first.get(e.uid) ?? Infinity, c.round));
+    }
+  }
+  const { first: from, last } = seasonRange(n);
+  return new Set([...first].filter(([, r]) => r >= from && r <= last).map(([uid]) => uid));
 }

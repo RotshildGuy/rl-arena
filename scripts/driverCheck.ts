@@ -9,7 +9,7 @@ import { PHYSICS_VERSION } from '../src/core/games/racing/env';
 import { TRACK_DEFS } from '../src/core/games/racing/tracks';
 import { LAPS, bestBraking, drive, flatOutLoses, type Outcome } from './drivers';
 
-const fmt = (ms: number | null) => (ms === null ? '   —   ' : (ms / 1000).toFixed(2).padStart(7));
+const fmt = (ms: number | null) => (ms === null ? '   -   ' : (ms / 1000).toFixed(2).padStart(7));
 const describe = (o: Outcome) =>
   `${o.finished ? 'finish ' + fmt(o.totalMs) : `DNF ${o.laps}/${LAPS} laps `}  lap ${fmt(o.bestLapMs)}  walls ${String(o.wallHits).padStart(3)}`;
 

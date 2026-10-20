@@ -19,7 +19,7 @@ interface Props {
 }
 
 /**
- * The reward table — the knob that actually decides what the model becomes, and
+ * The reward table - the knob that actually decides what the model becomes, and
  * the only thing left to configure.
  *
  * Each channel is one slider with ten notches and a word at each end. The raw
@@ -29,7 +29,7 @@ interface Props {
  * Ten sliders are still a lot for somebody who only wants to try, so a game
  * that defines presets gets three style buttons on top, and the sliders fold
  * away under "מתקדם". They open by themselves for a table that is not one of
- * the presets — whoever tuned it by hand should not have to hunt for it.
+ * the presets - whoever tuned it by hand should not have to hunt for it.
  */
 export function RewardEditor({ spec, value, onChange, live }: Props) {
   const setLevel = (c: RewardChannelDef, level: number) =>
@@ -70,7 +70,7 @@ export function RewardEditor({ spec, value, onChange, live }: Props) {
             ))}
           </div>
           <p className="muted small" style={{ margin: '0 0 8px' }}>
-            {current ? current.hint : 'סגנון משלך — כוונן ידנית במחוונים.'}
+            {current ? current.hint : 'סגנון משלך - כוונן ידנית במחוונים.'}
           </p>
           <button className="ghost small" onClick={() => setAdvanced((a) => !a)} aria-expanded={advanced}>
             {advanced ? '▾' : '▸'} מתקדם · עשרה מחוונים

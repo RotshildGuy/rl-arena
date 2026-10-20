@@ -11,13 +11,20 @@ import { dateText, lapTime, posClass, raceTime } from '../format';
 import { trackRecords, nextRoundOnTrack, type RecordHolder } from '../../core/champ/records';
 import { RACE_LAPS } from '../../core/champ/format';
 import { currentRound, displaySeason, seasonNumber, seasonRange, startsAtForRound } from '../../core/champ/schedule';
-import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
+import { hallOfFame, rookieUids, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
+import { leagueView } from '../../core/champ/league';
+import { LeaguePanel, useLeagues } from '../components/Leagues';
 import type { RaceCard, RaceResult } from '../../core/champ/types';
 
 type Tab = 'drivers' | 'teams' | 'results' | 'records' | 'fame';
 
 export function Standings() {
-  const { openRace } = useApp();
+  const { openRace, leagueId, setLeague } = useApp();
+  const { leagues, reload: reloadLeagues } = useLeagues();
+  /** The rookies' table is a league of its own, chosen from the same picker. */
+  const ROOKIES = '__rookies';
+  const rookies = leagueId === ROOKIES;
+  const league = leagues.find((l) => l.id === leagueId) ?? null;
   const { state, progress } = useChampionship();
   const now = useNow(5000);
   const [tab, setTab] = useState<Tab>('drivers');
@@ -32,17 +39,16 @@ export function Standings() {
     return [...set].sort((a, b) => b - a);
   }, [state, current]);
 
-  const standings = useMemo(
-    () =>
-      state
-        ? buildStandings({
-            cards: seasonCards(state.cards, season),
-            results: settledResults(state.cards, state.results, now),
-          })
-        : null,
+  // A league is the same season with only its members' cars in it.
+  const view = useMemo(() => {
+    if (!state) return null;
+    const cards = seasonCards(state.cards, season);
+    const settled = settledResults(state.cards, state.results, now);
+    if (rookies) return leagueView(cards, settled, rookieUids(state.cards, season));
+    return league ? leagueView(cards, settled, league.members) : { cards, results: settled };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, season],
-  );
+  }, [state, season, league, rookies]);
+  const standings = useMemo(() => (view ? buildStandings(view) : null), [view]);
 
   // Only race days that are actually over belong in a championship table.
   const allRaced = useMemo(
@@ -52,7 +58,12 @@ export function Standings() {
         : [],
     [state, now],
   );
-  const raced = useMemo(() => seasonCards(allRaced, season), [allRaced, season]);
+  const raced = useMemo(() => {
+    const inSeason = seasonCards(allRaced, season);
+    if (!view || (!league && !rookies)) return inSeason;
+    const kept = new Set(view.cards.map((c) => c.id));
+    return inSeason.filter((c) => kept.has(c.id));
+  }, [allRaced, season, view, league, rookies]);
 
   const fame = useMemo(
     () => (state ? hallOfFame(state.cards, settledResults(state.cards, state.results, now), now) : []),
@@ -66,7 +77,7 @@ export function Standings() {
     return <div className="empty">{progress ?? 'טוען את האליפות…'}</div>;
   }
 
-  if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1) {
+  if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !leagueId && leagues.length === 0) {
     return (
       <div className="empty">
         <h2 style={{ marginBottom: 6 }}>אין עדיין טבלה</h2>
@@ -83,9 +94,25 @@ export function Standings() {
             עונה {season}
             {season === current ? ' · נוכחית' : ''} · סבבים {seasonRange(season).first}–{seasonRange(season).last}
           </div>
-          <h1 className="display">טבלאות האליפות</h1>
+          <h1 className="display">{rookies ? 'טבלת הטירונים' : league ? league.name : 'טבלאות האליפות'}</h1>
         </div>
         <div className="actions">
+          {tab !== 'fame' && tab !== 'records' && (
+            <select
+              value={leagueId ?? ''}
+              onChange={(e) => setLeague(e.target.value || null)}
+              aria-label="ליגה"
+              style={{ width: 'auto' }}
+            >
+              <option value="">כל המתחרים</option>
+              <option value={ROOKIES}>טירונים - העונה הראשונה שלהם</option>
+              {leagues.map((l) => (
+                <option key={l.id} value={l.id}>
+                  ליגה: {l.name}
+                </option>
+              ))}
+            </select>
+          )}
           {seasons.length > 1 && tab !== 'fame' && tab !== 'records' && (
             <select
               value={season}
@@ -125,7 +152,7 @@ export function Standings() {
         <div className="empty">
           <h2 style={{ marginBottom: 6 }}>עונה {season} עוד לא התחילה</h2>
           <p style={{ margin: 0 }}>
-            הטבלה מתחילה מאפס בכל עונה, ותיבנה אחרי הגרנד פרי הראשון שלה — סבב {seasonRange(season).first}.
+            הטבלה מתחילה מאפס בכל עונה, ותיבנה אחרי הגרנד פרי הראשון שלה - סבב {seasonRange(season).first}.
           </p>
         </div>
       )}
@@ -159,12 +186,12 @@ export function Standings() {
                     <td className="mono num" style={{ fontWeight: 800, fontSize: 15 }}>
                       {d.points}
                     </td>
-                    <td className="mono num">{d.wins || '—'}</td>
-                    <td className="mono num">{d.podiums || '—'}</td>
-                    <td className="mono num">{d.poles || '—'}</td>
-                    <td className="mono num">{d.fastestLaps || '—'}</td>
+                    <td className="mono num">{d.wins || '-'}</td>
+                    <td className="mono num">{d.podiums || '-'}</td>
+                    <td className="mono num">{d.poles || '-'}</td>
+                    <td className="mono num">{d.fastestLaps || '-'}</td>
                     <td className="mono num muted">{d.starts}</td>
-                    <td className="mono num muted">{d.dnfs || '—'}</td>
+                    <td className="mono num muted">{d.dnfs || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -205,8 +232,8 @@ export function Standings() {
                     <td className="mono num" style={{ fontWeight: 800, fontSize: 15 }}>
                       {t.points}
                     </td>
-                    <td className="mono num">{t.wins || '—'}</td>
-                    <td className="mono num">{t.podiums || '—'}</td>
+                    <td className="mono num">{t.wins || '-'}</td>
+                    <td className="mono num">{t.podiums || '-'}</td>
                   </tr>
                 );
               })}
@@ -254,7 +281,7 @@ export function Standings() {
                         return (
                           <td key={c.id} className="mono num">
                             {!cell ? (
-                              <span className="dim">—</span>
+                              <span className="dim">-</span>
                             ) : (
                               <span
                                 className={posClass(cell.position, cell.status === 'dnf')}
@@ -283,6 +310,8 @@ export function Standings() {
 
       {tab === 'fame' && <HallOfFame fame={fame} />}
 
+      {(tab === 'drivers' || tab === 'teams') && <LeaguePanel leagues={leagues} onChanged={reloadLeagues} />}
+
       {tab !== 'records' && tab !== 'fame' && (
       <div className="card" style={{ marginTop: 14 }}>
         <div className="eyebrow" style={{ marginBottom: 8 }}>שיטת הניקוד</div>
@@ -298,8 +327,8 @@ export function Standings() {
           <span className="pill hot">הקפה מהירה +{FASTEST_LAP_BONUS}</span>
         </div>
         <div className="small muted" style={{ marginTop: 8 }}>
-          שיטת הניקוד המקובלת במרוצי מכוניות: נקודות לעשרת הראשונים, ונקודת בונוס להקפה המהירה ביותר —
-          אך ורק אם הנהג סיים בעשירייה. שוויון נקודות נשבר לפי מספר הנצחונות, ואם גם הוא שווה — לפי
+          שיטת הניקוד המקובלת במרוצי מכוניות: נקודות לעשרת הראשונים, ונקודת בונוס להקפה המהירה ביותר -
+          אך ורק אם הנהג סיים בעשירייה. שוויון נקודות נשבר לפי מספר הנצחונות, ואם גם הוא שווה - לפי
           מספר המקומות השניים, וכן הלאה. רכב שלא השלים לפחות מחצית מהמרחק של המנצח אינו מסווג
           ואינו צובר נקודות, גם אם דורג בעשירייה.
         </div>
@@ -311,7 +340,7 @@ export function Standings() {
 
 /**
  * The record book. With four circuits on a four-day rotation, every track comes
- * back within the week — which is what makes a lap record worth chasing rather
+ * back within the week - which is what makes a lap record worth chasing rather
  * than just worth reading.
  */
 function Records({
@@ -381,7 +410,7 @@ function RecordCell({
         className="mono"
         style={{ fontSize: 19, fontWeight: 800, color: purple ? 'var(--purple)' : 'var(--text)' }}
       >
-        {holder ? (full ? raceTime(holder.ms) : lapTime(holder.ms)) : '—'}
+        {holder ? (full ? raceTime(holder.ms) : lapTime(holder.ms)) : '-'}
       </div>
       {holder && (
         <div className="small">
@@ -437,7 +466,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                   </div>
                 </>
               ) : (
-                <span className="muted">—</span>
+                <span className="muted">-</span>
               )}
             </div>
             <div>
@@ -457,7 +486,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                   </div>
                 </>
               ) : (
-                <span className="muted">—</span>
+                <span className="muted">-</span>
               )}
             </div>
           </div>

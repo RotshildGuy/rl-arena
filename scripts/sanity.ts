@@ -1,6 +1,6 @@
 /**
  * Correctness gate for the learning core. If these fail the bug is in backprop
- * or in DQN, not in the game simulation — so run this before debugging anything
+ * or in DQN, not in the game simulation - so run this before debugging anything
  * that looks like "the car won't learn".
  *
  *   npm run sanity
@@ -52,11 +52,18 @@ import { carRecaps } from '../src/core/champ/recap';
 import { diagnoseCar, diagnoseDay } from '../src/core/champ/diagnose';
 import { buildRaceCard } from '../src/core/champ/card';
 import { runRaceDay } from '../src/core/champ/sim';
-import { hallOfFame, seasonCards, seasonComplete } from '../src/core/champ/seasons';
+import { hallOfFame, rookieUids, seasonCards, seasonComplete } from '../src/core/champ/seasons';
 import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound, displaySeason } from '../src/core/champ/schedule';
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
+import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
+import { leagueView, newLeagueId } from '../src/core/champ/league';
+import { findCopies, weightsFingerprint } from '../src/core/champ/copies';
+import { earnedCoins, COINS_PER_START } from '../src/core/champ/coins';
+import { spent, validLook, ITEM_BY_ID } from '../src/core/champ/shop';
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { Policy } from '../src/core/rl/policy';
 import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
 
@@ -239,7 +246,7 @@ function corridorTest(): void {
 /**
  * The walls are offset curves of the centreline. If a track bends tighter than
  * half its width the inner wall folds over itself and the car ends up trapped in
- * geometry that looks fine on screen — so check every track for self-crossings.
+ * geometry that looks fine on screen - so check every track for self-crossings.
  */
 function trackTest(): void {
   console.log('\ntrack geometry');
@@ -573,7 +580,7 @@ function timingTest(): void {
 
   // Regression: the classification used to be sorted on checkpoint count. Every
   // car that completes the distance has the identical count, so the tie fell to
-  // the lowest index — which in a race against a model is the human. The screen
+  // the lowest index - which in a race against a model is the human. The screen
   // cheerfully announced a win to a player who had just been beaten by nine
   // seconds. Rank has to come from *when* the flag was taken.
   // Physics 1 for the same reason as the flag test: the scenario needs every
@@ -841,7 +848,7 @@ function fakeResult(raceId: string, places: DayPlace[]): RaceResult {
  *
  * A car is meant to keep its entry for the whole season, but a delete and a
  * re-registration, or a model re-imported under a new id, could give the same
- * driver a second one — and then half the season's points sat in each, two rows
+ * driver a second one - and then half the season's points sat in each, two rows
  * apart in the table. History cannot be rewritten to fix it (cards and results
  * are create-only and name the entry that actually raced), so the table itself
  * has to put the pieces back together.
@@ -892,8 +899,8 @@ function splitDriverTest(): void {
     `${afterRename.drivers.length} rows`,
   );
 
-  // One team on two accounts — an anonymous identity left behind in another
-  // browser — is one driver, and one team.
+  // One team on two accounts - an anonymous identity left behind in another
+  // browser - is one driver, and one team.
   const leftBehind = asDriver(fakeCard(1, ['anon']), 'wow', 'Rotshild', 'anonymous');
   const signedIn = asDriver(fakeCard(2, ['google']), 'wow', 'Rotshild', 'google');
   const twoAccounts = buildStandings({
@@ -964,7 +971,7 @@ function splitDriverTest(): void {
  *
  * The garage refuses to register a third, but teams that were already over the
  * limit when the rule came in still have their entries, so the field itself has
- * to apply it — and it has to be the same two for everybody, or two clients
+ * to apply it - and it has to be the same two for everybody, or two clients
  * would build two different race cards.
  */
 function teamLimitTest(): void {
@@ -1019,7 +1026,7 @@ function teamLimitTest(): void {
  * Which name wins when the browser and the account disagree.
  *
  * The team name used to live only in localStorage, which made a second device
- * ask for it again — and a slightly different spelling is a different
+ * ask for it again - and a slightly different spelling is a different
  * constructor, with the season's points split across two rows of the teams'
  * table. It lives with the account now, and this is the rule that merges the
  * two copies.
@@ -1205,7 +1212,7 @@ function nameGenTest(): void {
  * What has to hold is a pair of opposites: a way into the broadcast exists
  * before the start, and nothing about the race itself moves an inch earlier.
  * The day is still 'upcoming', the results are still sealed, and the session
- * the viewer is let into has not started — they are watching a countdown on a
+ * the viewer is let into has not started - they are watching a countdown on a
  * stationary grid.
  */
 function earlyFeedTest(): void {
@@ -1285,13 +1292,13 @@ function coachTest(): void {
 
   const screens: CoachState['screen'][] = [
     'championship', 'standings', 'broadcast', 'report', 'library',
-    'trainSetup', 'training', 'raceSetup', 'race', 'info',
+    'trainSetup', 'training', 'raceSetup', 'race', 'info', 'feedback', 'shop',
   ];
   const spoken = screens.filter((screen) => at({ ...named, models: 2, registered: true, screen }) !== null);
   check('a car on the grid ends the walkthrough everywhere', spoken.length === 0, spoken.join(', ') || 'silent');
 
   // Someone watching a race or reading the terms is left alone, even mid-guide.
-  const quiet = (['broadcast', 'report', 'race', 'info'] as CoachState['screen'][]).filter(
+  const quiet = (['broadcast', 'report', 'race', 'info', 'feedback'] as CoachState['screen'][]).filter(
     (screen) => at({ ...named, models: 0, screen }) !== null,
   );
   check('and nobody is nudged over a race or the rules', quiet.length === 0, quiet.join(', ') || 'silent');
@@ -1309,9 +1316,9 @@ function metricsTest(): void {
     row('a', '2026-09-01'), row('a', '2026-09-02'), row('a', '2026-10-05'), row('a', '2026-09-01', 'enter'),
     // b: never back.
     row('b', '2026-09-01'),
-    // c: back after a week, on a later day only — and exactly 30 days old today.
+    // c: back after a week, on a later day only - and exactly 30 days old today.
     row('c', '2026-09-10'), row('c', '2026-09-20'), row('c', '2026-09-10', 'train'),
-    // d: arrived yesterday — too new to count as lost on day 7.
+    // d: arrived yesterday - too new to count as lost on day 7.
     row('d', '2026-10-09'),
   ];
   const s = summarize(rows, '2026-10-10');
@@ -1379,7 +1386,7 @@ function recapTest(): void {
   check('final place and the points it earned', mine.position === 3 && mine.points === POINTS[2]);
   check('two places lost from pole', mine.startPos === 1 && mine.gained === -2, String(mine.gained));
   check('its own quickest lap, marked as the fastest of the day', mine.bestLapMs === 41_200 && mine.fastestOfDay);
-  // After round 1: a 25, b0 18. After round 2: b0 43, a 40 — a drops to second.
+  // After round 1: a 25, b0 18. After round 2: b0 43, a 40 - a drops to second.
   check('the table move is worked out from before and after the round', mine.standingBefore === 1 && mine.standing === 2,
     `${mine.standingBefore} → ${mine.standing}`);
   check('a team with no car in the race gets no card', carRecaps(r2, [r1, r2], results, 'nobody').length === 0);
@@ -1416,8 +1423,8 @@ function targetTest(): void {
 // ---------------------------------------------------------------- sliders
 function sliderTest(): void {
   console.log(CHAPTER + 'Sliders and styles');
-  // Right always means "more of this": a bigger bonus, a harsher penalty, or —
-  // for contact, the one channel that crosses zero — more willingness to touch.
+  // Right always means "more of this": a bigger bonus, a harsher penalty, or -
+  // for contact, the one channel that crosses zero - more willingness to touch.
   const backwards = RACING_SPEC.rewardChannels.filter((c) => {
     const penalty = c.levels.every((v) => v <= 0) && c.key !== 'carHit';
     const strength = c.levels.map((v) => (penalty ? -v : v));
@@ -1487,7 +1494,7 @@ function houseTest(): void {
       sim.runToEnd();
       const lap = sim.env.telemetry(0).bestLapMs;
       ok = shape && lap !== null;
-      detail = `${shape ? '' : 'arch mismatch '}lap ${lap === null ? '—' : (lap / 1000).toFixed(2)}`;
+      detail = `${shape ? '' : 'arch mismatch '}lap ${lap === null ? '-' : (lap / 1000).toFixed(2)}`;
     } catch (e) {
       detail = String(e);
     }
@@ -1526,6 +1533,14 @@ function seasonTest(): void {
     results.set(c.id, fakeResult(c.id, order.map((id, i) => fakePlace(id, i + 1))));
   }
   const s3 = buildStandings({ cards: seasonCards(cards, 3), results });
+  const veteran = { ...fakeCard(30, ['v']), id: 'R30x' };
+  veteran.entries = veteran.entries.map((e) => ({ ...e, uid: 'old-team' }));
+  const newcomer = fakeCard(45, ['n']);
+  newcomer.entries = newcomer.entries.map((e) => ({ ...e, uid: 'new-team' }));
+  const later = fakeCard(46, ['v2']);
+  later.entries = later.entries.map((e) => ({ ...e, uid: 'old-team' }));
+  const rook = rookieUids([veteran, newcomer, later], 2);
+  check('a rookie is a team whose first race is this season', rook.has('new-team') && !rook.has('old-team'));
   check('a new season starts from zero', s3.drivers.find((d) => d.entryId === 'a')?.points === POINTS[1] &&
     s3.drivers[0].entryId === 'b0');
   const fame = hallOfFame(cards, results, startsAtForRound(51));
@@ -1582,9 +1597,128 @@ function diagnoseTest(): void {
   const card = buildRaceCard(round, [real], weights);
   const result = runRaceDay(card, weights);
   const advice = diagnoseDay(card, result);
+  check('a race card records a fingerprint for every car', card.entries.every((e) => !!card.fingerprints?.[e.id]) &&
+    card.fingerprints?.me === card.fingerprints?.['house-2']);
   const bare = result.places.filter((p) => p.position > 1 && (advice.get(p.entryId)?.length ?? 0) === 0);
   check('on a real race day every car that did not win gets advice', bare.length === 0,
     result.places.map((p) => `${p.position}.${p.entryId}:${(advice.get(p.entryId) ?? []).map((a) => a.kind).join('+') || '-'}`).join(' '));
+}
+
+// ---------------------------------------------------------------- house style
+/** The em dash is not used in this project, anywhere (see CLAUDE.md). */
+function leagueTest(): void {
+  console.log(CHAPTER + 'Friends leagues');
+  // Alpha (uid u) finishes 3rd behind two Beta cars; the league is Alpha alone with b1's owner moved in.
+  const card = fakeCard(42, ['b0', 'a', 'b1']);
+  card.entries = card.entries.map((e) => (e.id === 'b1' ? { ...e, uid: 'friend', team: 'Gamma' } : e));
+  const result = fakeResult(card.id, [fakePlace('b0', 1), fakePlace('b1', 2), fakePlace('a', 3)]);
+  const view = leagueView([card], new Map([[card.id, result]]), ['u', 'friend']);
+  const table = buildStandings(view);
+  check('a league table has only its members', table.drivers.map((d) => d.entryId).sort().join() === 'a,b1');
+  check('with the points they really scored', table.drivers[0].entryId === 'b1' && table.drivers[0].points === POINTS[1] &&
+    table.drivers[1].points === POINTS[2]);
+  check('a race none of them ran is not in it', leagueView([card], new Map([[card.id, result]]), ['nobody']).cards.length === 0);
+  const id = newLeagueId();
+  check('an invitation code is ten readable characters', /^[a-km-z2-9]{10}$/.test(id) && !/[ilo01]/.test(id), id);
+}
+
+function copiesTest(): void {
+  console.log(CHAPTER + 'Copied cars');
+  const a = fakeCard(42, ['a', 'b0']);
+  a.fingerprints = { a: weightsFingerprint('AAAA'), b0: weightsFingerprint('BBBB') };
+  const b = fakeCard(43, ['a', 'b0', 'b1']);
+  // b1 (team Beta) races with exactly Alpha's weights from the round before.
+  b.fingerprints = { a: weightsFingerprint('AAAA'), b0: weightsFingerprint('BBBB'), b1: weightsFingerprint('AAAA') };
+  const copies = findCopies([b, a]);
+  check('a car with another team\'s exact weights is a copy of it', copies.get(`${b.id}/b1`)?.driver === 'a', JSON.stringify([...copies]));
+  check('the original is not', !copies.has(`${b.id}/a`) && !copies.has(`${a.id}/a`));
+  check('a team racing its own weights again is not copying', !copies.has(`${b.id}/b0`));
+  check('one changed character is a different fingerprint', weightsFingerprint('AAAA') !== weightsFingerprint('AAAB'));
+}
+
+/** The functions carry their own copy of the calendar; it must agree with the app's. */
+function functionsCalendarTest(): void {
+  console.log(CHAPTER + 'Server calendar');
+  const server = createRequire(import.meta.url)('../functions/race.js') as {
+    startsAtForRound(r: number): number;
+    raceIdForRound(r: number): string;
+    roundOfDay(now: number): number;
+  };
+  let same = true;
+  let today = true;
+  for (let r = 1; r <= 365 * 4; r++) {
+    if (server.startsAtForRound(r) !== startsAtForRound(r) || server.raceIdForRound(r) !== raceIdForRound(r)) same = false;
+    // 19:45 and 20:45 on a race day both belong to that day's round.
+    if (server.roundOfDay(startsAtForRound(r) - 15 * 60_000) !== r || server.roundOfDay(startsAtForRound(r) + 45 * 60_000) !== r) {
+      today = false;
+    }
+  }
+  check('the functions name every round the way the app does', same);
+  check('and find the round of the day at 19:45 and 20:45', today);
+}
+
+function coinsTest(): void {
+  console.log(CHAPTER + 'Coins and the shop');
+  const c1 = fakeCard(42, ['a', 'b0', 'b1']);
+  const r1 = fakeResult(c1.id, [fakePlace('b0', 1), fakePlace('b1', 2), fakePlace('a', 3)]);
+  const settled = new Map([[c1.id, r1]]);
+  const w = earnedCoins('u', [c1], settled, startsAtForRound(43));
+  const expected = POINTS[2] + COINS_PER_START + 20 + 40; // points, start, first finish, first podium
+  check('coins are points, a start bonus and first-time achievements', w.total === expected, `${w.total} vs ${expected}`);
+  check('the last car still earns', earnedCoins('u', [c1], new Map([[c1.id, fakeResult(c1.id, [fakePlace('b0', 1), fakePlace('b1', 2), { ...fakePlace('a', 3), points: 0, position: 12, classified: false }])]]), 0).total > 0);
+  check('a race not yet settled pays nothing', earnedCoins('u', [c1], new Map(), 0).total === 0);
+  check('the house earns nothing', earnedCoins('house', [c1], settled, 0).total === 0);
+
+  const color = ITEM_BY_ID.get('color-navy')!;
+  const honest = { purchases: ['color-navy'], equipped: { color: 'color-navy' }, updatedAt: 0 };
+  check('a bought colour is worn', validLook(honest, color.price)?.color === color.value);
+  check('a colour bought with coins the team does not have is ignored', validLook(honest, color.price - 1) === null);
+  check('and so is one worn without being bought', validLook({ purchases: [], equipped: { color: 'color-navy' }, updatedAt: 0 }, 1000) === null);
+  check('buying twice costs once', spent(['color-navy', 'color-navy']) === color.price);
+  check('no timing colour is for sale', [...ITEM_BY_ID.values()].filter((i) => i.kind === 'color')
+    .every((i) => !['#c77dff', '#3de87a', '#ffd84d'].includes(i.value.toLowerCase())));
+}
+
+function rivalTest(): void {
+  console.log(CHAPTER + 'Training against a championship car');
+  let rivalCalls = 0;
+  const rival = { act: () => (rivalCalls++, 1) };
+  const learnerSeats: number[][] = [];
+  const session = new TrainingSession({
+    gameId: 'racing',
+    config: { ...DEFAULT_RACING_CONFIG, nCars: 3, laps: 1, maxSteps: 60 },
+    rewards: [defaultRewards(RACING_SPEC)],
+    seed: 5,
+    rivals: [rival],
+    makeLearner: (_slot, seats) => {
+      learnerSeats.push(seats);
+      return new GaLearner({ gameId: 'racing', hyper: { populationSize: 4, hidden: [8] }, seed: 1, seatCount: seats.length });
+    },
+  });
+  for (let i = 0; i < 30; i++) session.step();
+  check('the rival takes the last seat and the learners the rest', learnerSeats[0].join() === '0,1' && session.rivals.length === 1);
+  check('and drives every step it is on track', rivalCalls >= 25, String(rivalCalls));
+}
+
+function feedbackTest(): void {
+  console.log(CHAPTER + 'Feedback');
+  check('a one-word report is sent back for more', feedbackProblem('broken') !== null);
+  check('a real one goes through', feedbackProblem('the broadcast froze on lap 3 of the final') === null);
+  check('and an essay is capped', feedbackProblem('x'.repeat(FEEDBACK_MAX + 1)) !== null);
+}
+
+function dashTest(): void {
+  console.log(CHAPTER + 'House style');
+  const banned = String.fromCharCode(0x2014);
+  const files = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean);
+  const hits = files.filter((f) => {
+    try {
+      return readFileSync(f, 'utf8').includes(banned);
+    } catch {
+      return false;
+    }
+  });
+  check('no em dash in any tracked file', hits.length === 0, hits.slice(0, 5).join(', '));
 }
 
 console.log('RL core sanity checks');
@@ -1614,5 +1748,12 @@ sliderTest();
 houseTest();
 seasonTest();
 diagnoseTest();
+feedbackTest();
+leagueTest();
+copiesTest();
+coinsTest();
+rivalTest();
+functionsCalendarTest();
+dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

@@ -18,7 +18,7 @@ const TZID = 'Asia/Jerusalem';
 export const RACE_EVENT_MINUTES = 30;
 export const REMINDER_MINUTES = 15;
 
-const TITLE = 'RL Arena — המרוץ היומי';
+const TITLE = 'RL Arena - המרוץ היומי';
 const DETAILS = 'גרנד פרי של מודלים מאומנים, בשידור חי. המוקדמות כבר נערכו והגריד נעול.';
 
 /** `20260914T170000Z` */
@@ -27,7 +27,7 @@ function stamp(at: number): string {
 }
 
 /**
- * `20260914T200000` — wall-clock time in Israel. Only for times on a race
+ * `20260914T200000` - wall-clock time in Israel. Only for times on a race
  * evening, where the UTC date and the Israeli date are the same day.
  */
 function localStamp(at: number): string {
@@ -63,7 +63,7 @@ function escapeText(s: string): string {
 }
 
 /**
- * RFC 5545 folds content lines at 75 octets — octets, not characters, which is
+ * RFC 5545 folds content lines at 75 octets - octets, not characters, which is
  * what matters with Hebrew in the summary. A continuation starts with a space.
  */
 export function foldLine(line: string): string {

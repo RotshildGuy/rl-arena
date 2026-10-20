@@ -34,7 +34,7 @@ function freshSlot(history: TrainingPoint[] = []): SlotState {
  * other on one grid, and each of them has its own curve, its own records and its
  * own weights to save.
  *
- * Snapshots land in a ref rather than React state — they arrive ~30 times a
+ * Snapshots land in a ref rather than React state - they arrive ~30 times a
  * second and only the canvas loop needs them, so re-rendering the dashboard for
  * each one would be wasted work.
  */
@@ -65,7 +65,7 @@ export function useTrainer() {
         case 'ready':
           setSeats(msg.seats);
           // init and play are posted back to back, so this can land after play()
-          // already set 'running' — never downgrade a live session.
+          // already set 'running' - never downgrade a live session.
           setStatus((prev) => (prev === 'idle' ? 'ready' : prev));
           break;
         case 'snapshot':

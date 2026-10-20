@@ -14,7 +14,7 @@ interface Props {
  * every game's input mapping in one place (`humanAction` in the registry).
  *
  * Codes are reference-counted by pointer id: a layout may bind one code to two
- * buttons — a layout may put the same control under both thumbs — and releasing
+ * buttons - a layout may put the same control under both thumbs - and releasing
  * one of them must
  * not cancel a press still held on the other.
  */

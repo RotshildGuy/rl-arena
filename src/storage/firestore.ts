@@ -6,7 +6,7 @@ import { currentUser, ensureApp } from './firebaseApp';
 /**
  * One document per model under `users/{uid}/models/{id}`.
  *
- * A 24-64-64-9 network is ~6.3k parameters — about 34 KB of base64 — so a whole
+ * A 24-64-64-9 network is ~6.3k parameters - about 34 KB of base64 - so a whole
  * model including its training history sits far under the 1 MiB document cap.
  */
 export class FirestoreStore implements ModelStore {

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<!-- The link-preview image (public/og.png). Rendered once with
+     `node scripts/og/render.cjs`; kept here so it can be redrawn. -->
+<style>
+  @font-face { font-family: Heebo; font-weight: 100 900; src: url('../../public/fonts/heebo-hebrew.woff2') format('woff2'); unicode-range: U+0590-05FF; }
+  @font-face { font-family: Heebo; font-weight: 100 900; src: url('../../public/fonts/heebo-latin.woff2') format('woff2'); }
+  @font-face { font-family: Mono; font-weight: 100 800; src: url('../../public/fonts/jetbrains-mono-latin.woff2') format('woff2'); }
+  html, body { margin: 0; }
+  .og { width: 1200px; height: 630px; position: relative; overflow: hidden; font-family: Heebo; color: #e9edf7;
+    background:
+      repeating-linear-gradient(64deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 12px),
+      radial-gradient(760px 520px at 95% -10%, rgba(255,46,77,0.45), transparent 62%),
+      radial-gradient(640px 460px at 0% 110%, rgba(0,224,255,0.25), transparent 60%),
+      #07080d; }
+  .brand { position: absolute; left: 70px; top: 60px; font-weight: 900; font-style: italic; font-size: 44px; direction: ltr; letter-spacing: -0.02em; }
+  .brand b { color: #ff2e4d; }
+  .copy { position: absolute; right: 80px; top: 150px; width: 680px; }
+  .eyebrow { color: #ff2e4d; font-weight: 800; font-size: 28px; letter-spacing: 0.08em; }
+  h1 { margin: 14px 0 18px; font-size: 76px; line-height: 1.02; font-weight: 900; letter-spacing: -0.03em; }
+  p { margin: 0; font-size: 30px; color: #aab3c7; line-height: 1.35; }
+  .tower { position: absolute; left: 70px; top: 150px; width: 300px; background: rgba(10,12,20,0.8); border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; padding: 14px; direction: ltr; font-family: Mono; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 9px 6px; font-size: 24px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .row:last-child { border: 0; }
+  .pos { width: 34px; text-align: center; font-weight: 800; }
+  .liv { width: 6px; height: 26px; border-radius: 3px; }
+  .t { margin-left: auto; color: #8590a8; font-size: 20px; }
+  .p1 { color: #ffd84d; }
+  .fl { color: #c77dff; }
+</style>
+</head>
+<body>
+<div class="og">
+  <div class="brand"><b>RL</b> ARENA</div>
+  <div class="tower">
+    <div class="row"><span class="pos p1">1</span><span class="liv" style="background:#3de87a"></span>WOW<span class="t">LEADER</span></div>
+    <div class="row"><span class="pos">2</span><span class="liv" style="background:#ff2e4d"></span>MZN<span class="t">+0.84</span></div>
+    <div class="row"><span class="pos">3</span><span class="liv" style="background:#00e0ff"></span>PZZ<span class="t fl">6.95</span></div>
+    <div class="row"><span class="pos">4</span><span class="liv" style="background:#ffc53d"></span>TIR<span class="t">+3.10</span></div>
+    <div class="row"><span class="pos">5</span><span class="liv" style="background:#c77dff"></span>MTL<span class="t">+5.42</span></div>
+  </div>
+  <div class="copy">
+    <div class="eyebrow">אליפות יומית · 20:00</div>
+    <h1>המודלים נוהגים.<br />אתם בונים אותם.</h1>
+    <p>מאמנים מודל בלמידת חיזוק, רושמים אותו לאליפות, וצופים בו מתחרה בשידור חי.</p>
+  </div>
+</div>
+</body>
+</html>

@@ -47,7 +47,7 @@ export function ThemeButton() {
       className="ghost small"
       style={{ display: 'inline-flex', alignItems: 'center', padding: '7px 10px' }}
       onClick={() => setThemePref(NEXT[pref])}
-      title={`עיצוב: ${look.label} — לחיצה עוברת ל${LOOK[NEXT[pref]].label}`}
+      title={`עיצוב: ${look.label} - לחיצה עוברת ל${LOOK[NEXT[pref]].label}`}
       aria-label={`עיצוב: ${look.label}`}
     >
       <Icon pref={pref} />

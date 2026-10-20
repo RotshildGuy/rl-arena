@@ -21,6 +21,8 @@ import { eligibleEntries } from '../../core/champ/card';
 import { carRecaps, type CarRecap } from '../../core/champ/recap';
 import { diagnoseCar } from '../../core/champ/diagnose';
 import { AdviceLine } from '../components/AdviceLine';
+import { shareResult } from '../shareCard';
+import { PushToggle } from '../components/PushToggle';
 import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
@@ -32,13 +34,13 @@ import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
-import { dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
+import { dateText, dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
 import { downloadRaceCalendar, googleCalendarUrl, REMINDER_MINUTES } from '../calendar';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
- * against them — one to spot a car running old weights, one to spot a car whose
- * model is gone entirely — and they should not each read the database.
+ * against them - one to spot a car running old weights, one to spot a car whose
+ * model is gone entirely - and they should not each read the database.
  */
 function useMyModels(): ModelMeta[] {
   const [models, setModels] = useState<ModelMeta[]>([]);
@@ -68,8 +70,8 @@ export function Championship() {
   /**
    * On a device this account has never been used on, the team name arrives from
    * the account a moment after this screen mounts. Taking it closes the form
-   * before anyone fills it in — which is the point, since the answer already
-   * exists — but never while they are in the middle of typing one.
+   * before anyone fills it in - which is the point, since the answer already
+   * exists - but never while they are in the middle of typing one.
    */
   useEffect(() => {
     if (!competitor || typed.current) return;
@@ -77,7 +79,7 @@ export function Championship() {
   }, [competitor]);
 
   // The round on air owns the live banner, so "the next race" is the one after
-  // it — otherwise the minute before the lights shows the same Grand Prix twice,
+  // it - otherwise the minute before the lights shows the same Grand Prix twice,
   // once as a countdown to enter and once as a broadcast to watch.
   const upcoming = airingRound(now) + 1;
 
@@ -117,7 +119,7 @@ export function Championship() {
   }, [state, now]);
 
   // Recomputed when the season reloads, and when the clock settles a race day
-  // that was still on air — keyed on the round, not the second, because building
+  // that was still on air - keyed on the round, not the second, because building
   // the table twice is not free.
   const lastRound = lastFinished?.round ?? 0;
   const recaps = useMemo(() => {
@@ -127,6 +129,17 @@ export function Championship() {
     return carRecaps(lastFinished, seasonCards(state.cards, seasonNumber(lastFinished.round)), settled, state.uid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lastRound]);
+
+  // In through "watch the last race first": straight to the race on air, or
+  // the last one run, as soon as the season has loaded.
+  const watchFirst = useApp((s) => s.watchFirst);
+  const setWatchFirst = useApp((s) => s.setWatchFirst);
+  useEffect(() => {
+    if (!watchFirst || !state) return;
+    const target = liveCard ?? lastFinished;
+    setWatchFirst(false);
+    if (target) openRace(target.id, 'broadcast');
+  }, [watchFirst, state, liveCard, lastFinished, openRace, setWatchFirst]);
 
   // A car is either on the grid or it is not: an entry left retired under the
   // old withdrawal rules is filtered out here, so its model reads as
@@ -149,7 +162,7 @@ export function Championship() {
           המודלים נוהגים, אתם בונים אותם.
         </h1>
         <p className="muted" style={{ margin: 0, maxWidth: 620 }}>
-          כל אחד מאמן מודל, רושם אותו לאליפות ומקבל שם קבוצה משלו. פעם ביום נערך גרנד פרי —
+          כל אחד מאמן מודל, רושם אותו לאליפות ומקבל שם קבוצה משלו. פעם ביום נערך גרנד פרי -
           מוקדמות קובעות את רשת הזינוק, המרוץ משודר בשידור חי במהירות רגילה, והניקוד בשיטה המקובלת במרוצי מכוניות.
         </p>
       </div>
@@ -159,7 +172,7 @@ export function Championship() {
           <div className="eyebrow" style={{ marginBottom: 10 }}>מי אתם</div>
           {nameTaken && (
             <div className="small" style={{ marginBottom: 10, color: 'var(--warn)' }}>
-              השם "{competitor}" כבר שייך למתחרה אחר. בחרו שם אחר לקבוצה — הרכבים והנקודות שלכם נשארים.
+              השם "{competitor}" כבר שייך למתחרה אחר. בחרו שם אחר לקבוצה - הרכבים והנקודות שלכם נשארים.
             </div>
           )}
           <TeamNameForm
@@ -330,7 +343,7 @@ export function Championship() {
             {nextField.length >= MIN_ENTRIES
               ? 'הטבלאות ייבנו מיד אחרי שהאורות ייכבו.'
               : upcoming >= HOUSE_FROM_ROUND
-                ? `רשמו מודל אחד, ו${HOUSE_TEAM} תשלים את הגריד עד ${HOUSE_GRID} רכבים — יהיה מרוץ כבר הערב.`
+                ? `רשמו מודל אחד, ו${HOUSE_TEAM} תשלים את הגריד עד ${HOUSE_GRID} רכבים - יהיה מרוץ כבר הערב.`
                 : `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שייערך גרנד פרי. אמנו מודל ורשמו אותו.`}
           </p>
           <button className="primary" onClick={() => go('library')}>
@@ -365,7 +378,7 @@ function PhysicsNotice({ now, onTrain }: { now: number; onTrain(): void }) {
             ? `החל מ${grandPrixName(PHYSICS_V2_ROUND)} (${dateTimeText(at)}) `
             : `מאז סבב ${PHYSICS_V2_ROUND} `}
           לצמיגים יש גבול אחיזה: רכב שנכנס לפנייה מהר מדי מחליק, וגז מלא בהחלקה נגמר בקיר. רכבים
-          שאומנו לפני השינוי לא למדו לבלום — כדאי לאמן אותם מחדש ולעדכן את הרכב.
+          שאומנו לפני השינוי לא למדו לבלום - כדאי לאמן אותם מחדש ולעדכן את הרכב.
         </span>
         <button className="primary" onClick={onTrain}>
           למוסך
@@ -379,7 +392,7 @@ function PhysicsNotice({ now, onTrain }: { now: number; onTrain(): void }) {
  * "Your car is running yesterday's brain."
  *
  * Entering a model copies its weights; training it further does not push them.
- * That is on purpose — a bad experiment should not reach the grid by itself —
+ * That is on purpose - a bad experiment should not reach the grid by itself -
  * but it means the failure mode is silent, and the moment it costs something is
  * the moment nobody is looking at the garage. So the warning lives here, on the
  * screen people open before a race, and it stops nagging once the grid is locked
@@ -417,7 +430,7 @@ function StaleCarNotice({
         <span className="pill warn">לא מעודכן על המסלול</span>
         <span style={{ minWidth: 0 }}>
           {stale.length === 1 ? `"${stale[0]}" השתנה` : `${stale.length} מהרכבים שלך השתנו`} במוסך
-          מאז הרישום האחרון — שם, משקולות או שניהם. בלי עדכון, הגרסה הישנה היא זו שתתחרה.
+          מאז הרישום האחרון - שם, משקולות או שניהם. בלי עדכון, הגרסה הישנה היא זו שתתחרה.
         </span>
         <div style={{ flex: 1 }} />
         <span className="dim tiny">עד {timeText(lockAt)}</span>
@@ -433,7 +446,7 @@ function StaleCarNotice({
  * The strip at the top of a race day.
  *
  * While a session is running it says how far into it we are. The moment the flag
- * falls it becomes a countdown to the next one instead — the three-minute slot is
+ * falls it becomes a countdown to the next one instead - the three-minute slot is
  * longer than the racing, and "142 seconds since the start" of a race that ended
  * a minute ago is not information.
  */
@@ -535,7 +548,7 @@ function NextRace({
           {grandPrixName(round)}
         </h1>
         <div className="muted small" style={{ marginBottom: 16 }}>
-          {dateTimeText(startsAt)} · מסלול {track?.name ?? '—'} · {raceIdForRound(round)}
+          {dateTimeText(startsAt)} · מסלול {track?.name ?? '-'} · {raceIdForRound(round)}
         </div>
 
         <div className="countdown-big" style={{ marginBottom: 4 }}>
@@ -579,7 +592,7 @@ function NextRace({
             : field.length <= GRID_SIZE
               ? `כל ${field.length} המודלים מזניקים יחד. המוקדמות קובעות את סדר הזינוק.`
               : `יותר מ-${GRID_SIZE} רשומים, ולכן היום מתחלק ל-${heats} מקצים והמובילים עולים לגמר.`}
-          {locked && ' הרישום לסבב הזה כבר נסגר — מודל שיירשם עכשיו יתחרה בסבב הבא.'}
+          {locked && ' הרישום לסבב הזה כבר נסגר - מודל שיירשם עכשיו יתחרה בסבב הבא.'}
         </div>
 
         {field.length >= MIN_ENTRIES && (
@@ -613,6 +626,7 @@ function NextRace({
             {field.length ? 'רשום עוד מודל' : 'רשום מודל לאליפות'}
           </button>
           <AddToCalendar round={round} />
+          <PushToggle />
         </div>
       </div>
     </div>
@@ -621,7 +635,7 @@ function NextRace({
 
 /**
  * The race is the reason to come back, and nothing reminds anybody of it. One
- * daily event, a reminder before the lights, a link back here — no server and
+ * daily event, a reminder before the lights, a link back here - no server and
  * no permission to ask for.
  */
 function AddToCalendar({ round }: { round: number }) {
@@ -668,8 +682,8 @@ function MyTeam({
   /**
    * Entries that are the same driver twice.
    *
-   * Registering used to be able to hand one driver a second car — after a
-   * delete and a re-entry, or a model imported under a new id — and the two
+   * Registering used to be able to hand one driver a second car - after a
+   * delete and a re-entry, or a model imported under a new id - and the two
    * then split the season's points between them. The table puts them back
    * together, but the grid does not: seniority decides which two cars of a team
    * race, so the *older* of the pair is the one that keeps lining up while the
@@ -714,7 +728,7 @@ function MyTeam({
       {!team && <div className="muted small">עדיין לא הגדרתם שם מתחרה.</div>}
       {team && entries.length === 0 && (
         <div className="muted small">
-          {team} — עוד אין מודלים רשומים. אמנו מודל במוסך ורשמו אותו לאליפות.
+          {team} - עוד אין מודלים רשומים. אמנו מודל במוסך ורשמו אותו לאליפות.
         </div>
       )}
       {entries.map((e) => {
@@ -731,7 +745,7 @@ function MyTeam({
             {duplicates.has(e.id) && (
               <span
                 className="pill warn small"
-                title="אותו נהג רשום פעמיים. הרשומה הישנה היא זו שעולה לגריד — כדאי להסיר אותה. הנקודות והתוצאות שלה נשארות בטבלה, מאוחדות תחת אותו נהג"
+                title="אותו נהג רשום פעמיים. הרשומה הישנה היא זו שעולה לגריד - כדאי להסיר אותה. הנקודות והתוצאות שלה נשארות בטבלה, מאוחדות תחת אותו נהג"
               >
                 רישום כפול
               </span>
@@ -799,7 +813,7 @@ function LastRace({
           return (
             <div className="row" key={p.entryId} style={{ padding: '5px 0' }}>
               <span className={posClass(p.position, p.status === 'dnf')}>{p.position}</span>
-              <DriverCell driver={e?.driver ?? '—'} team={e?.team ?? '—'} tag={e?.tag} />
+              <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} />
               <div style={{ flex: 1 }} />
               <span className="mono small" style={{ fontWeight: 700 }}>
                 {p.points}
@@ -810,7 +824,7 @@ function LastRace({
 
       {visible && (
         <div className="small muted" style={{ marginTop: 10 }}>
-          עמדת זינוק ראשונה: {pole?.driver ?? '—'}
+          עמדת זינוק ראשונה: {pole?.driver ?? '-'}
           {result?.fastestLap && ` · הקפה מהירה ${lapTime(result.fastestLap.ms)}`}
           {quali.length > 0 && ` · ${quali.length} משתתפים`}
         </div>
@@ -832,7 +846,7 @@ function LastRace({
  * How the last race went for this team's own cars, one line each.
  *
  * The podium below is the race as everybody saw it; this is the race as the
- * team cares about it — seventh is not on any podium. Shown only when one of
+ * team cares about it - seventh is not on any podium. Shown only when one of
  * their cars was in the latest race, so it never repeats old news.
  */
 function MyRaceCard({
@@ -885,6 +899,7 @@ function MyRaceCard({
             </span>
           )}
           {r.standing !== null && <StandingMove now={r.standing} before={r.standingBefore} />}
+          <ShareButton card={card} recap={r} />
           {result && r.position > 1 && (() => {
             // The first thing to fix, right under the line it explains.
             const first = diagnoseCar(card, result, r.entryId)[0];
@@ -940,5 +955,40 @@ function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen()
         </button>
       </div>
     </div>
+  );
+}
+
+/** One tap to a picture of this car's race, for a group chat. */
+function ShareButton({ card, recap }: { card: RaceCard; recap: CarRecap }) {
+  const showToast = useApp((s) => s.showToast);
+  const [busy, setBusy] = useState(false);
+  const share = async () => {
+    setBusy(true);
+    try {
+      const outcome = await shareResult({
+        driver: recap.driver,
+        team: recap.team,
+        color: teamColor(recap.team),
+        position: recap.position,
+        dnf: recap.status === 'dnf',
+        points: recap.points,
+        raceName: card.name,
+        trackName: TRACK_DEFS.find((t) => t.id === card.trackId)?.name ?? card.trackId,
+        date: dateText(card.startsAt),
+        bestLap: recap.bestLapMs !== null ? lapTime(recap.bestLapMs) : null,
+        gained: recap.gained,
+        site: window.location.origin,
+      });
+      if (outcome === 'downloaded') showToast('התמונה ירדה - אפשר לשלוח אותה לכל מקום');
+    } catch {
+      showToast('לא הצלחתי ליצור את התמונה');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button className="ghost small" onClick={() => void share()} disabled={busy} title="תמונה של התוצאה, לשליחה">
+      {busy ? '…' : '↗ שתף'}
+    </button>
   );
 }

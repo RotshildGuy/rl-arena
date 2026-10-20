@@ -4,7 +4,7 @@
  */
 export interface Net {
   readonly sizes: readonly number[];
-  /** Number of trainable scalars — matches `getWeights().length`. */
+  /** Number of trainable scalars - matches `getWeights().length`. */
   readonly paramCount: number;
 
   /** Single-sample forward pass. Returns a view valid until the next call. */

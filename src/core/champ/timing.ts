@@ -19,7 +19,7 @@ const RETIREMENT_GRACE_MS = 8000;
  * When each session of a race day is on air.
  *
  * A session's slot is the gap to the next one, whether or not the racing fills
- * it — a broadcast that ran until the last car happened to stop would start the
+ * it - a broadcast that ran until the last car happened to stop would start the
  * next session at a different moment for every viewer.
  */
 export function sessionWindows(card: RaceCard): SessionWindow[] {
@@ -50,7 +50,7 @@ export function sessionRacingMs(result: RaceResult | null | undefined, sessionId
   return max > 0 ? Math.ceil(max / 1000) * 1000 : null;
 }
 
-/** When the flag falls on a session — never later than the end of its slot. */
+/** When the flag falls on a session - never later than the end of its slot. */
 export function sessionEndsAt(w: SessionWindow, result: RaceResult | null | undefined): number {
   const ms = sessionRacingMs(result, w.session.id);
   return ms === null ? w.endsAt : Math.min(w.endsAt, w.startsAt + ms);
@@ -59,7 +59,7 @@ export function sessionEndsAt(w: SessionWindow, result: RaceResult | null | unde
 /**
  * When the feed opens: a little before the first session's lights, so a viewer
  * can be sitting on the grid when they go out instead of arriving to an empty
- * pit straight. Only the first session needs this — the sessions after it run
+ * pit straight. Only the first session needs this - the sessions after it run
  * back to back, and anybody watching is already inside the broadcast.
  */
 export function broadcastOpensAt(card: RaceCard): number {
@@ -91,7 +91,7 @@ export interface DayStatus {
   currentEndsAt: number;
   /** The session that follows it, for the countdown between sessions. */
   next: SessionWindow | null;
-  /** Sessions whose flag has already fallen — their results may be shown. */
+  /** Sessions whose flag has already fallen - their results may be shown. */
   finished: Set<string>;
 }
 
@@ -102,7 +102,7 @@ export interface DayStatus {
  * session's slot is three minutes but the racing rarely fills it, and counting
  * up to 180 while nothing is happening tells the viewer nothing: what they want
  * to know is how long until the next one, and what just happened in the one that
- * ended. Once the last session is flagged the day is over immediately — there is
+ * ended. Once the last session is flagged the day is over immediately - there is
  * nothing left to protect by holding the results back.
  */
 export function dayStatus(card: RaceCard, result: RaceResult | null | undefined, now: number): DayStatus {
@@ -140,7 +140,7 @@ export function dayStatus(card: RaceCard, result: RaceResult | null | undefined,
 export type DayState = 'upcoming' | 'live' | 'done';
 
 /**
- * Whether a day is still to come, on air, or over — where "on air" starts with
+ * Whether a day is still to come, on air, or over - where "on air" starts with
  * the feed rather than with the lights, so the screens that offer a way in
  * offer it before the race has moved.
  */
@@ -168,7 +168,7 @@ export function resultsVisible(card: RaceCard, now: number, result?: RaceResult 
  *
  * A race day is simulated the moment the lights go out, so its result exists
  * while people are still watching it. Feeding that straight into the standings
- * would put today's points on screen before today's race has been seen — so a
+ * would put today's points on screen before today's race has been seen - so a
  * day joins the table when its final takes the flag, and not a second earlier.
  */
 export function settledResults(

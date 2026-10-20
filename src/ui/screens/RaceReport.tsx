@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { DriverCell } from '../components/Livery';
+import { findCopies } from '../../core/champ/copies';
 import { PositionChart, type PositionLine } from '../components/PositionChart';
 import { shadeFor, teamColor } from '../../core/champ/livery';
 import { lapsFor } from '../../core/champ/format';
@@ -94,7 +95,7 @@ export function RaceReport() {
             </span>
             <span>
               {status.phase === 'racing'
-                ? `${status.current?.session.name ?? 'המקצה'} עוד רץ — התוצאות שלו ייחשפו כשיירד עליו הדגל.`
+                ? `${status.current?.session.name ?? 'המקצה'} עוד רץ - התוצאות שלו ייחשפו כשיירד עליו הדגל.`
                 : status.next
                   ? `${status.next.session.name} מתחיל בעוד ${untilText(status.next.startsAt - now)}.`
                   : 'היום עוד לא הסתיים.'}
@@ -117,7 +118,21 @@ export function RaceReport() {
   );
 }
 
+/**
+ * "Copy of X" for a car that raced with exactly the weights another team
+ * raced with first (`core/champ/copies.ts`), or undefined.
+ */
+function useCopyNote(card: RaceCard): (entryId: string) => string | undefined {
+  const { state } = useChampionship();
+  const copies = useMemo(() => findCopies(state?.cards ?? [card]), [state, card]);
+  return (entryId) => {
+    const c = copies.get(`${card.id}/${entryId}`);
+    return c ? `עותק של ${c.driver} (${c.team})` : undefined;
+  };
+}
+
 function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
+  const copyNote = useCopyNote(card);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
   const windows = useMemo(() => sessionWindows(card), [card]);
   const [sessionId, setSessionId] = useState(result.sessions[result.sessions.length - 1]?.sessionId ?? '');
@@ -145,7 +160,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
   const laps = plan ? lapsFor(plan) : Math.max(...session.classification.map((f) => f.laps), 1);
 
   const lines: PositionLine[] = session.classification.map((f) => ({
-    label: entries.get(f.entryId)?.driver ?? '—',
+    label: entries.get(f.entryId)?.driver ?? '-',
     color: colorOf.get(f.entryId) ?? '#888',
     positions: f.lapPositions,
     gridPos: f.gridPos || f.position,
@@ -157,13 +172,13 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
       <div className="cols-4" style={{ marginBottom: 14 }}>
         <StatCard
           label="מנצח"
-          value={entries.get(winner.entryId)?.driver ?? '—'}
+          value={entries.get(winner.entryId)?.driver ?? '-'}
           sub={entries.get(winner.entryId)?.team}
           accent
         />
         <StatCard
           label="עמדת זינוק ראשונה"
-          value={entries.get(result.pole ?? '')?.driver ?? '—'}
+          value={entries.get(result.pole ?? '')?.driver ?? '-'}
           sub={lapTime(card.qualifying[0]?.bestLapMs)}
         />
         <StatCard
@@ -220,19 +235,20 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                   <tr key={f.entryId}>
                     <td>
                       <span className={posClass(f.position, f.status === 'dnf')}>
-                        {f.status === 'dnf' ? '—' : f.position}
+                        {f.status === 'dnf' ? '-' : f.position}
                       </span>
                     </td>
                     <td>
                       <DriverCell
-                        driver={e?.driver ?? '—'}
-                        team={e?.team ?? '—'}
+                        driver={e?.driver ?? '-'}
+                        team={e?.team ?? '-'}
                         tag={e?.tag}
                         color={colorOf.get(f.entryId)}
+                        note={copyNote(f.entryId)}
                       />
                     </td>
                     <td className="mono num">
-                      {f.gridPos || '—'}
+                      {f.gridPos || '-'}
                       {delta !== 0 && f.gridPos > 0 && (
                         <span className={delta > 0 ? 'delta-up' : 'delta-down'}> {delta > 0 ? `▲${delta}` : `▼${-delta}`}</span>
                       )}
@@ -251,16 +267,16 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                       {lapTime(f.bestLapMs)}
                     </td>
                     <td className="mono num muted">{f.topSpeed.toFixed(1)}</td>
-                    <td className="mono num">{f.overtakes || '—'}</td>
-                    <td className="mono num muted">{f.wallHits + f.carHits || '—'}</td>
-                    <td className="mono num muted">{f.lapsLed || '—'}</td>
+                    <td className="mono num">{f.overtakes || '-'}</td>
+                    <td className="mono num muted">{f.wallHits + f.carHits || '-'}</td>
+                    <td className="mono num muted">{f.lapsLed || '-'}</td>
                     <td className="mono num" style={{ fontWeight: 800 }}>
                       {!isFinalSession || !place ? (
-                        <span className="dim">—</span>
+                        <span className="dim">-</span>
                       ) : place.classified ? (
                         place.points || <span className="dim">0</span>
                       ) : (
-                        <span className="dim" title="לא סווג — לא השלים מספיק מרחק">
+                        <span className="dim" title="לא סווג - לא השלים מספיק מרחק">
                           NC
                         </span>
                       )}
@@ -274,7 +290,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
       </div>
 
       <div className="small muted" style={{ margin: '-6px 0 14px' }}>
-        NC — לא סווג: רכב שלא השלים לפחות מחצית מהמרחק של המנצח אינו צובר נקודות.
+        NC - לא סווג: רכב שלא השלים לפחות מחצית מהמרחק של המנצח אינו צובר נקודות.
       </div>
 
       <div className="split" style={{ marginBottom: 14 }}>
@@ -320,7 +336,7 @@ function Headline({ label, who, value }: { label: string; who?: ArenaEntry; valu
         <div className="tiny dim" style={{ letterSpacing: '0.08em' }}>
           {label}
         </div>
-        <div style={{ fontWeight: 700 }}>{who?.driver ?? '—'}</div>
+        <div style={{ fontWeight: 700 }}>{who?.driver ?? '-'}</div>
       </div>
       <span className="mono small">{value}</span>
     </div>
@@ -403,8 +419,8 @@ function LapTimes({
                 <tr key={f.entryId}>
                   <td>
                     <DriverCell
-                      driver={e?.driver ?? '—'}
-                      team={e?.team ?? '—'}
+                      driver={e?.driver ?? '-'}
+                      team={e?.team ?? '-'}
                       tag={e?.tag}
                       color={colorOf.get(f.entryId)}
                     />
@@ -413,7 +429,7 @@ function LapTimes({
                     const ms = f.lapTimesMs[i] ?? null;
                     return (
                       <td key={i} className={`mono num ${lapClass(ms, best, f.bestLapMs)}`}>
-                        {ms === null ? '—' : lapTime(ms)}
+                        {ms === null ? '-' : lapTime(ms)}
                       </td>
                     );
                   })}
@@ -429,6 +445,7 @@ function LapTimes({
 
 /** Qualifying: the session that sets the grid, and the source of pole positions. */
 function Qualifying({ card }: { card: RaceCard }) {
+  const copyNote = useCopyNote(card);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
   const pole = card.qualifying.find((q) => q.bestLapMs !== null)?.bestLapMs ?? null;
   const bestSectors = [0, 1, 2].map((s) => {
@@ -464,14 +481,14 @@ function Qualifying({ card }: { card: RaceCard }) {
               return (
                 <tr key={q.entryId}>
                   <td>
-                    <span className={posClass(i + 1, q.bestLapMs === null)}>{q.bestLapMs === null ? '—' : i + 1}</span>
+                    <span className={posClass(i + 1, q.bestLapMs === null)}>{q.bestLapMs === null ? '-' : i + 1}</span>
                   </td>
                   <td>
-                    <DriverCell driver={e?.driver ?? '—'} team={e?.team ?? '—'} tag={e?.tag} />
+                    <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} note={copyNote(q.entryId)} />
                   </td>
                   <td className={`mono num ${i === 0 ? 't-purple' : ''}`}>{lapTime(q.bestLapMs)}</td>
                   <td className="mono num muted">
-                    {q.bestLapMs === null || pole === null ? '—' : i === 0 ? '—' : gapTime(q.bestLapMs - pole)}
+                    {q.bestLapMs === null || pole === null ? '-' : i === 0 ? '-' : gapTime(q.bestLapMs - pole)}
                   </td>
                   {[0, 1, 2].map((s) => (
                     <td key={s} className={`mono num ${lapClass(q.sectorsMs[s], bestSectors[s], q.sectorsMs[s])}`}>
@@ -508,7 +525,7 @@ function Diagnosis({ card, result, uid }: { card: RaceCard; result: RaceResult; 
   return (
     <div className="card notched" style={{ marginTop: 14 }}>
       <div className="head">
-        <div className="eyebrow">אבחון — למה, ומה לשנות</div>
+        <div className="eyebrow">אבחון - למה, ומה לשנות</div>
         <div className="fill" />
         {mine.length > 0 && rows.length > mine.length && (
           <button className="ghost small" onClick={() => setShowAll((v) => !v)}>
@@ -522,7 +539,7 @@ function Diagnosis({ card, result, uid }: { card: RaceCard; result: RaceResult; 
           <div key={p.entryId} style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
             <div className="row" style={{ marginBottom: 4 }}>
               <span className={posClass(p.position, p.status === 'dnf')}>{p.position}</span>
-              <DriverCell driver={e?.driver ?? '—'} team={e?.team ?? '—'} tag={e?.tag} />
+              <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} />
             </div>
             {advice.get(p.entryId)!.map((a, i) => (
               <AdviceLine key={i} advice={a} />

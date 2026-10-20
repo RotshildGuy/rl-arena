@@ -3,7 +3,7 @@ import type { EpisodeStats } from './trainerTypes';
 
 /**
  * What one learner is told when the shared episode ends. Everything is indexed
- * by the learner's own seat list, not by the environment's — a learner never
+ * by the learner's own seat list, not by the environment's - a learner never
  * needs to know which cars on the grid belong to somebody else.
  */
 export interface EpisodeOutcome {
@@ -55,7 +55,7 @@ export interface Learner {
   afterStep(): void;
   /** The shared episode ended. Returns stats only when a unit of progress completed. */
   endEpisode(outcome: EpisodeOutcome): EpisodeStats | null;
-  /** The weights worth saving — for the GA, the best genome so far. */
+  /** The weights worth saving - for the GA, the best genome so far. */
   getWeights(): Float32Array;
   /** Short "where are we" line; a GA generation spans many episodes. */
   progressNote(episodeSteps: number): string;

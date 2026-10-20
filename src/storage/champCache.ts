@@ -5,14 +5,14 @@ import type { RaceCard, RaceResult } from '../core/champ/types';
  *
  * Race cards and results are written create-only and can never change, which
  * makes them perfectly cacheable: once this browser has seen round 7, it never
- * needs to ask about round 7 again. That matters because the naive version — ask
- * the server for every card and every result on every visit — costs reads in
+ * needs to ask about round 7 again. That matters because the naive version - ask
+ * the server for every card and every result on every visit - costs reads in
  * proportion to the length of the season, and a season that runs a year would
  * push a handful of friends past the free quota purely by existing.
  *
  * Rounds that never happened are remembered too, as "blank". A round can only be
  * created inside the backfill window, so once it falls out of that window the
- * absence is permanent and worth recording — otherwise every quiet day in the
+ * absence is permanent and worth recording - otherwise every quiet day in the
  * calendar costs a read, forever.
  */
 export interface ChampCache {
@@ -92,7 +92,7 @@ class IdbCache implements ChampCache {
 
 /**
  * Never fails a sync. A browser with storage disabled simply reads from the
- * server every time, which is the behaviour this whole file exists to avoid —
+ * server every time, which is the behaviour this whole file exists to avoid -
  * but it is still better than an app that will not load.
  */
 class NullCache implements ChampCache {

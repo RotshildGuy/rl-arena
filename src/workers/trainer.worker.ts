@@ -1,3 +1,4 @@
+import { Policy } from '../core/rl/policy';
 /// <reference lib="webworker" />
 import { DqnLearner } from '../core/rl/trainer';
 import { GaLearner } from '../core/rl/ga';
@@ -124,6 +125,7 @@ self.onmessage = (ev: MessageEvent<ToTrainer>) => {
           config: i.config,
           rewards: i.slots.map((s) => s.rewards),
           seed: i.seed,
+          rivals: (i.rivals ?? []).map((r) => Policy.fromBase64(r.obsSize, r.hidden, r.nActions, r.weightsB64)),
           makeLearner: (slot, seats) => {
             const cfg = i.slots[slot];
             const weights = cfg.weightsB64 ? decodeWeights(cfg.weightsB64) : undefined;

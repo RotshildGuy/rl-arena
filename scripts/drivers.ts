@@ -1,17 +1,17 @@
 /**
  * Can a dumb driver win? Two hand-written reference drivers to find out.
  *
- * Both steer the same way — at a point a little way down the
+ * Both steer the same way - at a point a little way down the
  * centreline. They differ only in what they do with the pedals:
  *
- *   flat out   — gas, always. The strategy anyone tries first, and the one a
+ *   flat out   - gas, always. The strategy anyone tries first, and the one a
  *                two-line script can play.
- *   braking    — reads the corners ahead and brakes to the speed the tyres can
+ *   braking    - reads the corners ahead and brakes to the speed the tyres can
  *                carry through them. A stand-in for a driver that has learned
  *                something.
  *
  * The championship is meant to reward learning, so the physics is right when
- * flat out is clearly slower than braking — or does not finish at all — on
+ * flat out is clearly slower than braking - or does not finish at all - on
  * every circuit. On version 1 it is not; that is why version 2 exists.
  *
  * Used by `scripts/driverCheck.ts`, which prints the comparison, and by
@@ -118,7 +118,7 @@ export function drive(trackId: string, physics: number, braking: Braking | null)
 /**
  * The braking driver at its best on this circuit: every combination of corner
  * speed and braking effort is tried and the fastest finish kept. That stands
- * in for a model that has learned where to brake — a fixed guess would only
+ * in for a model that has learned where to brake - a fixed guess would only
  * measure how good the guess was.
  */
 export function bestBraking(trackId: string, physics: number): Outcome {

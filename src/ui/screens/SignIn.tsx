@@ -8,8 +8,8 @@ import { GoogleMark } from '../components/GoogleMark';
  *
  * Three ways in, and they are not equal: Google and a password are accounts
  * that survive this browser, and the anonymous one is an identity that lives in
- * it. All three are one tap, and the anonymous one is deliberately still here —
- * it is what makes "try it now" possible — with the trade said plainly under
+ * it. All three are one tap, and the anonymous one is deliberately still here -
+ * it is what makes "try it now" possible - with the trade said plainly under
  * it, and an offer to link an account later from inside the app.
  *
  * Nobody who already signed in on this device ever sees this screen: Firebase
@@ -17,7 +17,7 @@ import { GoogleMark } from '../components/GoogleMark';
  *
  * The exception is a browser carrying an anonymous identity from before this
  * screen existed, when the app still made one on its own. That one is shown the
- * door too — and there "without an account" means the identity already here,
+ * door too - and there "without an account" means the identity already here,
  * models, cars and points included, rather than a fresh one.
  */
 type Mode = 'in' | 'up';
@@ -36,7 +36,7 @@ export function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   /**
-   * Set by the failures that are not the visitor's to fix — a provider switched
+   * Set by the failures that are not the visitor's to fix - a provider switched
    * off in the console, a domain that is not authorised, a bad key, or simply
    * no network on a first visit. The app has always run without a cloud, so
    * rather than leave somebody at a door that will not open, offer them that.
@@ -68,7 +68,7 @@ export function SignIn() {
   const submitEmail = (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return setError('צריך להקליד כתובת מייל.');
-    if (password.length < MIN_PASSWORD) return setError(`הסיסמה קצרה מדי — לפחות ${MIN_PASSWORD} תווים.`);
+    if (password.length < MIN_PASSWORD) return setError(`הסיסמה קצרה מדי - לפחות ${MIN_PASSWORD} תווים.`);
     void attempt('email', () =>
       mode === 'in' ? signIn.password(email, password) : signIn.register(email, password),
     );
@@ -101,6 +101,30 @@ export function SignIn() {
           מאמנים מודל בדפדפן, רושמים אותו לאליפות, ופעם ביום כל המודלים הרשומים מתחרים ביניהם.
           בחרו איך לשמור את המודלים והנקודות שלכם.
         </p>
+
+        {!inherited && (
+          <>
+            {/* Watching first: the race is what sells the idea, and a sign-in
+                form is a poor first thing to show anybody. One tap enters
+                without an account and opens the broadcast; an account can be
+                linked later, from inside, keeping everything. */}
+            <button
+              className="wide cyan"
+              disabled={busy !== null}
+              onClick={() =>
+                void attempt('anon', async () => {
+                  useApp.getState().setWatchFirst(true);
+                  await signIn.anonymous();
+                })
+              }
+            >
+              👀 קודם לצפות במרוץ האחרון
+            </button>
+            <p className="tiny dim" style={{ margin: '6px 0 14px' }}>
+              בלי חשבון ובלי פרטים. אם תרצו לאמן מודל אחר כך, אפשר לקשר חשבון בכל רגע.
+            </p>
+          </>
+        )}
 
         <button className="provider" disabled={busy !== null} onClick={() => void attempt('google', signIn.google)}>
           <GoogleMark />
@@ -150,7 +174,7 @@ export function SignIn() {
               setNote(null);
             }}
           >
-            {mode === 'in' ? 'אין לי חשבון — הרשמה' : 'יש לי כבר חשבון'}
+            {mode === 'in' ? 'אין לי חשבון - הרשמה' : 'יש לי כבר חשבון'}
           </button>
           <div style={{ flex: 1 }} />
           {mode === 'in' && (
@@ -177,13 +201,13 @@ export function SignIn() {
         <p className="tiny dim" style={{ margin: '8px 0 0' }}>
           {inherited ? (
             <>
-              בדפדפן הזה כבר יושבת זהות אנונימית, והכפתור הזה ממשיך <b>איתה</b> — עם המודלים,
+              בדפדפן הזה כבר יושבת זהות אנונימית, והכפתור הזה ממשיך <b>איתה</b> - עם המודלים,
               הרכבים והנקודות שצברה. היא חיה בדפדפן הזה בלבד, וניקוי נתוני הדפדפן מוחק אותה.
               אם יש לכם חשבון, התחברו אליו למעלה במקום.
             </>
           ) : (
             <>
-              בלי חשבון אין מה למלא ואף פרט לא נשמר — אבל הזהות חיה בדפדפן הזה בלבד, וניקוי
+              בלי חשבון אין מה למלא ואף פרט לא נשמר - אבל הזהות חיה בדפדפן הזה בלבד, וניקוי
               נתוני הדפדפן מוחק אותה. אפשר לקשר אליה Google או מייל מאוחר יותר, בלי לאבד מודלים
               או נקודות.
             </>

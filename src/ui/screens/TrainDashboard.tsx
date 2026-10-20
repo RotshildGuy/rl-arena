@@ -9,7 +9,8 @@ import { drawPlaceholder, renderGame } from '../gameRenderers';
 import { CAR_COLORS } from '../../core/games/racing/render';
 import { saveModel } from '../saveModel';
 import { getStore, recordKey, type SetupRecord, type TrainingPoint } from '../../storage';
-import type { SpeedMode, TrainSlotInit } from '../../workers/protocol';
+import type { SpeedMode, TrainInit, TrainSlotInit } from '../../workers/protocol';
+import { getArena } from '../../storage/arena';
 import { ALGORITHMS } from '../../core/rl/algorithms';
 import { useWakeLock } from '../device';
 import { durationText, lapTime, raceTime } from '../format';
@@ -21,9 +22,9 @@ import { useChampionship } from '../useChampionship';
 import { trainingTarget, type TrainingTarget } from '../../core/champ/records';
 
 const SPEEDS: Array<{ id: SpeedMode; label: string; hint: string }> = [
-  { id: 'watch', label: '×1', hint: 'זמן אמת — לראות מה המודל עושה' },
+  { id: 'watch', label: '×1', hint: 'זמן אמת - לראות מה המודל עושה' },
   { id: 'fast', label: '×4', hint: 'מואץ פי ארבעה, עדיין מצויר' },
-  { id: 'turbo', label: 'טורבו', hint: 'ללא ציור וללא הגבלת קצב — מהיר ככל שהמעבד מרשה' },
+  { id: 'turbo', label: 'טורבו', hint: 'ללא ציור וללא הגבלת קצב - מהיר ככל שהמעבד מרשה' },
 ];
 
 /** What the boot step recovered about one model before training started. */
@@ -78,7 +79,7 @@ export function TrainDashboard() {
           const rec = await store.load(slot.modelId);
           if (rec && !slot.restart) {
             if (rec.obsVersion !== game.spec.obsVersion || rec.arch.obsSize !== game.spec.obsSize) {
-              showToast(`${rec.name} אומן על גרסת תצפית ישנה — מתחילים מאפס`);
+              showToast(`${rec.name} אומן על גרסת תצפית ישנה - מתחילים מאפס`);
             } else {
               init.weightsB64 = rec.weightsB64;
               init.envSteps = rec.training.envSteps;
@@ -100,13 +101,34 @@ export function TrainDashboard() {
         histories.push(history);
       }
 
+      // A championship car to race against: its weights, frozen, in the last
+      // seat. One more car on the grid so it never takes a learner's place.
+      let rivals: TrainInit['rivals'] = [];
+      let config = draft.config;
+      if (draft.rival && gameId === 'racing') {
+        try {
+          const arena = await getArena();
+          const w = await arena.loadEntryWeights(draft.rival.entryId);
+          if (w) {
+            rivals = [{ ...draft.rival.arch, weightsB64: w }];
+            const cars = Number(config.nCars ?? 1);
+            config = { ...config, nCars: Math.max(cars, models.length + 1) };
+          } else {
+            showToast('לא הצלחתי לטעון את היריב - מתאמנים בלעדיו');
+          }
+        } catch {
+          showToast('לא הצלחתי לטעון את היריב - מתאמנים בלעדיו');
+        }
+      }
+
       trainer.init(
         {
           gameId,
-          config: draft.config,
+          config,
           seed: Math.floor(Math.random() * 1e9),
           slots: inits,
           speed: 'fast',
+          rivals,
         },
         histories,
       );
@@ -120,6 +142,28 @@ export function TrainDashboard() {
   const running = status === 'running';
   // A sleeping phone throttles the worker to a halt mid-run.
   useWakeLock(running);
+
+  // The time limit chosen in setup: when it runs out, stop and save, and stay
+  // here so "continue" is one tap away. Checked once a second; the save is the
+  // same one the button does.
+  const limitMs = (draft.timeLimitMin ?? 0) * 60_000;
+  const limitHit = useRef(false);
+  // The latest `save`, so the timer saves today's history and not the first render's.
+  const saveRef = useRef<(thenLeave: boolean) => Promise<void>>(async () => {});
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!limitMs) return;
+    const id = setInterval(() => {
+      tick((n) => n + 1);
+      if (limitHit.current || status !== 'running' || trainer.elapsedMs() < limitMs) return;
+      limitHit.current = true;
+      trainer.pause();
+      void saveRef.current(false).then(() => showToast(`${draft.timeLimitMin} דקות הסתיימו - המודל נשמר. אפשר להמשיך או לסיים.`));
+    }, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limitMs, status]);
+  const remainingMs = limitMs ? Math.max(0, limitMs - trainer.elapsedMs()) : null;
 
   const save = async (thenLeave: boolean) => {
     setSaving(true);
@@ -166,6 +210,8 @@ export function TrainDashboard() {
     }
   };
 
+  saveRef.current = save;
+
   /** Colour every car by the model driving it, so interference is visible. */
   const carColors = useMemo(() => {
     const out: string[] = [];
@@ -209,8 +255,8 @@ export function TrainDashboard() {
     return { lap, race };
   }, [history, slotIndex, draft.config]);
 
-  // The season is usually already loaded by the time anybody trains — the app
-  // opens on the championship — so this costs nothing in the common case.
+  // The season is usually already loaded by the time anybody trains - the app
+  // opens on the championship - so this costs nothing in the common case.
   const champ = useChampionship().state;
   const target = useMemo(() => {
     if (!hasLaps || !champ) return null;
@@ -230,6 +276,17 @@ export function TrainDashboard() {
           <div className="row wrap small muted">
             {status === 'error' && <span className="pill warn">שגיאה: {error}</span>}
             {booting && <span className="pill">מאתחל…</span>}
+            {draft.rival && (
+              <span className="pill" title="רכב מהאליפות, קפוא, במושב האחרון">
+                🏁 יריב: {draft.rival.driver} · {draft.rival.team}
+              </span>
+            )}
+            {remainingMs !== null && !limitHit.current && (
+              <span className="pill" title="עצירה ושמירה אוטומטית">
+                ⏱ <span className="mono">{durationText(remainingMs)}</span> עד שמירה
+              </span>
+            )}
+            {limitHit.current && <span className="pill good">הזמן נגמר - נשמר</span>}
           </div>
         </div>
         <div className="actions">
@@ -253,7 +310,7 @@ export function TrainDashboard() {
           </button>
           <CoachAnchor
             on={coach === 'save'}
-            text="הרכב לומד תוך כדי נסיעה — אפשר לצפות, להזיז מחוונים ולתת לו זמן. כשאתם מרוצים מהנהג, לחצו סיים ושמור."
+            text="הרכב לומד תוך כדי נסיעה - אפשר לצפות, להזיז מחוונים ולתת לו זמן. כשאתם מרוצים מהנהג, לחצו סיים ושמור."
           >
             <button className="primary" onClick={() => save(true)} disabled={saving || booting}>
               {saving ? 'שומר…' : 'סיים ושמור'}
@@ -294,7 +351,7 @@ export function TrainDashboard() {
                       style={{ background: CAR_COLORS[i % CAR_COLORS.length], width: 4, height: 12 }}
                     />
                     {m.name || `מודל ${i + 1}`}
-                    <span className="dim"> · {(seats[i] ?? []).map((s) => s + 1).join(', ') || '—'}</span>
+                    <span className="dim"> · {(seats[i] ?? []).map((s) => s + 1).join(', ') || '-'}</span>
                   </span>
                 ))}
               </div>
@@ -310,14 +367,14 @@ export function TrainDashboard() {
               <div className="eyebrow">ההתקדמות של {slot.name || `מודל ${slotIndex + 1}`}</div>
             </div>
             <div className="small muted" style={{ marginBottom: 4 }}>
-              נקודות ל{algo.episodeLabel} — כמה הוא צובר לפי המחוונים שלו
+              נקודות ל{algo.episodeLabel} - כמה הוא צובר לפי המחוונים שלו
             </div>
             <LineChart height={140} series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]} />
 
             {hasLaps && (
               <>
                 <div className="small muted" style={{ marginTop: 10 }}>
-                  ההקפה המהירה שלו ל{algo.episodeLabel} (שניות) — זה מה שהאליפות מודדת
+                  ההקפה המהירה שלו ל{algo.episodeLabel} (שניות) - זה מה שהאליפות מודדת
                 </div>
                 <LineChart height={110} series={[{ label: 'lap', color: '--purple', values: charts.laps }]} />
               </>
@@ -345,19 +402,19 @@ export function TrainDashboard() {
               <div className="small muted" style={{ marginTop: 8 }}>
                 {records.race === null
                   ? `עוד לא הושלמו ${String(draft.config.laps ?? 3)} הקפות ברצף. השיא ייקבע ברגע שהרכב יראה את הדגל המשובץ.`
-                  : `שיא נשמר בנפרד לכל מפה ולכל מספר הקפות — מסלול אחר הוא שיא אחר.`}
+                  : `שיא נשמר בנפרד לכל מפה ולכל מספר הקפות - מסלול אחר הוא שיא אחר.`}
               </div>
             </div>
           )}
 
           {/* Only numbers somebody can act on. Exploration rate, steps per second
               and the best reward ever scored describe the machinery, not the
-              driver — none of them says whether to keep training or what to
+              driver - none of them says whether to keep training or what to
               change, and the README promises a screen without them. */}
           <div className="card notched">
             <div className="cols-3">
               <Stat k={algo.episodesLabel} v={(slotLive?.live.episode ?? 0).toLocaleString('he-IL')} />
-              <Stat k={game.spec.scoreLabel} v={history.length ? history[history.length - 1].score.toFixed(2) : '—'} />
+              <Stat k={game.spec.scoreLabel} v={history.length ? history[history.length - 1].score.toFixed(2) : '-'} />
               <Stat k="זמן אימון" v={durationText((boot.current[slotIndex]?.baseTrainedMs ?? 0) + trainer.elapsedMs())} />
             </div>
           </div>
@@ -474,7 +531,7 @@ function TargetLine({ target, lap }: { target: TrainingTarget; lap: number | nul
       </div>
       {!target.samePhysics && (
         <div className="dim tiny" style={{ marginTop: 2 }}>
-          נקבע בפיזיקה הקודמת, כשהצמיגים לא החליקו — היעד האמיתי כנראה איטי יותר.
+          נקבע בפיזיקה הקודמת, כשהצמיגים לא החליקו - היעד האמיתי כנראה איטי יותר.
         </div>
       )}
     </div>

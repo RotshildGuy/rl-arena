@@ -5,13 +5,13 @@ import { cloudDisabled } from './cloudStatus';
 /**
  * Anonymous usage counts, written to `metrics/{day}/events/{uid}_{event}`.
  *
- * One document per account, per event, per day — the id is the whole record,
+ * One document per account, per event, per day - the id is the whole record,
  * so doing the same thing twice in a day writes nothing new and the collection
  * can never say more than "this account did this, that day". No third party
  * sees any of it: it sits in the same Firestore as the championship.
  *
  * Everything here is best effort. A rule that has not been published yet, a
- * network blip, an offline run without cloud keys — all of them mean an event
+ * network blip, an offline run without cloud keys - all of them mean an event
  * goes uncounted, and none of them may ever reach the person playing.
  */
 const sent = new Set<string>();
@@ -32,7 +32,7 @@ export function track(event: MetricEvent): void {
     const row: MetricRow = { uid: user.uid, event, day };
     await setDoc(doc(db, 'metrics', day, 'events', `${user.uid}_${event}`), row);
   })().catch(() => {
-    // Let a later attempt today try again — the failure may have been the network.
+    // Let a later attempt today try again - the failure may have been the network.
     sent.delete(key);
   });
 }

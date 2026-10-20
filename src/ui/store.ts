@@ -9,8 +9,8 @@ import { isMobileClass } from './device';
 import { getCompetitor, pushCompetitor, setCompetitor as persistCompetitor } from './identity';
 
 /**
- * The app has two halves. The championship half — standings, race days, the
- * broadcast — is what most people open it for; the garage half is where models
+ * The app has two halves. The championship half - standings, race days, the
+ * broadcast - is what most people open it for; the garage half is where models
  * are made. Playing against a model yourself is a third, deliberately smaller
  * corner.
  */
@@ -24,7 +24,9 @@ export type Screen =
   | 'training'
   | 'raceSetup'
   | 'race'
-  | 'info';
+  | 'info'
+  | 'feedback'
+  | 'shop';
 
 export type InfoTab = 'how' | 'terms' | 'privacy' | 'notices';
 
@@ -34,7 +36,7 @@ export interface TrainSlot {
   modelId: string | null;
   name: string;
   algorithm: AlgorithmId;
-  /** This model's own reward table — its personality. */
+  /** This model's own reward table - its personality. */
   rewards: RewardConfig;
   /** Wipe the weights and start over, keeping the name and settings. */
   restart: boolean;
@@ -43,18 +45,35 @@ export interface TrainSlot {
 /**
  * What the training-setup screen is holding before a run starts.
  *
- * The environment is shared — one track, one grid — and every model in `slots`
+ * The environment is shared - one track, one grid - and every model in `slots`
  * drives part of it. Training two models together is how you find out whether a
  * model is actually fast or only fast when the road is empty.
  */
 export interface TrainDraft {
-  /** Competitor name — the team every model here races for. */
+  /** Competitor name - the team every model here races for. */
   owner: string;
   config: Record<string, unknown>;
   slots: TrainSlot[];
   hyper: DqnHyper;
   gaHyper: GaHyper;
+  /**
+   * Stop and save by itself after this many minutes; 0 for no limit. A phone
+   * only trains while the tab is open and the screen is on, so a short run
+   * that ends with a saved model beats a long one that ends in a pocket.
+   */
+  timeLimitMin: number;
+  /** A championship car to train against: it drives, frozen, in the last seat. */
+  rival: RivalPick | null;
 }
+
+export interface RivalPick {
+  entryId: string;
+  driver: string;
+  team: string;
+  arch: { obsSize: number; hidden: number[]; nActions: number };
+}
+
+export const TIME_LIMITS = [0, 5, 15, 30];
 
 /** More than this and a single phone cannot keep up with the grid. */
 export const MAX_TRAIN_SLOTS = 4;
@@ -80,7 +99,7 @@ interface AppState {
    */
   competitor: string;
   /**
-   * The team name turned out to belong to another account — a name chosen
+   * The team name turned out to belong to another account - a name chosen
    * before names were unique. The championship screen asks for a new one.
    */
   nameTaken: boolean;
@@ -88,9 +107,18 @@ interface AppState {
   infoTab: InfoTab;
 
   go(screen: Screen): void;
+  /** The screen the feedback form was opened from: it goes with the report. */
+  feedbackFrom: Screen;
+  openFeedback(): void;
+  /** The friends' league the tables are filtered to, or null for everybody. */
+  leagueId: string | null;
+  setLeague(id: string | null): void;
+  /** Came in through "watch the last race first": open a broadcast once there is one. */
+  watchFirst: boolean;
+  setWatchFirst(on: boolean): void;
   openRace(raceId: string, screen: 'broadcast' | 'report'): void;
   setCompetitor(name: string): void;
-  /** The same, for a name that came *from* the account — so it is not sent back. */
+  /** The same, for a name that came *from* the account - so it is not sent back. */
   adoptCompetitor(name: string): void;
   setNameTaken(taken: boolean): void;
   openInfo(tab: InfoTab): void;
@@ -111,7 +139,7 @@ interface AppState {
  * Phone-class devices get lighter defaults.
  *
  * The genetic algorithm needs no gradients at all, which is exactly the operation
- * a mobile CPU is worst at — it runs roughly 25x more environment steps per second
+ * a mobile CPU is worst at - it runs roughly 25x more environment steps per second
  * than DQN on the same hardware, so it is the sane default where most of the
  * training will happen. A smaller network cuts the per-step cost further.
  * Nothing here is locked: the user can still pick DQN and a larger net.
@@ -158,6 +186,8 @@ function freshDraft(gameId: GameId): TrainDraft {
       // chart actually moves while someone is watching it on a phone.
       populationSize: isMobileClass ? 20 : DEFAULT_GA_HYPER.populationSize,
     },
+    timeLimitMin: isMobileClass ? 5 : 0,
+    rival: null,
   };
 }
 
@@ -179,6 +209,12 @@ export const useApp = create<AppState>((set, get) => ({
   race: { config: getGame(GAME_IDS[0]).defaultConfig(), opponents: [] },
 
   go: (screen) => set({ screen }),
+  feedbackFrom: 'championship',
+  leagueId: null,
+  setLeague: (leagueId) => set({ leagueId }),
+  watchFirst: false,
+  setWatchFirst: (watchFirst) => set({ watchFirst }),
+  openFeedback: () => set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' })),
 
   openRace: (viewRaceId, screen) => set({ viewRaceId, screen }),
 

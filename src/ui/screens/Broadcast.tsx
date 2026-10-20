@@ -9,12 +9,13 @@ import { getArena } from '../../storage/arena';
 import { SessionSim, policiesFor } from '../../core/champ/sim';
 import { lapsFor } from '../../core/champ/format';
 import { dayState, dayStatus, liveSession, sessionWindows } from '../../core/champ/timing';
-import { shadeFor, teamColor } from '../../core/champ/livery';
+import { shadeFor, teamColor, teamLook } from '../../core/champ/livery';
 import { STEP_MS, type RacingSnapshot } from '../../core/games/racing/env';
 import type { RaceCard } from '../../core/champ/types';
 import { lapTime, raceTime, timeText, untilText } from '../format';
 import { useIsPortrait, useWakeLock } from '../device';
 import { track } from '../../storage/metrics';
+import { useTeamPaint } from '../teamLooks';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -91,7 +92,7 @@ function BroadcastStage({
   const simRef = useRef<SessionSim | null>(null);
   const snapRef = useRef<RacingSnapshot | null>(null);
   /**
-   * Wall-clock moment this session's playhead sits at zero — lights out.
+   * Wall-clock moment this session's playhead sits at zero - lights out.
    *
    * While a replay plays, the playhead is derived from this, so seeking is
    * nothing more than moving the anchor. A live session anchors to the real
@@ -101,7 +102,7 @@ function BroadcastStage({
   /** The playhead itself, in race milliseconds. Authoritative while paused. */
   const headRef = useRef(0);
   const playingRef = useRef(true);
-  /** Exact length of the session — known only once it has run to the flag. */
+  /** Exact length of the session - known only once it has run to the flag. */
   const endRef = useRef<number | null>(null);
   /** Wall clock the lights go out on. Kept apart from the anchor so that touching
    *  the transport cancels the ceremony instead of replaying it. */
@@ -145,25 +146,30 @@ function BroadcastStage({
   );
 
   /** Livery per grid slot, plus a shade when a team fields more than one car. */
+  // Paint bought in the shop, checked against what each team has earned.
+  const paint = useTeamPaint(grid.map((id) => entryById.get(id)?.uid ?? ''));
   const towerCars: TowerCar[] = useMemo(() => {
     const seen = new Map<string, number>();
     return grid.map((id, i) => {
       const e = entryById.get(id);
-      const team = e?.team ?? '—';
+      const team = e?.team ?? '-';
       const n = seen.get(team) ?? 0;
       seen.set(team, n + 1);
+      const bought = e ? paint.get(e.uid) : undefined;
       return {
         car: i,
-        name: e?.driver ?? '—',
+        name: e?.driver ?? '-',
         tag: e?.tag ?? '???',
-        color: shadeFor(teamColor(team), n),
+        color: shadeFor(bought?.color ?? teamColor(team), n),
+        look: { ...teamLook(team, e?.driver ?? ''), ...bought?.look },
         mine: myIds.has(id),
       };
     });
-  }, [grid, entryById, myIds]);
+  }, [grid, entryById, myIds, paint]);
 
   const colors = towerCars.map((c) => c.color);
   const labels = towerCars.map((c) => c.tag);
+  const looks = towerCars.map((c) => c.look);
 
   /**
    * A fresh simulation of the selected session.
@@ -223,7 +229,7 @@ function BroadcastStage({
    * How long the replay runs.
    *
    * Until the session has been played through once, this is read off the stored
-   * classification — the last car home, or a retirement plus the delay before it
+   * classification - the last car home, or a retirement plus the delay before it
    * is declared out. The moment the simulation actually finishes, the exact
    * figure replaces the estimate.
    */
@@ -267,7 +273,7 @@ function BroadcastStage({
    * people watching on two devices see the same corner at the same second even
    * if one of them dropped frames or had the tab in the background. This is also
    * why a live session has no speed control: the race is a shared, fixed-rate
-   * event. A replay runs off the same clock — only there, the playhead moves.
+   * event. A replay runs off the same clock - only there, the playhead moves.
    */
   const drawFrame = (ctx: CanvasRenderingContext2D) => {
     let sim = simRef.current;
@@ -293,7 +299,7 @@ function BroadcastStage({
     }
     if (sim.done) {
       // The flag is the end of the recording. The playhead stops on it rather
-      // than running on into nothing, and the transport stops with it — which is
+      // than running on into nothing, and the transport stops with it - which is
       // what every player does when a video ends.
       const end = sim.env.step_ * STEP_MS;
       if (endRef.current === null) endRef.current = end;
@@ -311,6 +317,7 @@ function BroadcastStage({
     renderGame('racing', ctx, snap, {
       labels,
       colors,
+      looks,
       dimDone: true,
       // Bottom: the lap counter and race clock own the top-left of a broadcast.
       minimap: camera === 'follow' ? 'bottom' : undefined,
@@ -482,14 +489,14 @@ function BroadcastStage({
             </div>
             {/* The flag has fallen but the slot has not run out. Rather than a
                 clock ticking up over a finished race, say when the next one
-                starts — and let the viewer read this one's result meanwhile. */}
+                starts - and let the viewer read this one's result meanwhile. */}
             {isLive && nextSession && (
               <div className="pill" style={{ fontSize: 15 }}>
                 {nextSession.session.name} מתחיל בעוד{' '}
                 <span className="mono">{untilText(nextSession.startsAt - now)}</span>
               </div>
             )}
-            {isLive && !nextSession && <div className="pill good">היום הסתיים — התוצאות פתוחות</div>}
+            {isLive && !nextSession && <div className="pill good">היום הסתיים - התוצאות פתוחות</div>}
             <div className="row">
               <button className="primary" onClick={onExit}>
                 {isLive && nextSession ? `תוצאות ${window_?.session.name ?? ''}` : 'לדוח המרוץ'}
@@ -522,7 +529,7 @@ function BroadcastStage({
       {isLive ? (
         <div className="match-bar" style={{ justifyContent: 'center' }}>
           <span className="dim tiny">
-            השידור רץ במהירות רגילה בלבד — כולם רואים את אותו רגע באותו זמן.
+            השידור רץ במהירות רגילה בלבד - כולם רואים את אותו רגע באותו זמן.
           </span>
         </div>
       ) : (

@@ -13,13 +13,13 @@ import type { ArenaEntry } from './types';
  * only show up when the grid is nearly empty.
  *
  * Every client builds the race card for itself, so this list has to be the same
- * for everybody — a constant, never anything read at run time. The weights live
+ * for everybody - a constant, never anything read at run time. The weights live
  * in `public/house/<id>.json` (`scripts/trainHouse.ts` writes them) and are
  * frozen onto the card like any other car's, so a replay never depends on these
  * files staying the same.
  *
- * House cars race for drivers' points like everybody else — a win against one
- * is a real win — but the house is not a team in the constructors' table.
+ * House cars race for drivers' points like everybody else - a win against one
+ * is a real win - but the house is not a team in the constructors' table.
  */
 export const HOUSE_UID = 'house';
 export const HOUSE_TEAM = 'קבוצת הבית';
@@ -67,7 +67,7 @@ export function isHouseId(id: string): boolean {
 
 /**
  * The field with the house added. Nothing is added before `HOUSE_FROM_ROUND`
- * — those rounds were raced, or skipped, without it — nor to an empty grid:
+ * - those rounds were raced, or skipped, without it - nor to an empty grid:
  * a race of house cars alone is nobody's race.
  */
 export function withHouse(field: ArenaEntry[], round: number): ArenaEntry[] {

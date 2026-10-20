@@ -54,7 +54,7 @@ export function RaceScreen() {
   const [countdown, setCountdown] = useState(COUNTDOWN_MS);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [error, setError] = useState<string | null>(null);
-  /** True once every AI car has finished — the player is the only one still out there. */
+  /** True once every AI car has finished - the player is the only one still out there. */
   const [opponentsDone, setOpponentsDone] = useState(false);
   // Playing is landscape-only: the tracks are 1000x700 and the controls need a row of their own.
   const portrait = useIsPortrait();
@@ -62,7 +62,7 @@ export function RaceScreen() {
   const compact = isTouchDevice && !portrait;
   const stageRef = useRef<HTMLDivElement>(null);
 
-  /** Action index used by finished agents — the middle of the action list is a no-op in both games. */
+  /** Action index used by finished agents - the middle of the action list is a no-op in both games. */
   const neutralAction = Math.floor(game.spec.actions.length / 2);
 
   const setPhaseBoth = (p: Phase) => {
@@ -308,7 +308,7 @@ export function RaceScreen() {
           </div>
         </div>
       </td>
-      <td className="mono num small muted">{s.bestLapMs ? lapTime(s.bestLapMs) : '—'}</td>
+      <td className="mono num small muted">{s.bestLapMs ? lapTime(s.bestLapMs) : '-'}</td>
       <td className="mono num small">
         {s.timeMs !== null ? raceTime(s.timeMs) : `הקפה ${s.laps + 1}`}
       </td>
@@ -401,7 +401,7 @@ export function RaceScreen() {
               <div className="glyph">📱</div>
               <h2>סובב את המכשיר</h2>
               <p className="muted" style={{ margin: 0, maxWidth: 300 }}>
-                {game.matchNoun} משוחק לרוחב — כך המסלול נכנס למסך ויש מקום לפקדים.
+                {game.matchNoun} משוחק לרוחב - כך המסלול נכנס למסך ויש מקום לפקדים.
               </p>
               <button
                 className="primary"

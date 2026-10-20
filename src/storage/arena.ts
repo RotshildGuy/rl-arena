@@ -186,7 +186,7 @@ class LocalArena implements ArenaStore {
 /**
  * Firestore layout:
  *
- *   arena/{entryId}                      the driver — meta only, so the entry
+ *   arena/{entryId}                      the driver - meta only, so the entry
  *   arena/{entryId}/data/weights         list stays a few KB instead of a MB
  *   seasons/{s}/races/{raceId}           the race card
  *   seasons/{s}/races/{raceId}/cars/{e}  weights frozen for that race

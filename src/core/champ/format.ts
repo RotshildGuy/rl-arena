@@ -58,7 +58,7 @@ export function snakeSeed(order: string[], groups: number): string[][] {
 
 /**
  * The sessions of one race day. Grids for rounds after the first are left empty
- * — they are only known once the earlier heats have run.
+ * - they are only known once the earlier heats have run.
  */
 export function planSessions(qualiOrder: string[]): SessionPlan[] {
   const shapes = roundShapes(qualiOrder.length);

@@ -18,7 +18,7 @@ export interface EpisodeStats {
   gradSteps: number;
   /** Fastest lap any agent set this episode, when the game has laps. */
   bestLapMs?: number | null;
-  /** Quickest full run this episode — the whole-track time. */
+  /** Quickest full run this episode - the whole-track time. */
   bestRaceMs?: number | null;
 }
 
@@ -38,7 +38,7 @@ export interface TrainerLike {
   stepOnce(): EpisodeStats | null;
   snapshot(): unknown;
   setRewards(rewards: RewardConfig): void;
-  /** The weights that should be saved — for the GA, the best genome so far. */
+  /** The weights that should be saved - for the GA, the best genome so far. */
   getWeights(): Float32Array;
   /**
    * Short "where are we" line for the dashboard. A GA generation can span tens of

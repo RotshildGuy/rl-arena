@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useChampionship } from '../useChampionship';
+import { buildStandings } from '../../core/champ/points';
+import { settledResults } from '../../core/champ/timing';
+import { OBS_VERSION } from '../../core/games/racing/rewards';
 import { getGame } from '../../core/games/registry';
-import { MAX_TRAIN_SLOTS, useApp, type TrainSlot } from '../store';
+import { MAX_TRAIN_SLOTS, TIME_LIMITS, useApp, type TrainSlot } from '../store';
 import { GameOptions } from '../components/GameOptions';
 import { RewardEditor } from '../components/RewardEditor';
 import { ALGORITHMS, type AlgorithmId } from '../../core/rl/algorithms';
@@ -76,11 +80,12 @@ export function TrainSetup() {
         The way in and the way out, above everything that can be fiddled with.
         Every setting below this has a default that works, so somebody who only
         wants to watch a car learn should not have to scroll past ten sliders to
-        find the button — and the estimate belongs up here with it, because how
+        find the button - and the estimate belongs up here with it, because how
         long it will take is the one thing worth knowing before starting.
       */}
       <div className="card notched start-bar">
         <Estimate />
+        <TimeLimit />
         <div className="row start-bar-actions">
           {slots.some((s) => s.modelId) && (
             <button className="ghost" onClick={newDraft}>
@@ -134,7 +139,7 @@ export function TrainSetup() {
             </div>
 
             {/* Under the list, not above it: a new slot is appended, so the
-                button sits exactly where the card it creates will appear — the
+                button sits exactly where the card it creates will appear - the
                 finger is already there and nothing scrolls out from under it. */}
             {slots.length < MAX_TRAIN_SLOTS && (
               <button
@@ -148,6 +153,8 @@ export function TrainSetup() {
             )}
           </div>
 
+          <RivalPicker />
+
           <div className="card notched">
             <div className="eyebrow" style={{ marginBottom: 12 }}>המסלול והקבוצה</div>
 
@@ -156,7 +163,7 @@ export function TrainSetup() {
             {!competitor || editingName ? (
               <div className="field">
                 <TeamNameForm
-                  label="שם המתחרה — הקבוצה שכל המודלים כאן מתחרים בשמה"
+                  label="שם המתחרה - הקבוצה שכל המודלים כאן מתחרים בשמה"
                   onSaved={() => setEditingName(false)}
                   onCancel={competitor ? () => setEditingName(false) : undefined}
                 />
@@ -168,7 +175,7 @@ export function TrainSetup() {
               </div>
             ) : (
               <div className="field">
-                <label>שם המתחרה — הקבוצה שכל המודלים כאן מתחרים בשמה</label>
+                <label>שם המתחרה - הקבוצה שכל המודלים כאן מתחרים בשמה</label>
                 <div className="row">
                   <b>{competitor}</b>
                   <button className="ghost small" onClick={() => setEditingName(true)}>
@@ -257,7 +264,7 @@ function SlotCard({
 
       <div className="cols-2">
         <div className="field">
-          <label>שם המודל — כך הוא יופיע כנהג בטבלה</label>
+          <label>שם המודל - כך הוא יופיע כנהג בטבלה</label>
           <input
             type="text"
             value={slot.name}
@@ -293,7 +300,7 @@ function SlotCard({
       </div>
 
       <div className="field" style={{ marginBottom: 0 }}>
-        <label>איך הוא לומד {locked ? '(נעול — נקבע בעת יצירת המודל)' : ''}</label>
+        <label>איך הוא לומד {locked ? '(נעול - נקבע בעת יצירת המודל)' : ''}</label>
         <div className="segmented" style={{ width: '100%' }}>
           {(Object.keys(ALGORITHMS) as AlgorithmId[]).map((id) => (
             <button
@@ -369,8 +376,88 @@ function Estimate() {
       )}
       {!measuring && !result && <span className="muted small">לא הצלחתי למדוד את המכשיר.</span>}
       {isMobileClass && (
-        <span className="pill warn small">זוהה מכשיר נייד — נבחרו ברירות מחדל קלות יותר</span>
+        <span className="pill warn small">זוהה מכשיר נייד - נבחרו ברירות מחדל קלות יותר</span>
       )}
+    </div>
+  );
+}
+
+/**
+ * How long to train before stopping and saving by itself.
+ *
+ * A browser only trains while its tab is open - on a phone, while the screen
+ * is on and the app is in front. Saying so up front, and offering a run that
+ * ends in a saved model after five minutes, is what makes training on a phone
+ * something that works instead of something that quietly stops.
+ */
+function TimeLimit() {
+  const { draft, patchDraft } = useApp();
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      <div className="eyebrow">עצירה ושמירה אוטומטית</div>
+      <div className="segmented">
+        {TIME_LIMITS.map((m) => (
+          <button key={m} className={draft.timeLimitMin === m ? 'on' : ''} onClick={() => patchDraft({ timeLimitMin: m })}>
+            {m === 0 ? 'בלי הגבלה' : `${m} דק׳`}
+          </button>
+        ))}
+      </div>
+      <span className="muted small">
+        {isMobileClass
+          ? 'האימון רץ רק כשהמסך דולק והלשונית פתוחה. אימון קצר שנגמר בשמירה עדיף על ארוך שנעצר בכיס.'
+          : 'האימון רץ רק כשהלשונית פתוחה. כשהזמן נגמר המודל נשמר, ואפשר להמשיך משם.'}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Train against a car from the championship.
+ *
+ * There is a leader, everybody trains against it, and it has to keep changing
+ * to stay ahead - that loop is the point. Every car's weights are public
+ * anyway (each browser runs the race), so this only puts one of them in the
+ * last seat, frozen, while the models being trained learn to race it.
+ */
+function RivalPicker() {
+  const { draft, patchDraft } = useApp();
+  const { state } = useChampionship();
+  const candidates = useMemo(() => {
+    if (!state) return [];
+    const standings = buildStandings({ cards: state.cards, results: settledResults(state.cards, state.results, Date.now()) });
+    const place = new Map<string, number>();
+    for (const d of standings.drivers) for (const id of d.entryIds) place.set(id, d.position);
+    return state.entries
+      .filter((e) => !e.retired && e.uid !== state.uid && e.gameId === 'racing' && e.obsVersion === OBS_VERSION)
+      .sort((a, b) => (place.get(a.id) ?? 999) - (place.get(b.id) ?? 999))
+      .map((e) => ({ e, place: place.get(e.id) }));
+  }, [state]);
+
+  if (candidates.length === 0) return null;
+  return (
+    <div className="card notched">
+      <div className="eyebrow" style={{ marginBottom: 8 }}>יריב מהאליפות</div>
+      <select
+        value={draft.rival?.entryId ?? ''}
+        onChange={(ev) => {
+          const pick = candidates.find((c) => c.e.id === ev.target.value)?.e;
+          patchDraft({
+            rival: pick ? { entryId: pick.id, driver: pick.driver, team: pick.team, arch: pick.arch } : null,
+          });
+        }}
+      >
+        <option value="">בלי יריב - רק המודלים שלי</option>
+        {candidates.map(({ e, place }) => (
+          <option key={e.id} value={e.id}>
+            {place ? `${place}. ` : ''}
+            {e.driver} · {e.team}
+          </option>
+        ))}
+      </select>
+      <div className="small muted" style={{ marginTop: 6 }}>
+        הרכב שנבחר נוהג במשקולות שלו מהאליפות, קפוא, במושב האחרון. הוא לא לומד; המודלים שלכם לומדים
+        להתמודד איתו. כדאי לבחור את המוביל לפני מרוץ על המסלול שלו.
+      </div>
     </div>
   );
 }

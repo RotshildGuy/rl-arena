@@ -25,7 +25,7 @@ export interface TrainingPoint {
  * A model's own record on one setup.
  *
  * A lap on the oval and a lap on the mountain circuit are not the same lap, and
- * three laps and ten laps are not the same race — so a record is kept per track
+ * three laps and ten laps are not the same race - so a record is kept per track
  * and per distance instead of one global best that the easiest setup would own
  * forever.
  */
@@ -43,11 +43,11 @@ export function recordKey(trackId: string, laps: number): string {
   return `${trackId}|${laps}`;
 }
 
-/** Everything needed to resume training or to race a model — minus the weights. */
+/** Everything needed to resume training or to race a model - minus the weights. */
 export interface ModelMeta {
   id: string;
   name: string;
-  /** The competitor who trained it — the team name in the championship. */
+  /** The competitor who trained it - the team name in the championship. */
   owner: string;
   gameId: string;
   algorithm: AlgorithmId;
@@ -57,7 +57,7 @@ export interface ModelMeta {
   updatedAt: number;
   arch: ModelArch;
   hyper: DqnHyper | GaHyper;
-  /** The reward table this model was shaped by — its "personality". */
+  /** The reward table this model was shaped by - its "personality". */
   rewards: RewardConfig;
   /** Environment config used during training (track, car count, collisions). */
   config: Record<string, unknown>;

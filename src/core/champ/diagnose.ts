@@ -7,7 +7,7 @@ import type { Finish, RaceCard, RaceResult, SessionResult } from './types';
  * The report says what happened. Learning from a defeat is the whole loop of
  * this game, and until now a team had to work out the "why" alone, from a lap
  * chart. These are a handful of plain rules over the telemetry every race
- * already records, each ending in one concrete thing to change — a named
+ * already records, each ending in one concrete thing to change - a named
  * slider and a direction, in the same words the training screen uses.
  *
  * Every car that did not win gets at least one piece of advice; when no rule
@@ -29,7 +29,7 @@ export interface Advice {
 const label = (key: string) => RACING_REWARDS.find((c) => c.key === key)?.label ?? key;
 
 /**
- * Wall contact per lap above which the wall can be the problem — and it has to
+ * Wall contact per lap above which the wall can be the problem - and it has to
  * stand out from the field as well. In traffic every car brushes the walls a
  * few times a lap; advice that every car gets says nothing about any of them.
  */
@@ -87,7 +87,7 @@ export function diagnoseCar(card: RaceCard, result: RaceResult, entryId: string)
     out.push({
       kind: 'walls',
       finding: `${finish.wallHits} פגיעות בקיר ב-${finish.laps} הקפות, יותר מרוב המגרש`,
-      action: `הזיזו ימינה את "${label('wallHit')}" — קנס חמור יותר על הקיר מלמד לבלום לפני הפנייה.`,
+      action: `הזיזו ימינה את "${label('wallHit')}" - קנס חמור יותר על הקיר מלמד לבלום לפני הפנייה.`,
       slider: 'wallHit',
       direction: 'right',
     });
@@ -99,7 +99,7 @@ export function diagnoseCar(card: RaceCard, result: RaceResult, entryId: string)
     out.push({
       kind: 'speed',
       finding: `מהירות שיא ${finish.topSpeed.toFixed(1)}, מול ממוצע ${avgTop.toFixed(1)} של השאר`,
-      action: `הזיזו ימינה את "${label('speed')}" — הוא נוהג לאט מדי בישורות.`,
+      action: `הזיזו ימינה את "${label('speed')}" - הוא נוהג לאט מדי בישורות.`,
       slider: 'speed',
       direction: 'right',
     });
@@ -112,7 +112,7 @@ export function diagnoseCar(card: RaceCard, result: RaceResult, entryId: string)
     out.push({
       kind: 'contact',
       finding: `${finish.carHits} מגעים עם רכבים, ו-${lostPlaces} מקומות שאבדו מהזינוק`,
-      action: `הזיזו שמאלה את "${label('carHit')}" — המגעים עולים לו מקומות.`,
+      action: `הזיזו שמאלה את "${label('carHit')}" - המגעים עולים לו מקומות.`,
       slider: 'carHit',
       direction: 'left',
     });
@@ -132,7 +132,7 @@ export function diagnoseCar(card: RaceCard, result: RaceResult, entryId: string)
       action:
         gap !== null && gap <= 0.005
           ? 'הקצב קיים; המקום הלך בזינוק או בתנועה. אמנו עם יותר רכבים על המסלול כדי שילמד לעקוף.'
-          : 'הוא נקי אבל איטי. המשיכו לאמן אותו על המסלול הזה — זמן אימון הוא מה שחסר כאן.',
+          : 'הוא נקי אבל איטי. המשיכו לאמן אותו על המסלול הזה - זמן אימון הוא מה שחסר כאן.',
     });
   }
 

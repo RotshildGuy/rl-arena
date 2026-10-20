@@ -1,5 +1,5 @@
 /* ============================================================================
-   RL Arena — "Paddock"
+   RL Arena - "Paddock"
 
    The look is borrowed from a motorsport broadcast, because that is what the app
    mostly shows: a timing screen, a classification, a championship table. Three
@@ -13,9 +13,9 @@
 
    The surfaces those sit on are glass: translucent, frosted panels with a lit
    top edge, floating over a dark field with a little colour moving under it.
-   The idea is taken from Apple's Liquid Glass, and the shapes and the roles —
+   The idea is taken from Apple's Liquid Glass, and the shapes and the roles -
    pill-shaped buttons, a filled primary, tonal secondaries, a floating
-   navigation bar with an indicator under the current tab — from Material 3.
+   navigation bar with an indicator under the current tab - from Material 3.
    Glass is for chrome and containers only. Data stays on solid ground: a
    timing table, a canvas or a pinned column is never see-through, because a
    lap time with something blurry moving behind it is harder to read.
@@ -24,7 +24,7 @@
 /* ----------------------------------------------------------------- fonts
    Self-hosted rather than loaded from Google's CDN. A web font fetched from a
    third party hands that third party every visitor's IP address before the page
-   has done anything, which is a privacy cost with nothing to show for it — and
+   has done anything, which is a privacy cost with nothing to show for it - and
    a German court has already fined a site for exactly that. These are the same
    files, served from our own origin, under the SIL Open Font License; the
    licences ship next to them in /fonts.
@@ -150,7 +150,7 @@
 
 /* ------------------------------------------------------------- light theme
    The same glass, in daylight. The surfaces turn white and frosted, the text
-   dark, and every accent is taken a step darker so it still reads on white —
+   dark, and every accent is taken a step darker so it still reads on white -
    cyan, green and yellow at their dark-theme brightness all but disappear. The
    timing colours keep their meaning: purple is still fastest, only deeper.
 
@@ -213,7 +213,7 @@
 }
 
 /* The race itself stays at night. The track is drawn dark on the canvas, and
-   the broadcast and the match screens — with everything laid over the canvas —
+   the broadcast and the match screens - with everything laid over the canvas -
    are a screen within the screen, so in the light theme they get the dark
    palette back. Custom properties inherit, which is what makes one rule enough. */
 :root[data-theme='light']
@@ -333,7 +333,7 @@ a { color: var(--accent-2); }
 /* ---------------------------------------------------------------- controls */
 
 /*
- * Buttons are pills, in three weights. The default is tonal — a pane of glass
+ * Buttons are pills, in three weights. The default is tonal - a pane of glass
  * with the label on it. `primary` is filled with the accent and is the one
  * thing on a screen to press next. `ghost` is a text button that only shows its
  * shape under the pointer. Every one of them gives a little under a press, the
@@ -394,7 +394,7 @@ button.ghost:active:not(:disabled) { background: var(--state-press); }
 
 button.small { padding: 6px 13px; font-size: 12px; }
 
-input[type='text'], input[type='email'], input[type='password'], input[type='number'], select {
+input[type='text'], input[type='email'], input[type='password'], input[type='number'], select, textarea {
   font: inherit;
   color: inherit;
   background: rgba(var(--deep), 0.5);
@@ -422,7 +422,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); direction: ltr; 
  * The slider, drawn rather than left to the browser: a thick rounded track that
  * fills with the accent up to the thumb, and a white pill of a thumb with a
  * shadow under it. The fill comes from `--fill`, which the component sets as a
- * percentage — Firefox draws it natively with `::-moz-range-progress`, Chromium
+ * percentage - Firefox draws it natively with `::-moz-range-progress`, Chromium
  * and Safari have no such part. A slider that does not set `--fill` simply
  * shows an empty track, which is still correct.
  */
@@ -524,7 +524,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   position: relative;
   z-index: 10;
 }
-/* Livery stripe under the header — the one piece of pure decoration. It runs
+/* Livery stripe under the header - the one piece of pure decoration. It runs
    out from under the wordmark, so it reads as part of the logo in RTL. */
 .topbar::after {
   content: '';
@@ -563,7 +563,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 /*
  * Primary navigation. On a desktop it is a capsule of tabs in the header; on a
  * phone a floating bar at the bottom. Either way the current tab is marked the
- * Material way, with a filled indicator behind it rather than a line under it —
+ * Material way, with a filled indicator behind it rather than a line under it -
  * a line is easy to miss at the bottom of a phone screen.
  */
 .nav {
@@ -835,7 +835,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 /* Numeric columns hug the right edge, header included. `end` cannot do that
    job here: `.num` carries unicode-bidi: plaintext, so a Hebrew header
    resolves its own line to RTL and `end` flips it to the left, while the
-   digits underneath — with no strong character — keep the ltr `end` on the
+   digits underneath - with no strong character - keep the ltr `end` on the
    right. The physical edge keeps every label over its own numbers. */
 .timing td.num, .timing th.num { text-align: right; }
 
@@ -1051,7 +1051,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 .reward-row .level.muted { color: var(--muted); border-color: var(--glass-edge); background: transparent; }
 
-/* The range input is forced LTR, so the ends row is too — otherwise the word
+/* The range input is forced LTR, so the ends row is too - otherwise the word
    for notch 1 would sit under notch 10. Each label stays RTL inside its own box
    so the Hebrew reads normally. */
 .reward-row .ends {
@@ -1123,7 +1123,7 @@ input[type='number'] { direction: ltr; text-align: end; }
  *
  * The two `local` layers are painted with the content and so scroll away at the
  * ends; the two `scroll` layers stay pinned. Where a cover layer has moved off,
- * the shadow under it shows — which makes the shadow appear exactly on the side
+ * the shadow under it shows - which makes the shadow appear exactly on the side
  * that still has something to reveal, with no script.
  */
 .scroll-x {
@@ -1276,12 +1276,12 @@ input[type='number'] { direction: ltr; text-align: end; }
   /* Bottom navigation. Thumb-reachable, and it frees the header for context.
      It is the last row of the app's column rather than pinned to the screen,
      so it always sits right above whatever the browser or the phone puts at
-     the bottom — a toolbar, or navigation buttons — instead of behind it. */
+     the bottom - a toolbar, or navigation buttons - instead of behind it. */
   /* Floating, the way a tab bar floats on a phone now: a capsule of glass a
      few pixels off the edges, with the page scrolling underneath it. It is
      placed against the app's own box and not against the screen, so it still
      sits above a browser toolbar or the phone's navigation buttons rather than
-     behind them — the app's box already ends where they begin. */
+     behind them - the app's box already ends where they begin. */
   .nav.bottom {
     position: absolute;
     inset-inline: 10px;
@@ -1424,7 +1424,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   padding: 6px 10px;
   flex: 0 0 auto;
   /* Wraps rather than squeezes. Without this the camera switch is the control
-     that loses the fight for space on a phone and vanishes entirely — a button
+     that loses the fight for space on a phone and vanishes entirely - a button
      compressed to nothing is worse than a button on a second row. */
   flex-wrap: wrap;
 }
@@ -1467,7 +1467,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 /*
  * Controls ride on the track, in the bottom corners, the way every mobile
  * driving game puts them. Laying them out below the canvas instead cost a third
- * of the screen — and the pedals stacked into a column, which is the right
+ * of the screen - and the pedals stacked into a column, which is the right
  * arrangement for a thumb, made that worse rather than better.
  *
  * The strip itself ignores pointers so a drag across the middle of the screen
@@ -1513,8 +1513,8 @@ input[type='number'] { direction: ltr; text-align: end; }
 /*
  * Replay transport.
  *
- * A live session never gets one — everybody is meant to be watching the same
- * corner at the same second — so this is only rendered for a replay. The strip
+ * A live session never gets one - everybody is meant to be watching the same
+ * corner at the same second - so this is only rendered for a replay. The strip
  * runs left-to-right inside the RTL page on purpose: the playhead moves the way
  * a playhead moves everywhere else, and the slider itself is already LTR.
  */
@@ -1795,7 +1795,7 @@ button.wide { width: 100%; }
  *
  * White, and the only white surface in the app. Everything else here is a
  * panel a shade away from the background, so a guide painted in the same
- * language would be one more panel to look past — which is exactly what
+ * language would be one more panel to look past - which is exactly what
  * somebody who does not yet know what to do would do with it.
  *
  * The bubble is positioned from JavaScript, in viewport coordinates, and lives
@@ -1831,7 +1831,7 @@ button.wide { width: 100%; }
   animation: coach-in 0.22s ease-out;
 }
 /* `--coach-arrow` is where the control is, measured from the bubble's own left
-   edge — a physical offset, because that is what the positioner computes. */
+   edge - a physical offset, because that is what the positioner computes. */
 .coach::before {
   content: '';
   position: absolute;

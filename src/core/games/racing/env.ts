@@ -9,7 +9,7 @@ const ACCEL = 0.22;
 const BRAKE = 0.35;
 const DRAG = 0.99;
 const STEER_RATE = 0.06;
-/** Fraction of sideways velocity killed per step — lower means more drift. */
+/** Fraction of sideways velocity killed per step - lower means more drift. */
 const GRIP = 0.82;
 
 /**
@@ -18,12 +18,12 @@ const GRIP = 0.82;
  * Version 1 put the car on rails: the tyres took 82% of any sideways motion
  * every step whatever the speed, so the only limit in a corner was how fast
  * the wheel turned. Flat out and steering at the next gate went round every
- * circuit without touching a wall — a two-line script was as good a driver as
+ * circuit without touching a wall - a two-line script was as good a driver as
  * anything a model could learn, and there was nothing to learn.
  *
  * Version 2 gives the tyres a limit. They can only hold so much sideways
  * force, so a car that turns in too fast keeps going the way it was going,
- * slides, and meets the outside wall — and the wall now costs real time
+ * slides, and meets the outside wall - and the wall now costs real time
  * instead of being something to lean on. The driver has to brake for corners,
  * pick where to brake, and catch a slide. That is the skill the championship
  * is meant to reward.
@@ -46,7 +46,7 @@ const GRIP_ON_GAS = 0.88;
 const GRIP_ON_BRAKE = 0.8;
 /**
  * Full power in a slide spins the rear tyres and leaves them almost nothing
- * to hold the car with — so a slide driven on the throttle grows until it
+ * to hold the car with - so a slide driven on the throttle grows until it
  * reaches the wall, and the way to catch one is to lift.
  */
 const GRIP_SLIDE_ON_GAS = 0.55;
@@ -66,7 +66,7 @@ const CRASH_STALL = 15;
 /**
  * How much of the acceleration is gone at top speed. An engine pulls hardest
  * from low down, so speed carried through a corner is worth more than speed
- * that has to be built again after it — and a crash costs the whole climb.
+ * that has to be built again after it - and a crash costs the whole climb.
  */
 const ACCEL_FADE = 0.45;
 
@@ -82,8 +82,8 @@ export interface RacingConfig {
   /**
    * One agent exempt from the stuck limit, by index.
    *
-   * A human should never be retired for sitting still — they may be reading the
-   * standings — but the cars they are racing against must be, or one model that
+   * A human should never be retired for sitting still - they may be reading the
+   * standings - but the cars they are racing against must be, or one model that
    * beaches itself keeps the race open until the step cap with nothing left to
    * watch.
    */
@@ -150,7 +150,7 @@ export interface RacingSnapshot {
   sensors: number[];
   /** Car indices ordered from first to last. */
   order: number[];
-  /** Elapsed race time in ms — the clock a broadcast shows. */
+  /** Elapsed race time in ms - the clock a broadcast shows. */
   raceMs: number;
   /** Fastest lap of the race so far: car index and time. */
   fastestLap: { car: number; ms: number } | null;
@@ -248,7 +248,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
   private carHitCount: Int32Array;
   private overtakeCount: Int32Array;
   private lapsLed: Int32Array;
-  /** Set once a lap number has been completed by someone — that car led it. */
+  /** Set once a lap number has been completed by someone - that car led it. */
   private lapClaimed: Uint8Array;
   private gapSteps: Float64Array;
   private intervalSteps: Float64Array;
@@ -435,7 +435,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
     }
   }
 
-  /** Track the closest centreline index incrementally — cars never jump far in one step. */
+  /** Track the closest centreline index incrementally - cars never jump far in one step. */
   private updateCentrelineIndex(i: number): void {
     const t = this.track;
     const n = t.def.samples;
@@ -524,7 +524,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
 
   /**
    * Gaps in time, from gaps in distance. A timing screen that only showed track
-   * position would be unreadable — "0.4s behind" is the number a viewer can use.
+   * position would be unreadable - "0.4s behind" is the number a viewer can use.
    */
   private updateGaps(): void {
     const n = this.nAgents;
@@ -571,7 +571,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
     };
   }
 
-  /** Continuous progress in laps — the quantity the classification is sorted by. */
+  /** Continuous progress in laps - the quantity the classification is sorted by. */
   trackPos(i: number): number {
     return this.arc[i] / this.track.def.samples;
   }
@@ -596,8 +596,8 @@ export class RacingEnv implements Env<RacingSnapshot> {
    * Classification key, high to low.
    *
    * Distance first, time second. A car that took the flag is placed on the line
-   * it crossed rather than on how far past it the car coasted — otherwise the
-   * order would be decided by whoever overshot furthest on the final step — and
+   * it crossed rather than on how far past it the car coasted - otherwise the
+   * order would be decided by whoever overshot furthest on the final step - and
    * among cars flagged on the same lap, the one that got there first. A car
    * still running is ranked on the distance it has covered, which is what puts
    * it ahead of a car that has already been flagged a lap down.
@@ -654,7 +654,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
       let fwd = this.vx[i] * cos + this.vy[i] * sin;
       let lat = -this.vx[i] * sin + this.vy[i] * cos;
 
-      // Steering authority grows with speed — a parked car cannot turn.
+      // Steering authority grows with speed - a parked car cannot turn.
       const authority = Math.min(1, Math.abs(fwd) / 1.8);
       this.angle[i] += steer * STEER_RATE * authority * Math.sign(fwd || 1);
       cos = Math.cos(this.angle[i]);
@@ -663,7 +663,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
       // Version 1 carried the velocity round with the nose: whatever way the
       // car pointed, it went. In version 2 turning points the car somewhere new
       // and the velocity has to be dragged round after it by the tyres, so it is
-      // re-read in the new frame — which is what turns a steering input into
+      // re-read in the new frame - which is what turns a steering input into
       // sideways speed the tyres must deal with.
       if (this.physics >= 2) {
         fwd = this.vx[i] * cos + this.vy[i] * sin;
@@ -719,7 +719,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
       if (this.physics >= 2) {
         // Split the velocity against the wall: what goes into it comes back
         // weakly, what runs along it is scrubbed off every step it stays in
-        // contact — so riding the outside wall round a corner is the slowest
+        // contact - so riding the outside wall round a corner is the slowest
         // way round it, not a shortcut. A hard hit is a crash.
         let tx = this.vx[i] - vn * nx;
         let ty = this.vy[i] - vn * ny;

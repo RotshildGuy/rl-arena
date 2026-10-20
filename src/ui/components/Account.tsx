@@ -38,7 +38,7 @@ export function AccountButton() {
         title={
           linked
             ? `מחובר${auth.email ? ` כ-${auth.email}` : ''}`
-            : 'החשבון שלכם אנונימי וחי בדפדפן הזה בלבד. אפשר לקשר אותו ל-Google או למייל — או להתחבר לחשבון שכבר יש לכם'
+            : 'החשבון שלכם אנונימי וחי בדפדפן הזה בלבד. אפשר לקשר אותו ל-Google או למייל - או להתחבר לחשבון שכבר יש לכם'
         }
       >
         <span className="glyph">{linked ? '👤' : '🔗'}</span>
@@ -56,7 +56,7 @@ type Conflict = { kind: 'google' } | { kind: 'password'; email: string; password
  * way back in, and how to leave.
  *
  * Linking is the whole point of the screen. It keeps the same uid, so there is
- * nothing to migrate — the models, the cars on the grid and the points are
+ * nothing to migrate - the models, the cars on the grid and the points are
  * exactly where they were, and the account simply gains a second door.
  */
 export function AccountModal({ onClose }: { onClose(): void }) {
@@ -82,7 +82,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
     setConflict(null);
     try {
       await fn();
-      showToast('החשבון קושר — אפשר להתחבר איתו מכל מכשיר');
+      showToast('החשבון קושר - אפשר להתחבר איתו מכל מכשיר');
       onClose();
     } catch (e) {
       const err = authError(e);
@@ -97,7 +97,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
   const linkEmail = (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return setError('צריך להקליד כתובת מייל.');
-    if (password.length < MIN_PASSWORD) return setError(`הסיסמה קצרה מדי — לפחות ${MIN_PASSWORD} תווים.`);
+    if (password.length < MIN_PASSWORD) return setError(`הסיסמה קצרה מדי - לפחות ${MIN_PASSWORD} תווים.`);
     void attempt('email', () => link.password(email, password), { kind: 'password', email, password });
   };
 
@@ -115,7 +115,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
   /**
    * Open an account that already exists, from a browser that is not it.
    *
-   * Nothing is merged — there is no server to merge with — so this says plainly
+   * Nothing is merged - there is no server to merge with - so this says plainly
    * what it costs before it is used.
    */
   const enter = async (how: 'google' | 'email') => {
@@ -171,12 +171,12 @@ export function AccountModal({ onClose }: { onClose(): void }) {
         <>
           <p className="small">
             הזהות שלכם נוצרה אוטומטית וחיה <b>בדפדפן הזה בלבד</b>. הכל עובד איתה כרגיל, אבל אם
-            תנקו את נתוני האתר, תחליפו מכשיר או תפתחו חלון פרטי — אין דרך לחזור אליה, והרכבים
+            תנקו את נתוני האתר, תחליפו מכשיר או תפתחו חלון פרטי - אין דרך לחזור אליה, והרכבים
             והנקודות שלכם באליפות יישארו מאחור.
           </p>
           <p className="small muted">
             קישור לחשבון <b>לא מעביר כלום ולא מתחיל מחדש</b>: אותו מזהה, אותם מודלים, אותם רכבים
-            על הגריד ואותן נקודות — רק עם דרך חזרה. אפשר גם להמשיך בלי לקשר, ושום דבר לא ישתנה.
+            על הגריד ואותן נקודות - רק עם דרך חזרה. אפשר גם להמשיך בלי לקשר, ושום דבר לא ישתנה.
           </p>
 
           <button
@@ -225,7 +225,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
           {entering ? (
             <>
               <p className="small">
-                התחברות לחשבון קיים <b>מחליפה</b> את הזהות שיושבת עכשיו בדפדפן הזה — היא לא
+                התחברות לחשבון קיים <b>מחליפה</b> את הזהות שיושבת עכשיו בדפדפן הזה - היא לא
                 מתמזגת איתה. הרכבים שלה על הגריד והנקודות שצברה יישארו שלה, ואין דרך לחזור
                 אליה. המודלים השמורים בדפדפן הזה יעברו איתכם.
               </p>
@@ -309,7 +309,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
       {conflict && (
         <div className="auth-note" style={{ marginTop: 10 }}>
           <p className="small" style={{ margin: '0 0 8px' }}>
-            אפשר להתחבר לחשבון הקיים במקום — אבל <b>הזהות האנונימית הנוכחית תישאר מאחור</b>:
+            אפשר להתחבר לחשבון הקיים במקום - אבל <b>הזהות האנונימית הנוכחית תישאר מאחור</b>:
             הרכבים שלה על הגריד והנקודות שצברה יישארו שלה, ואין דרך לחזור אליה. המודלים
             השמורים בדפדפן הזה יעברו איתכם.
           </p>

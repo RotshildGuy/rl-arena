@@ -13,7 +13,7 @@ export interface PositionLine {
 /**
  * The lap chart: one line per car, position on the vertical axis with first at
  * the top. It is the one graphic that shows a race as a story rather than a
- * table — every overtake is a crossing, and a retirement is a line that stops.
+ * table - every overtake is a crossing, and a retirement is a line that stops.
  */
 export function PositionChart({
   lines,

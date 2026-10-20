@@ -39,7 +39,7 @@ function getVersion(): number {
  * Which bubble, if any, belongs on the screen right now.
  *
  * The decision itself is in `coachStep.ts`; this is the part that has to watch
- * three different places for it — the team name in the store, the library on
+ * three different places for it - the team name in the store, the library on
  * disk, and the grid in the championship state.
  */
 export function useCoachStep(): CoachStep {
@@ -80,7 +80,7 @@ const MAX_WIDTH = 280;
  * simpler and is how this started, but a bubble is by definition wider than
  * the thing it points at, so sooner or later one sticks out of a panel that
  * clips its overflow and the sentence is cut in half. Out here nothing can
- * clip it, and the only thing that can crop it is the screen itself — which is
+ * clip it, and the only thing that can crop it is the screen itself - which is
  * what the clamping below is for: the bubble is kept inside the viewport, and
  * the arrow slides along it to go on pointing at the right place.
  */
@@ -101,8 +101,8 @@ function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
     window.addEventListener('resize', redraw);
     window.addEventListener('scroll', redraw, true);
 
-    // The rest — a layout reflowing above the control, a card opening, a font
-    // arriving — announces nothing, so the rectangle is also watched directly.
+    // The rest - a layout reflowing above the control, a card opening, a font
+    // arriving - announces nothing, so the rectangle is also watched directly.
     // One read a frame, and only while a bubble is on screen.
     let id = 0;
     let last = '';
@@ -134,7 +134,7 @@ function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
    * Measure once, off-screen, then pin that width.
    *
    * A box with no width of its own is only as wide as the room to the right of
-   * wherever it was put — so a bubble placed near one edge would be squeezed
+   * wherever it was put - so a bubble placed near one edge would be squeezed
    * into a column and then measured as a column, and the placement computed
    * from that measurement would be wrong. Measuring at the left edge, where the
    * whole screen is available, gives the width the text actually wants, and
@@ -171,7 +171,7 @@ function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
     const rect = anchor.getBoundingClientRect();
     const { w, h } = natural;
     // Below the control, unless it sits low enough that the bubble would not
-    // fit under it — on a phone the navigation bar is at the bottom.
+    // fit under it - on a phone the navigation bar is at the bottom.
     below = rect.bottom + GAP + h <= vh - EDGE || rect.top - GAP - h < EDGE;
     const centre = rect.left + rect.width / 2;
     const left = Math.max(EDGE, Math.min(centre - w / 2, Math.max(EDGE, vw - w - EDGE)));

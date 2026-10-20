@@ -17,7 +17,7 @@ export interface DeletionReport {
  * results of races that already happened, because the championship record is
  * append-only and rewriting history would make every table meaningless; and
  * other people's data, obviously. What it does remove is every model, every
- * entry on the grid, and the name stored in this browser — so nothing of theirs
+ * entry on the grid, and the name stored in this browser - so nothing of theirs
  * takes part in another race and nothing is left to load.
  */
 export async function deleteMyData(): Promise<DeletionReport> {

@@ -49,8 +49,8 @@ export interface GaLearnerInit {
  * best survive, and the rest are their mutated children. Each step is far cheaper
  * than a DQN gradient step because the only cost is the simulation itself.
  *
- * The population is evaluated in heats of `seatCount` genomes at a time — one
- * shared episode is one heat — so genomes are always scored while racing each
+ * The population is evaluated in heats of `seatCount` genomes at a time - one
+ * shared episode is one heat - so genomes are always scored while racing each
  * other, and a model sharing the grid with other models simply runs narrower
  * heats.
  */
