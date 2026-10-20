@@ -47,6 +47,7 @@ import {
 import type { DayPlace, RaceCard, RaceResult } from '../src/core/champ/types';
 import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
+import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -1291,6 +1292,29 @@ function metricsTest(): void {
   check('days are UTC', dayKey(Date.UTC(2026, 9, 10, 23, 30)) === '2026-10-10');
 }
 
+// ---------------------------------------------------------------- calendar
+function calendarTest(): void {
+  console.log(CHAPTER + 'Race calendar');
+  const round = 42;
+  const ics = raceCalendarIcs(round, 'https://example.test', Date.UTC(2026, 9, 1));
+  const start = new Date(startsAtForRound(round)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const lines = ics.split('\r\n');
+  check('the event starts at the round\'s lights out', ics.includes(`DTSTART:${start}\r\n`), start);
+  check('which is 17:00 UTC — 20:00 in Israel in summer', start.endsWith('T170000Z'));
+  check('and repeats every day', ics.includes('\r\nRRULE:FREQ=DAILY\r\n'));
+  check('with a reminder fifteen minutes before', ics.includes('\r\nTRIGGER:-PT15M\r\n'));
+  check('every line ends in CRLF', !/[^\r]\n/.test(ics) && ics.endsWith('\r\n'));
+  const enc = new TextEncoder();
+  const longest = Math.max(...lines.map((l) => enc.encode(l).length));
+  check('no content line is longer than 75 octets', longest <= 75, String(longest));
+  const hebrew = 'SUMMARY:' + 'מרוץ '.repeat(30);
+  const unfolded = foldLine(hebrew).replace(/\r\n /g, '');
+  check('folding Hebrew loses nothing', unfolded === hebrew);
+  const g = new URL(googleCalendarUrl(round, 'https://example.test'));
+  check('the Google link carries the same start and the daily rule',
+    g.searchParams.get('dates')?.startsWith(`${start}/`) === true && g.searchParams.get('recur') === 'RRULE:FREQ=DAILY');
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1311,5 +1335,6 @@ broadcastClockTest();
 earlyFeedTest();
 coachTest();
 metricsTest();
+calendarTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

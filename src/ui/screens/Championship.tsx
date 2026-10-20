@@ -25,6 +25,7 @@ import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
+import { downloadRaceCalendar, googleCalendarUrl, REMINDER_MINUTES } from '../calendar';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -541,11 +542,36 @@ function NextRace({
           </div>
         )}
 
-        <button className="primary" onClick={onEnter}>
-          {field.length ? 'רשום עוד מודל' : 'רשום מודל לאליפות'}
-        </button>
+        <div className="row wrap">
+          <button className="primary" onClick={onEnter}>
+            {field.length ? 'רשום עוד מודל' : 'רשום מודל לאליפות'}
+          </button>
+          <AddToCalendar round={round} />
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The race is the reason to come back, and nothing reminds anybody of it. One
+ * daily event, a reminder before the lights, a link back here — no server and
+ * no permission to ask for.
+ */
+function AddToCalendar({ round }: { round: number }) {
+  const site = window.location.origin;
+  return (
+    <>
+      <button
+        onClick={() => downloadRaceCalendar(round, site)}
+        title={`אירוע יומי בשעת המרוץ, עם תזכורת ${REMINDER_MINUTES} דקות לפני`}
+      >
+        📅 הוסף ליומן
+      </button>
+      <a className="small" href={googleCalendarUrl(round, site)} target="_blank" rel="noopener noreferrer">
+        Google Calendar
+      </a>
+    </>
   );
 }
 
