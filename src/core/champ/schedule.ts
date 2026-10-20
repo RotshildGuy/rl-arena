@@ -1,6 +1,62 @@
 import { TRACK_DEFS } from '../games/racing/tracks';
 
-export const SEASON_ID = 'S1';
+/**
+ * Seasons.
+ *
+ * The first season ran without an end, and under Formula 1 scoring anybody who
+ * joined two weeks in sat at the bottom for good. From round 42 — the same
+ * Sunday the car physics changes and the house team arrives — a season is
+ * eight rounds: twice round the four circuits, about a week and a half. Each
+ * one has its champions, then the table starts again from zero, and the cars
+ * on the grid simply carry on into the next one.
+ *
+ * Season 1 is rounds 1 to 41 and stays exactly that: its race ids, its
+ * Firestore path and its seeds are what they always were. Nothing is reset
+ * retroactively.
+ */
+export const LEGACY_SEASON_LAST_ROUND = 41;
+export const SEASON_ROUNDS = 8;
+
+export function seasonNumber(round: number): number {
+  if (round <= LEGACY_SEASON_LAST_ROUND) return 1;
+  return 2 + Math.floor((round - LEGACY_SEASON_LAST_ROUND - 1) / SEASON_ROUNDS);
+}
+
+export function seasonId(n: number): string {
+  return `S${n}`;
+}
+
+export function seasonForRound(round: number): string {
+  return seasonId(seasonNumber(round));
+}
+
+/** First and last round of a season, inclusive. */
+export function seasonRange(n: number): { first: number; last: number } {
+  if (n <= 1) return { first: 1, last: LEGACY_SEASON_LAST_ROUND };
+  const first = LEGACY_SEASON_LAST_ROUND + 1 + (n - 2) * SEASON_ROUNDS;
+  return { first, last: first + SEASON_ROUNDS - 1 };
+}
+
+/** The season a race belongs to, from its id — which is where it is stored. */
+export function seasonOfRaceId(raceId: string): string {
+  return raceId.split('-')[0];
+}
+
+/**
+ * The season the screens show: that of the round on air, or of the last one
+ * raced. So a season's final table stays up for the whole day after its last
+ * race, and the new, empty one appears when the next race's feed opens.
+ */
+export function displaySeason(now = Date.now()): number {
+  return seasonNumber(Math.max(1, airingRound(now)));
+}
+
+/** "סבב 3 מתוך 8" — where a round sits in its season. */
+export function roundInSeason(round: number): { index: number; of: number } {
+  const n = seasonNumber(round);
+  const { first, last } = seasonRange(n);
+  return { index: round - first + 1, of: last - first + 1 };
+}
 
 /**
  * The championship runs on one clock so that everyone, everywhere, is watching
@@ -112,7 +168,7 @@ export function nextRound(now = Date.now()): number {
 }
 
 export function raceIdForRound(round: number): string {
-  return `${SEASON_ID}-R${String(round).padStart(3, '0')}`;
+  return `${seasonForRound(round)}-R${String(round).padStart(3, '0')}`;
 }
 
 /**
@@ -147,7 +203,9 @@ export function grandPrixName(round: number): string {
  */
 export function seedForRound(round: number): number {
   let h = 2166136261 ^ round;
-  for (const ch of SEASON_ID) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  // Salted with the first season's id for every season: the seed only has to
+  // differ from round to round, and season 1's must never change.
+  for (const ch of 'S1') h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return (h >>> 0) % 1_000_000_007;
 }
 

@@ -5,7 +5,7 @@ import {
   physicsForRound,
   raceIdForRound,
   seedForRound,
-  SEASON_ID,
+  seasonForRound,
   startsAtForRound,
   trackForRound,
 } from './schedule';
@@ -124,7 +124,7 @@ export function buildRaceCard(round: number, entries: ArenaEntry[], weights: Map
   const physics = physicsForRound(round);
   return {
     id: raceIdForRound(round),
-    seasonId: SEASON_ID,
+    seasonId: seasonForRound(round),
     round,
     name: grandPrixName(round),
     trackId,

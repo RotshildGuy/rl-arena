@@ -10,29 +10,54 @@ import { DriverCell } from '../components/Livery';
 import { dateText, lapTime, posClass, raceTime } from '../format';
 import { trackRecords, nextRoundOnTrack, type RecordHolder } from '../../core/champ/records';
 import { RACE_LAPS } from '../../core/champ/format';
-import { currentRound, startsAtForRound } from '../../core/champ/schedule';
+import { currentRound, displaySeason, seasonNumber, seasonRange, startsAtForRound } from '../../core/champ/schedule';
+import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import type { RaceCard, RaceResult } from '../../core/champ/types';
 
-type Tab = 'drivers' | 'teams' | 'results' | 'records';
+type Tab = 'drivers' | 'teams' | 'results' | 'records' | 'fame';
 
 export function Standings() {
   const { openRace } = useApp();
   const { state, progress } = useChampionship();
   const now = useNow(5000);
   const [tab, setTab] = useState<Tab>('drivers');
+  const current = displaySeason(now);
+  const [picked, setPicked] = useState<number | null>(null);
+  const season = picked ?? current;
+
+  /** Every season that has had a race, plus the one on now even before its first. */
+  const seasons = useMemo(() => {
+    const set = new Set(state ? state.cards.map((c) => seasonNumber(c.round)) : []);
+    set.add(current);
+    return [...set].sort((a, b) => b - a);
+  }, [state, current]);
 
   const standings = useMemo(
-    () => (state ? buildStandings({ cards: state.cards, results: settledResults(state.cards, state.results, now) }) : null),
-    [state],
+    () =>
+      state
+        ? buildStandings({
+            cards: seasonCards(state.cards, season),
+            results: settledResults(state.cards, state.results, now),
+          })
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, season],
   );
 
   // Only race days that are actually over belong in a championship table.
-  const raced = useMemo(
+  const allRaced = useMemo(
     () =>
       state
         ? state.cards.filter((c) => state.results.has(c.id) && dayState(c, now, state.results.get(c.id)) === 'done')
         : [],
     [state, now],
+  );
+  const raced = useMemo(() => seasonCards(allRaced, season), [allRaced, season]);
+
+  const fame = useMemo(
+    () => (state ? hallOfFame(state.cards, settledResults(state.cards, state.results, now), now) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, current],
   );
 
   const mine = new Set(state ? state.entries.filter((e) => e.uid === state.uid).map((e) => e.id) : []);
@@ -41,7 +66,7 @@ export function Standings() {
     return <div className="empty">{progress ?? 'טוען את האליפות…'}</div>;
   }
 
-  if (standings.drivers.length === 0) {
+  if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1) {
     return (
       <div className="empty">
         <h2 style={{ marginBottom: 6 }}>אין עדיין טבלה</h2>
@@ -54,10 +79,28 @@ export function Standings() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">עונה 1</div>
+          <div className="eyebrow">
+            עונה {season}
+            {season === current ? ' · נוכחית' : ''} · סבבים {seasonRange(season).first}–{seasonRange(season).last}
+          </div>
           <h1 className="display">טבלאות האליפות</h1>
         </div>
         <div className="actions">
+          {seasons.length > 1 && tab !== 'fame' && tab !== 'records' && (
+            <select
+              value={season}
+              onChange={(e) => setPicked(Number(e.target.value))}
+              aria-label="עונה"
+              style={{ width: 'auto' }}
+            >
+              {seasons.map((n) => (
+                <option key={n} value={n}>
+                  עונה {n}
+                  {n === current ? ' (נוכחית)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="segmented">
             <button className={tab === 'drivers' ? 'on' : ''} onClick={() => setTab('drivers')}>
               נהגים
@@ -71,11 +114,23 @@ export function Standings() {
             <button className={tab === 'records' ? 'on' : ''} onClick={() => setTab('records')}>
               שיאים
             </button>
+            <button className={tab === 'fame' ? 'on' : ''} onClick={() => setTab('fame')}>
+              היכל התהילה
+            </button>
           </div>
         </div>
       </div>
 
-      {tab === 'drivers' && (
+      {(tab === 'drivers' || tab === 'teams') && standings.drivers.length === 0 && (
+        <div className="empty">
+          <h2 style={{ marginBottom: 6 }}>עונה {season} עוד לא התחילה</h2>
+          <p style={{ margin: 0 }}>
+            הטבלה מתחילה מאפס בכל עונה, ותיבנה אחרי הגרנד פרי הראשון שלה — סבב {seasonRange(season).first}.
+          </p>
+        </div>
+      )}
+
+      {tab === 'drivers' && standings.drivers.length > 0 && (
         <div className="card notched" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="scroll-x">
             <table className="timing pin-2">
@@ -118,7 +173,7 @@ export function Standings() {
         </div>
       )}
 
-      {tab === 'teams' && (
+      {tab === 'teams' && standings.drivers.length > 0 && (
         <div className="card notched" style={{ padding: 0, overflow: 'hidden' }}>
           <table className="timing">
             <thead>
@@ -223,9 +278,12 @@ export function Standings() {
         </div>
       )}
 
-      {tab === 'records' && <Records cards={raced} results={state.results} now={now} />}
+      {/* Records are all-time: a lap record does not reset with the table. */}
+      {tab === 'records' && <Records cards={allRaced} results={state.results} now={now} />}
 
-      {tab !== 'records' && (
+      {tab === 'fame' && <HallOfFame fame={fame} />}
+
+      {tab !== 'records' && tab !== 'fame' && (
       <div className="card" style={{ marginTop: 14 }}>
         <div className="eyebrow" style={{ marginBottom: 8 }}>שיטת הניקוד</div>
         <div className="row wrap small">
@@ -334,6 +392,77 @@ function RecordCell({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The champions of every season that has finished, newest first. Computed from
+ * the results like everything else, so it is complete the moment a season's
+ * final takes the flag, with nothing to close or archive.
+ */
+function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
+  if (fame.length === 0) {
+    return (
+      <div className="empty">
+        <h2 style={{ marginBottom: 6 }}>עוד אין אלופים</h2>
+        <p style={{ margin: 0 }}>
+          אלוף הנהגים ואלוף הקבוצות של כל עונה נכנסים לכאן ברגע שהמרוץ האחרון שלה מסתיים.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="grid">
+      {fame.map((h) => (
+        <div className="card notched" key={h.season}>
+          <div className="head">
+            <div className="eyebrow">עונה {h.season}</div>
+            <div className="fill" />
+            <span className="muted small">
+              סבבים {h.first}–{h.last} · {h.races} {h.races === 1 ? 'מרוץ' : 'מרוצים'}
+            </span>
+          </div>
+          <div className="cols-2">
+            <div>
+              <div className="tiny dim" style={{ letterSpacing: '0.08em', marginBottom: 4 }}>
+                🏆 אלוף הנהגים
+              </div>
+              {h.driver ? (
+                <>
+                  <DriverCell driver={h.driver.driver} team={h.driver.team} tag={h.driver.tag} />
+                  <div className="small muted" style={{ marginTop: 4 }}>
+                    <span className="mono">{h.driver.points}</span> נקודות · {h.driver.wins} נצחונות
+                    {h.runnerUp && ` · ${h.driver.points - h.runnerUp.points} לפני ${h.runnerUp.driver}`}
+                  </div>
+                </>
+              ) : (
+                <span className="muted">—</span>
+              )}
+            </div>
+            <div>
+              <div className="tiny dim" style={{ letterSpacing: '0.08em', marginBottom: 4 }}>
+                אלופת הקבוצות
+              </div>
+              {h.team ? (
+                <>
+                  <div className="driver">
+                    <span className="livery" style={{ background: teamColor(h.team.team) }} />
+                    <div className="names">
+                      <span className="who">{h.team.team}</span>
+                    </div>
+                  </div>
+                  <div className="small muted" style={{ marginTop: 4 }}>
+                    <span className="mono">{h.team.points}</span> נקודות · {h.team.wins} נצחונות
+                  </div>
+                </>
+              ) : (
+                <span className="muted">—</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

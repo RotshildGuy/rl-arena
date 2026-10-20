@@ -95,6 +95,23 @@
   --green: #3de87a;
   --yellow: #ffd84d;
 
+  /* Podium tiles. */
+  --p1: #ffd84d;
+  --p1-bg: #2a2410;
+  --p2: #c8d2e4;
+  --p2-bg: #1e2028;
+  --p3: #d08a45;
+  --p3-bg: #2a1c12;
+
+  /* What overlays are mixed from, as bare RGB so any alpha can go with them:
+     `--hi` lifts a surface towards the text colour (a hover, a hairline, a
+     tonal button), `--deep` is the tint of a glass panel. */
+  --hi: 255, 255, 255;
+  --deep: 10, 12, 20;
+  --well: rgba(0, 0, 0, 0.28);
+  --raise: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  --pool: 1;
+
   /* Shape scale. Containers are rounder than the controls inside them, so a
      button never looks as if it were about to fall out of its card. */
   --radius: 14px;
@@ -131,6 +148,125 @@
   color-scheme: dark;
 }
 
+/* ------------------------------------------------------------- light theme
+   The same glass, in daylight. The surfaces turn white and frosted, the text
+   dark, and every accent is taken a step darker so it still reads on white —
+   cyan, green and yellow at their dark-theme brightness all but disappear. The
+   timing colours keep their meaning: purple is still fastest, only deeper.
+
+   Set on <html> by `ui/theme.ts`, from the device's setting unless somebody
+   picked one. */
+:root[data-theme='light'] {
+  --bg: #eef1f7;
+  --bg-2: #e6eaf3;
+  --panel: #ffffff;
+  --panel-2: #f3f5fa;
+  --panel-3: #e8ecf4;
+  --line: #d8dde8;
+  --line-2: #c2c9da;
+  --text: #11141f;
+  --muted: #586179;
+  --dim: #7a8399;
+
+  --accent: #e0193a;
+  --accent-ink: #ffffff;
+  --accent-dim: #fde1e6;
+  --accent-2: #0080a3;
+  --accent-2-dim: #d6f2f9;
+
+  --good: #11843f;
+  --warn: #9c5d00;
+  --danger: #cf2546;
+
+  --purple: #7a2fc4;
+  --green: #11843f;
+  --yellow: #8f6b00;
+
+  --p1: #8a6500;
+  --p1-bg: #fff3c4;
+  --p2: #586274;
+  --p2-bg: #eaedf3;
+  --p3: #94531a;
+  --p3-bg: #fbe6d4;
+
+  --hi: 22, 30, 58;
+  --deep: 255, 255, 255;
+  --well: rgba(22, 30, 58, 0.06);
+  --raise: linear-gradient(180deg, #ffffff, #f6f8fc);
+  --pool: 0.6;
+
+  --glass-tint: rgba(255, 255, 255, 0.6);
+  --glass-tint-strong: rgba(255, 255, 255, 0.86);
+  --glass-sheen: linear-gradient(170deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.2) 55%);
+  --glass-edge: rgba(22, 30, 58, 0.1);
+  --glass-edge-strong: rgba(22, 30, 58, 0.18);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(22, 30, 58, 0.04);
+
+  --state-hover: rgba(22, 30, 58, 0.05);
+  --state-press: rgba(22, 30, 58, 0.09);
+  --surface-solid: #ffffff;
+
+  --elev-1: 0 10px 30px -14px rgba(22, 30, 58, 0.25);
+  --elev-2: 0 26px 70px -20px rgba(22, 30, 58, 0.32);
+
+  color-scheme: light;
+}
+
+/* The race itself stays at night. The track is drawn dark on the canvas, and
+   the broadcast and the match screens — with everything laid over the canvas —
+   are a screen within the screen, so in the light theme they get the dark
+   palette back. Custom properties inherit, which is what makes one rule enough. */
+:root[data-theme='light']
+  :is(.match-fill, .stage-overlay, .stage-overlay-end, .canvas-host, .tower, .lights, .touchpad, .rotate-gate) {
+  --bg: #07080d;
+  --bg-2: #0a0c13;
+  --panel: #101320;
+  --panel-2: #161a2a;
+  --panel-3: #1d2234;
+  --line: #232a3d;
+  --line-2: #323a52;
+  --text: #e9edf7;
+  --muted: #8590a8;
+  --dim: #5b657d;
+
+  --accent: #ff2e4d;
+  --accent-ink: #fff5f6;
+  --accent-dim: #3d0f1a;
+  --accent-2: #00e0ff;
+  --accent-2-dim: #063845;
+
+  --good: #3de87a;
+  --warn: #ffc53d;
+  --danger: #ff5470;
+
+  /* Timing-screen semantics. Do not reuse these for chrome. */
+  --purple: #c77dff;
+  --green: #3de87a;
+  --yellow: #ffd84d;
+  --p1: #ffd84d;
+  --p1-bg: #2a2410;
+  --p2: #c8d2e4;
+  --p2-bg: #1e2028;
+  --p3: #d08a45;
+  --p3-bg: #2a1c12;
+  --hi: 255, 255, 255;
+  --deep: 10, 12, 20;
+  --well: rgba(0, 0, 0, 0.28);
+  --raise: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  --glass-tint: rgba(17, 21, 35, 0.58);
+  --glass-tint-strong: rgba(14, 17, 29, 0.82);
+  --glass-sheen: linear-gradient(170deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015) 55%);
+  --glass-edge: rgba(255, 255, 255, 0.1);
+  --glass-edge-strong: rgba(255, 255, 255, 0.16);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
+  --state-hover: rgba(255, 255, 255, 0.07);
+  --state-press: rgba(255, 255, 255, 0.12);
+  --surface-solid: #0e111c;
+  color-scheme: dark;
+  color: var(--text);
+}
+.match-fill { background: var(--bg); }
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 /* Nothing is ever wider than the screen. A single row that overflows would
@@ -153,10 +289,10 @@ body {
      colours sit under everything. The page itself never scrolls (`.content`
      does), so this layer stays put while the panels slide over it. */
   background-image:
-    repeating-linear-gradient(64deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 9px),
-    radial-gradient(900px 560px at 92% -8%, rgba(255, 46, 77, 0.2), transparent 62%),
-    radial-gradient(760px 520px at 2% 104%, rgba(0, 224, 255, 0.14), transparent 60%),
-    radial-gradient(680px 460px at 30% 38%, rgba(64, 92, 255, 0.1), transparent 65%);
+    repeating-linear-gradient(64deg, rgba(var(--hi), 0.014) 0 1px, transparent 1px 9px),
+    radial-gradient(900px 560px at 92% -8%, rgba(255, 46, 77, calc(0.2 * var(--pool))), transparent 62%),
+    radial-gradient(760px 520px at 2% 104%, rgba(0, 224, 255, calc(0.14 * var(--pool))), transparent 60%),
+    radial-gradient(680px 460px at 30% 38%, rgba(64, 92, 255, calc(0.1 * var(--pool))), transparent 65%);
   background-attachment: fixed;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
@@ -209,7 +345,7 @@ button {
   color: inherit;
   cursor: pointer;
   border: 1px solid var(--glass-edge);
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(var(--hi), 0.055);
   box-shadow: var(--glass-rim);
   border-radius: var(--radius-full);
   padding: 9px 17px;
@@ -221,8 +357,8 @@ button {
     transform 0.12s var(--ease),
     box-shadow 0.16s var(--ease);
 }
-button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); border-color: var(--glass-edge-strong); }
-button:active:not(:disabled) { transform: scale(0.97); background: rgba(255, 255, 255, 0.13); }
+button:hover:not(:disabled) { background: rgba(var(--hi), 0.1); border-color: var(--glass-edge-strong); }
+button:active:not(:disabled) { transform: scale(0.97); background: rgba(var(--hi), 0.13); }
 button:disabled { opacity: 0.38; cursor: not-allowed; }
 button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 
@@ -261,7 +397,7 @@ button.small { padding: 6px 13px; font-size: 12px; }
 input[type='text'], input[type='email'], input[type='password'], input[type='number'], select {
   font: inherit;
   color: inherit;
-  background: rgba(5, 7, 13, 0.5);
+  background: rgba(var(--deep), 0.5);
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius-sm);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -273,7 +409,7 @@ input:not([type='range']):hover, select:hover { border-color: var(--glass-edge-s
 input:not([type='range']):focus, select:focus {
   outline: none;
   border-color: var(--accent-2);
-  background: rgba(5, 7, 13, 0.7);
+  background: rgba(var(--deep), 0.7);
   box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.18);
 }
 select option { background: var(--panel); }
@@ -304,7 +440,7 @@ input[type='range']::-webkit-slider-runnable-track {
   background: linear-gradient(
     to right,
     var(--accent) 0 var(--fill, 0%),
-    rgba(255, 255, 255, 0.13) var(--fill, 0%) 100%
+    rgba(var(--hi), 0.13) var(--fill, 0%) 100%
   );
 }
 input[type='range']::-webkit-slider-thumb {
@@ -327,7 +463,7 @@ input[type='range']:focus-visible::-webkit-slider-thumb {
 input[type='range']::-moz-range-track {
   height: 6px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(var(--hi), 0.13);
 }
 input[type='range']::-moz-range-progress {
   height: 6px;
@@ -379,7 +515,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   gap: 14px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--glass-edge);
-  background: var(--glass-sheen), rgba(10, 12, 20, 0.62);
+  background: var(--glass-sheen), rgba(var(--deep), 0.62);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-rim), 0 8px 24px -16px rgba(0, 0, 0, 0.8);
@@ -435,7 +571,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   gap: 2px;
   padding: 3px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--hi), 0.04);
   border: 1px solid var(--glass-edge);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
 }
@@ -454,7 +590,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 .nav button.on,
 .nav button.on:hover:not(:disabled) {
   color: var(--text);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  background: var(--raise);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 12px -6px rgba(0, 0, 0, 0.8);
 }
 
@@ -507,7 +643,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--hi), 0.06);
   border: 1px solid var(--glass-edge);
   white-space: nowrap;
 }
@@ -537,7 +673,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   gap: 2px;
   padding: 3px;
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--well);
   border: 1px solid var(--glass-edge);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
@@ -553,7 +689,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 .segmented button:hover:not(:disabled) { background: var(--state-hover); color: var(--text); }
 .segmented button.on,
 .segmented button.on:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.09));
+  background: var(--raise);
   color: var(--text);
   font-weight: 800;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 3px 10px -4px rgba(0, 0, 0, 0.8);
@@ -591,9 +727,9 @@ input[type='number'] { direction: ltr; text-align: end; }
   text-align: center;
   padding: 46px 20px;
   color: var(--muted);
-  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border: 1px dashed rgba(var(--hi), 0.14);
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--hi), 0.02);
 }
 
 .legend { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -687,13 +823,13 @@ input[type='number'] { direction: ltr; text-align: end; }
 .timing td {
   padding: 0 10px;
   height: 40px;
-  border-bottom: 1px solid rgba(35, 42, 61, 0.6);
+  border-bottom: 1px solid var(--line);
   vertical-align: middle;
   white-space: nowrap;
 }
 .timing tr:last-child td { border-bottom: none; }
 .timing tr.me { background: rgba(255, 46, 77, 0.09); }
-.timing tr.sel { background: rgba(255, 255, 255, 0.06); }
+.timing tr.sel { background: rgba(var(--hi), 0.06); }
 .timing tr.clickable { cursor: pointer; transition: background 0.14s var(--ease); }
 .timing tr.clickable:hover { background: var(--state-hover); }
 /* Numeric columns hug the right edge, header included. `end` cannot do that
@@ -713,13 +849,13 @@ input[type='number'] { direction: ltr; text-align: end; }
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-weight: 700;
   font-size: 13px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--hi), 0.06);
   border-radius: 7px;
   border-inline-start: 3px solid var(--line-2);
 }
-.pos.p1 { background: #2a2410; border-inline-start-color: #ffd84d; color: #ffd84d; }
-.pos.p2 { background: #1e2028; border-inline-start-color: #c8d2e4; color: #c8d2e4; }
-.pos.p3 { background: #2a1c12; border-inline-start-color: #d08a45; color: #d08a45; }
+.pos.p1 { background: var(--p1-bg); border-inline-start-color: var(--p1); color: var(--p1); }
+.pos.p2 { background: var(--p2-bg); border-inline-start-color: var(--p2); color: var(--p2); }
+.pos.p3 { background: var(--p3-bg); border-inline-start-color: var(--p3); color: var(--p3); }
 .pos.dnf { color: var(--dim); }
 
 /* Driver cell: livery bar, name, team. */
@@ -754,7 +890,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 .tower {
   display: grid;
   gap: 2px;
-  background: var(--glass-sheen), rgba(7, 9, 15, 0.66);
+  background: var(--glass-sheen), rgba(var(--deep), 0.66);
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
   padding: 5px;
@@ -878,7 +1014,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   width: 46%;
   background: repeating-linear-gradient(
     64deg,
-    rgba(255, 255, 255, 0.035) 0 2px,
+    rgba(var(--hi), 0.035) 0 2px,
     transparent 2px 14px
   );
   pointer-events: none;
@@ -893,7 +1029,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   gap: 2px 10px;
   align-items: center;
   padding: 11px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(var(--hi), 0.06);
 }
 .reward-row:last-child { border-bottom: none; }
 .reward-row .name { font-size: 14px; font-weight: 600; }
@@ -934,7 +1070,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 .slot-card {
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--hi), 0.04);
   box-shadow: var(--glass-rim);
   padding: 14px;
   margin-bottom: 10px;
@@ -946,11 +1082,11 @@ input[type='number'] { direction: ltr; text-align: end; }
 .timetable {
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--well);
   padding: 10px 14px;
   margin-bottom: 14px;
 }
-.tt-row { gap: 10px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.tt-row { gap: 10px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(var(--hi), 0.06); }
 .tt-row:last-of-type { border-bottom: none; }
 .tt-row.live { color: var(--accent-2); }
 
@@ -996,8 +1132,8 @@ input[type='number'] { direction: ltr; text-align: end; }
   border-radius: var(--radius);
   background-color: var(--surface-solid);
   background-image:
-    linear-gradient(to right, var(--surface-solid) 40%, rgba(14, 17, 28, 0)),
-    linear-gradient(to left, var(--surface-solid) 40%, rgba(14, 17, 28, 0)),
+    linear-gradient(to right, var(--surface-solid) 40%, rgba(var(--deep), 0)),
+    linear-gradient(to left, var(--surface-solid) 40%, rgba(var(--deep), 0)),
     radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0)),
     radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
   background-position: left center, right center, left center, right center;
@@ -1046,7 +1182,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   background-image: linear-gradient(rgba(255, 46, 77, 0.09), rgba(255, 46, 77, 0.09));
 }
 .scroll-x .timing.pin-1 tr.sel > td:first-child,
-.scroll-x .timing.pin-2 tr.sel > td:nth-child(-n + 2) { background-color: #171b29; }
+.scroll-x .timing.pin-2 tr.sel > td:nth-child(-n + 2) { background-color: var(--panel-2); }
 
 /* The driver column is the one that must not be squeezed. Left to itself it is
    the only flexible column in the row, so it collapses to an ellipsis and the
@@ -1076,10 +1212,10 @@ input[type='number'] { direction: ltr; text-align: end; }
   cursor: pointer;
   transition: border-color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease);
 }
-.model-card:hover { border-color: var(--glass-edge-strong); background: var(--glass-sheen), rgba(24, 29, 46, 0.62); }
+.model-card:hover { border-color: var(--glass-edge-strong); background: var(--glass-sheen), rgba(var(--deep), 0.62); }
 .model-card.sel {
   border-color: rgba(255, 46, 77, 0.55);
-  background: var(--glass-sheen), rgba(24, 29, 46, 0.66);
+  background: var(--glass-sheen), rgba(var(--deep), 0.66);
   box-shadow: var(--glass-rim), 0 0 0 1px rgba(255, 46, 77, 0.25), var(--elev-1);
 }
 .model-card .stats {
@@ -1154,7 +1290,7 @@ input[type='number'] { direction: ltr; text-align: end; }
     gap: 2px;
     padding: 5px;
     border-radius: var(--radius-full);
-    background: var(--glass-sheen), rgba(14, 17, 28, 0.66);
+    background: var(--glass-sheen), rgba(var(--deep), 0.66);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-edge-strong);
@@ -1224,7 +1360,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   height: 62px;
   border-radius: 20px;
   border: 1px solid var(--glass-edge-strong);
-  background: var(--glass-sheen), rgba(24, 29, 46, 0.7);
+  background: var(--glass-sheen), rgba(var(--deep), 0.7);
   box-shadow: var(--glass-rim), var(--elev-1);
   color: var(--text);
   font-size: 22px;
@@ -1250,7 +1386,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   gap: 14px;
   text-align: center;
   padding: 50px 20px;
-  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border: 1px dashed rgba(var(--hi), 0.14);
   border-radius: var(--radius-lg);
 }
 .rotate-gate .glyph { font-size: 46px; animation: rotate-hint 2.4s ease-in-out infinite; }
@@ -1349,8 +1485,8 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 .match-fill .touchpad .group { pointer-events: auto; }
 .match-fill .touchpad .key {
-  background: var(--glass-sheen), rgba(16, 19, 32, 0.4);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--glass-sheen), rgba(var(--deep), 0.4);
+  border-color: rgba(var(--hi), 0.22);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   backdrop-filter: blur(14px) saturate(160%);
 }
@@ -1415,7 +1551,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(7, 8, 13, 0.7);
+  background: rgba(var(--deep), 0.7);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-edge);
@@ -1449,7 +1585,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   place-items: center;
   align-content: center;
   gap: 12px;
-  background: rgba(7, 8, 13, 0.6);
+  background: rgba(var(--deep), 0.6);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   backdrop-filter: blur(16px) saturate(140%);
   text-align: center;
@@ -1519,7 +1655,7 @@ button.wide { width: 100%; }
   padding: 10px 13px;
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--hi), 0.05);
   font-size: 12.5px;
   line-height: 1.6;
 }
@@ -1777,13 +1913,21 @@ button.wide { width: 100%; }
     --glass-tint: rgba(17, 21, 35, 0.94);
     --glass-tint-strong: rgba(14, 17, 29, 0.97);
   }
+  :root[data-theme='light'] {
+    --glass-tint: rgba(255, 255, 255, 0.95);
+    --glass-tint-strong: rgba(255, 255, 255, 0.98);
+  }
 }
 @media (prefers-reduced-transparency: reduce) {
   :root {
     --glass-tint: #121626;
     --glass-tint-strong: #0f1220;
   }
-  .topbar { background: #0c0f19; }
-  .nav.bottom { background: #10131f; }
+  :root[data-theme='light'] {
+    --glass-tint: #ffffff;
+    --glass-tint-strong: #ffffff;
+  }
+  .topbar { background: var(--surface-solid); }
+  .nav.bottom { background: var(--surface-solid); }
   .modal-backdrop { background: rgba(4, 5, 9, 0.85); }
 }

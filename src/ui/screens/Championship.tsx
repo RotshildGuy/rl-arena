@@ -7,6 +7,9 @@ import { GRID_SIZE, MIN_ENTRIES, SESSION_GAP_MS, lapsFor, planSessions } from '.
 import {
   airingRound,
   DAY_MS,
+  displaySeason,
+  roundInSeason,
+  seasonNumber,
   PHYSICS_V2_ROUND,
   grandPrixName,
   lockAtForRound,
@@ -16,11 +19,14 @@ import {
 } from '../../core/champ/schedule';
 import { eligibleEntries } from '../../core/champ/card';
 import { carRecaps, type CarRecap } from '../../core/champ/recap';
+import { diagnoseCar } from '../../core/champ/diagnose';
+import { AdviceLine } from '../components/AdviceLine';
+import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
-import type { ArenaEntry, RaceCard } from '../../core/champ/types';
+import type { ArenaEntry, RaceCard, RaceResult } from '../../core/champ/types';
 import { DriverCell } from '../components/Livery';
 import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
@@ -75,10 +81,27 @@ export function Championship() {
   // once as a countdown to enter and once as a broadcast to watch.
   const upcoming = airingRound(now) + 1;
 
+  // The table of the season on screen only: a new season starts from zero.
+  const season = displaySeason(now);
   const standings = useMemo(
-    () => (state ? buildStandings({ cards: state.cards, results: settledResults(state.cards, state.results, now) }) : null),
-    [state],
+    () =>
+      state
+        ? buildStandings({
+            cards: seasonCards(state.cards, season),
+            results: settledResults(state.cards, state.results, now),
+          })
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, season],
   );
+
+  // The champions of the season that just ended, for a few days after it.
+  const lastHonours = useMemo(() => {
+    if (!state) return null;
+    const settled = settledResults(state.cards, state.results, now);
+    return hallOfFame(state.cards, settled, now)[0] ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, season]);
 
   const liveCard = useMemo(() => {
     if (!state) return null;
@@ -100,7 +123,8 @@ export function Championship() {
   const recaps = useMemo(() => {
     if (!state || !lastFinished) return [];
     const settled = settledResults(state.cards, state.results, now);
-    return carRecaps(lastFinished, state.cards, settled, state.uid);
+    // The table move is within the race's own season.
+    return carRecaps(lastFinished, seasonCards(state.cards, seasonNumber(lastFinished.round)), settled, state.uid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lastRound]);
 
@@ -118,7 +142,7 @@ export function Championship() {
   return (
     <>
       <div className="page-head">
-        <div className="eyebrow">עונה 1 · אליפות המודלים</div>
+        <div className="eyebrow">עונה {season} · אליפות המודלים</div>
         <h1 className="display">
           מרוץ אחד ביום.
           <br />
@@ -192,10 +216,19 @@ export function Championship() {
         />
       )}
 
+      {lastHonours && now < startsAtForRound(lastHonours.last) + 3 * DAY_MS && (
+        <ChampionsBanner honours={lastHonours} onOpen={() => go('standings')} />
+      )}
+
       <PhysicsNotice now={now} onTrain={() => go('library')} />
 
       {lastFinished && recaps.length > 0 && (
-        <MyRaceCard card={lastFinished} recaps={recaps} onOpen={() => openRace(lastFinished.id, 'report')} />
+        <MyRaceCard
+          card={lastFinished}
+          result={state?.results.get(lastFinished.id) ?? null}
+          recaps={recaps}
+          onOpen={() => openRace(lastFinished.id, 'report')}
+        />
       )}
 
       <StaleCarNotice entries={myEntries} models={myModels} now={now} round={upcoming} onFix={() => go('library')} />
@@ -492,7 +525,12 @@ function NextRace({
   return (
     <div className="hero">
       <div style={{ position: 'relative' }}>
-        <div className="eyebrow">סבב {round} · המרוץ הבא</div>
+        <div className="eyebrow">
+          סבב {round}
+          {seasonNumber(round) > 1 &&
+            ` · ${roundInSeason(round).index} מתוך ${roundInSeason(round).of} בעונה ${seasonNumber(round)}`}{' '}
+          · המרוץ הבא
+        </div>
         <h1 className="display" style={{ margin: '8px 0 4px' }}>
           {grandPrixName(round)}
         </h1>
@@ -797,7 +835,17 @@ function LastRace({
  * team cares about it — seventh is not on any podium. Shown only when one of
  * their cars was in the latest race, so it never repeats old news.
  */
-function MyRaceCard({ card, recaps, onOpen }: { card: RaceCard; recaps: CarRecap[]; onOpen(): void }) {
+function MyRaceCard({
+  card,
+  result,
+  recaps,
+  onOpen,
+}: {
+  card: RaceCard;
+  result: RaceResult | null;
+  recaps: CarRecap[];
+  onOpen(): void;
+}) {
   return (
     <div className="card notched" style={{ marginBottom: 14 }}>
       <div className="head">
@@ -837,6 +885,15 @@ function MyRaceCard({ card, recaps, onOpen }: { card: RaceCard; recaps: CarRecap
             </span>
           )}
           {r.standing !== null && <StandingMove now={r.standing} before={r.standingBefore} />}
+          {result && r.position > 1 && (() => {
+            // The first thing to fix, right under the line it explains.
+            const first = diagnoseCar(card, result, r.entryId)[0];
+            return first ? (
+              <div style={{ flexBasis: '100%' }}>
+                <AdviceLine advice={first} />
+              </div>
+            ) : null;
+          })()}
         </div>
       ))}
     </div>
@@ -850,5 +907,38 @@ function StandingMove({ now, before }: { now: number; before: number | null }) {
       בטבלה: <span className="mono">{now}</span>
       {moved === null ? ' (חדש)' : moved > 0 ? ` ▲${moved}` : moved < 0 ? ` ▼${-moved}` : ''}
     </span>
+  );
+}
+
+/**
+ * A season is over: say who won it, on the screen everybody opens, for a few
+ * days. The table underneath has already started again from zero, and without
+ * this the only trace of the champions would be a tab nobody visits.
+ */
+function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen(): void }) {
+  const { driver, team, runnerUp } = honours;
+  if (!driver) return null;
+  return (
+    <div className="card notched" style={{ marginBottom: 14, borderColor: 'var(--p1)' }}>
+      <div className="row wrap">
+        <span className="pill" style={{ color: 'var(--p1)', borderColor: 'var(--p1)' }}>
+          🏆 אלופי עונה {honours.season}
+        </span>
+        <span style={{ minWidth: 0, flex: '1 1 260px' }}>
+          <b>{driver.driver}</b> ({driver.team}) אלוף הנהגים עם {driver.points} נקודות
+          {runnerUp ? `, ${driver.points - runnerUp.points} לפני ${runnerUp.driver}` : ''}.
+          {team && (
+            <>
+              {' '}
+              אליפות הקבוצות: <b>{team.team}</b>.
+            </>
+          )}{' '}
+          בעונה {honours.season + 1} הטבלה מתחילה מאפס.
+        </span>
+        <button className="ghost small" onClick={onOpen}>
+          לטבלאות →
+        </button>
+      </div>
+    </div>
   );
 }

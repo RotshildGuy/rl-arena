@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { cssVar, currentTheme, subscribeTheme } from '../theme';
 
 export interface Series {
   label: string;
+  /** A colour, or a token name such as `--accent-2` that follows the theme. */
   color: string;
   values: number[];
 }
@@ -21,6 +23,7 @@ interface Props {
  */
 export function LineChart({ series, height = 120, fixedRange, log }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const theme = useSyncExternalStore(subscribeTheme, currentTheme);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -90,7 +93,7 @@ export function LineChart({ series, height = 120, fixedRange, log }: Props) {
 
     for (const s of series) {
       if (s.values.length < 2) continue;
-      ctx.strokeStyle = s.color;
+      ctx.strokeStyle = s.color.startsWith('--') ? cssVar(s.color, '#888') : s.color;
       ctx.lineWidth = 1.75;
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -109,7 +112,7 @@ export function LineChart({ series, height = 120, fixedRange, log }: Props) {
       }
       ctx.stroke();
     }
-  }, [series, height, fixedRange, log]);
+  }, [theme, series, height, fixedRange, log]);
 
   return <canvas ref={ref} style={{ width: '100%', height, display: 'block' }} />;
 }

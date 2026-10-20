@@ -2,6 +2,9 @@ import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';
 import { startAuth } from './ui/auth';
 import './ui/styles.css';
+import { initTheme } from './ui/theme';
+
+initTheme();
 
 // Before the first render: the session Firebase already has is what decides
 // whether anybody sees the sign-in screen at all, and asking early means a
