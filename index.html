@@ -42,7 +42,41 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- The first frame: a skeleton of the app, drawn with the stylesheet
+           before any script runs. React replaces it; keep it in step with
+           Splash in ui/App.tsx. -->
+      <div class="skel-app" aria-busy="true" aria-label="טוען">
+        <div class="skel-top">
+          <span class="brand"><span class="mark">RL</span> <span>ARENA</span></span>
+          <span class="skel pill wide-only" style="width: 300px; height: 34px"></span>
+          <span class="grow"></span>
+          <span class="skel pill" style="width: 34px; height: 30px"></span>
+          <span class="skel pill" style="width: 84px; height: 30px"></span>
+        </div>
+        <div class="skel-body">
+          <span class="skel" style="width: 130px; height: 12px"></span>
+          <span class="skel" style="width: min(420px, 80%); height: 30px"></span>
+          <span class="skel" style="width: min(560px, 95%); height: 14px"></span>
+          <div class="skel-cols">
+            <div class="skel-card" style="min-height: 280px">
+              <span class="skel" style="width: 40%; height: 12px"></span>
+              <span class="skel" style="width: 70%; height: 34px"></span>
+              <span class="skel" style="width: 55%; height: 52px"></span>
+              <span class="skel" style="width: 100%; height: 64px"></span>
+              <span class="skel pill" style="width: 160px; height: 38px"></span>
+            </div>
+            <div class="skel-card" style="min-height: 200px">
+              <span class="skel" style="width: 35%; height: 12px"></span>
+              <span class="skel" style="width: 100%; height: 40px"></span>
+              <span class="skel" style="width: 100%; height: 40px"></span>
+              <span class="skel" style="width: 100%; height: 40px"></span>
+            </div>
+          </div>
+        </div>
+        <div class="skel-nav"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

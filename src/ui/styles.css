@@ -1978,3 +1978,62 @@ button.wide { width: 100%; }
 .swatch-dot.smoke { border-style: dashed; background-color: #2b303d; }
 .swatch-car { width: 40px; height: 64px; display: block; }
 .swatch-price { font-size: 11px; color: var(--muted); min-height: 14px; font-family: 'JetBrains Mono', monospace; }
+
+/* ---------------------------------------------------------------- skeleton
+   What the first moment looks like: the app's own frame, with soft shapes
+   where the content is about to be, instead of a bare logo on an empty page.
+   The same markup is in index.html - so it is on screen before any script
+   has run - and in `Splash`, which holds it while the account is restored. */
+.skel-app { min-height: 100%; display: flex; flex-direction: column; }
+.skel-top {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  background: var(--glass-tint-strong);
+  border-bottom: 1px solid var(--glass-edge);
+}
+.skel-top .grow { flex: 1; }
+.skel-body { flex: 1; padding: 22px 20px; max-width: 1280px; width: 100%; margin: 0 auto; display: grid; gap: 14px; align-content: start; }
+.skel-cols { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.skel-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-edge);
+  background: var(--glass-tint);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+.skel {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, rgba(var(--hi), 0.06) 25%, rgba(var(--hi), 0.13) 50%, rgba(var(--hi), 0.06) 75%);
+  background-size: 300% 100%;
+  animation: skel-shimmer 1.4s var(--ease) infinite;
+}
+.skel.pill { border-radius: var(--radius-full); }
+.skel-nav { display: none; }
+@keyframes skel-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; }
+}
+@media (max-width: 860px) {
+  .skel-cols { grid-template-columns: minmax(0, 1fr); }
+  .skel-top .wide-only { display: none; }
+  .skel-body { padding: 18px 14px 110px; }
+  .skel-nav {
+    display: block;
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    height: 64px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--glass-edge);
+    background: var(--glass-tint-strong);
+  }
+}
