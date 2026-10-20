@@ -1,4 +1,6 @@
-import { startsAtForRound } from '../core/champ/schedule';
+import { israelOffsetAt20, startsAtForRound } from '../core/champ/schedule';
+
+const TZID = 'Asia/Jerusalem';
 
 /**
  * "Add to calendar" for the daily race.
@@ -8,10 +10,10 @@ import { startsAtForRound } from '../core/champ/schedule';
  * permission prompt or an account: one daily recurring event with a reminder a
  * quarter of an hour before.
  *
- * The time is the calendar's own — `startsAtForRound`, in UTC — rather than a
- * "20:00" typed here, so the reminder can never drift from the race it is for.
- * Written in UTC on purpose: the race runs on a UTC clock, so the event should
- * follow it through a daylight-saving change exactly the way the race does.
+ * The day comes from the calendar's own `startsAtForRound`, so the event
+ * starts on the round it is for. The time is written in Israel local time with
+ * a time-zone block, not in UTC: the race is at 20:00 in Israel all year, and a
+ * daily event pinned to UTC would drift an hour at every clock change.
  */
 export const RACE_EVENT_MINUTES = 30;
 export const REMINDER_MINUTES = 15;
@@ -23,6 +25,37 @@ const DETAILS = 'גרנד פרי של מודלים מאומנים, בשידור 
 function stamp(at: number): string {
   return new Date(at).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
+
+/**
+ * `20260914T200000` — wall-clock time in Israel. Only for times on a race
+ * evening, where the UTC date and the Israeli date are the same day.
+ */
+function localStamp(at: number): string {
+  const d = new Date(at);
+  const offset = israelOffsetAt20(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return stamp(at + offset * 3_600_000).replace('Z', '');
+}
+
+/** Israel's rule (see `israelOffsetAt20`), for calendars that do not know the zone. */
+const VTIMEZONE = [
+  'BEGIN:VTIMEZONE',
+  `TZID:${TZID}`,
+  'BEGIN:DAYLIGHT',
+  'TZOFFSETFROM:+0200',
+  'TZOFFSETTO:+0300',
+  'TZNAME:IDT',
+  'DTSTART:19700327T020000',
+  'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=FR;BYMONTHDAY=23,24,25,26,27,28,29',
+  'END:DAYLIGHT',
+  'BEGIN:STANDARD',
+  'TZOFFSETFROM:+0300',
+  'TZOFFSETTO:+0200',
+  'TZNAME:IST',
+  'DTSTART:19701025T020000',
+  'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+  'END:STANDARD',
+  'END:VTIMEZONE',
+];
 
 /** iCalendar text values escape backslash, semicolon, comma and newline. */
 function escapeText(s: string): string {
@@ -66,12 +99,13 @@ export function raceCalendarIcs(round: number, url: string, now = Date.now()): s
     'PRODID:-//RL Arena//Race calendar//HE',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    ...VTIMEZONE,
     'BEGIN:VEVENT',
     // Stable, so importing the file twice updates one event instead of adding a second.
     'UID:daily-race@rl-arena',
     `DTSTAMP:${stamp(now)}`,
-    `DTSTART:${stamp(start)}`,
-    `DTEND:${stamp(end)}`,
+    `DTSTART;TZID=${TZID}:${localStamp(start)}`,
+    `DTEND;TZID=${TZID}:${localStamp(end)}`,
     'RRULE:FREQ=DAILY',
     `SUMMARY:${escapeText(TITLE)}`,
     `DESCRIPTION:${escapeText(`${DETAILS}\n${url}`)}`,
@@ -98,7 +132,8 @@ export function googleCalendarUrl(round: number, url: string): string {
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: TITLE,
-    dates: `${stamp(start)}/${stamp(end)}`,
+    dates: `${localStamp(start)}/${localStamp(end)}`,
+    ctz: TZID,
     recur: 'RRULE:FREQ=DAILY',
     details: `${DETAILS}\n${url}`,
     location: url,

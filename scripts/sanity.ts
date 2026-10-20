@@ -750,6 +750,27 @@ function championshipTest(): void {
 
   const gap = startsAtForRound(4) - startsAtForRound(3);
   check('rounds are exactly a day apart', gap === DAY_MS, `${gap / 3_600_000}h`);
+
+  // 20:00 in Israel, every day, checked against the real zone database.
+  const israelHour = (at: number) =>
+    Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hourCycle: 'h23' }).format(at));
+  const offHours: number[] = [];
+  for (let r = 1; r <= 365 * 5; r++) if (israelHour(startsAtForRound(r)) !== 20) offHours.push(r);
+  check('every round for five years starts at 20:00 Israel time', offHours.length === 0, offHours.slice(0, 5).join(', '));
+  const alreadyRaced: number[] = [];
+  for (let r = 1; r <= 41; r++) {
+    if (startsAtForRound(r) !== Date.UTC(2026, 8, 14 + r - 1, 17)) alreadyRaced.push(r);
+  }
+  check('rounds up to the clock change keep their old start, 17:00 UTC', alreadyRaced.length === 0, alreadyRaced.join(', '));
+  const sunday = startsAtForRound(42);
+  check('round 42, Sunday 25.10, is the first at 18:00 UTC', sunday === Date.UTC(2026, 9, 25, 18));
+  check('and the evening before it is round 41', currentRound(sunday - 1) === 41 && currentRound(sunday) === 42);
+  let monotonic = true;
+  for (let r = 1; r < 365 * 3; r++) {
+    const at = startsAtForRound(r);
+    if (currentRound(at) !== r || currentRound(at - 1) !== r - 1) monotonic = false;
+  }
+  check('the current round turns over exactly at each lights out, clock changes included', monotonic);
   check('nothing is raced before the season opens', currentRound(startsAtForRound(1) - 1) === 0);
   check('round one opens on time', currentRound(startsAtForRound(1)) === 1);
 }
@@ -1300,8 +1321,13 @@ function calendarTest(): void {
   const ics = raceCalendarIcs(round, 'https://example.test', Date.UTC(2026, 9, 1));
   const start = new Date(startsAtForRound(round)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const lines = ics.split('\r\n');
-  check('the event starts at the round\'s lights out', ics.includes(`DTSTART:${start}\r\n`), start);
-  check('which is 17:00 UTC — 20:00 in Israel in summer', start.endsWith('T170000Z'));
+  // Round 42 is Sunday 25.10.2026, the evening Israel goes back to winter time.
+  check('the event starts at 20:00 Israel time on the round\'s day',
+    ics.includes('\r\nDTSTART;TZID=Asia/Jerusalem:20261025T200000\r\n'), start);
+  check('and carries the zone, so it stays at 20:00 through clock changes',
+    ics.includes('\r\nBEGIN:VTIMEZONE\r\nTZID:Asia/Jerusalem\r\n'));
+  const summer = raceCalendarIcs(30, 'https://example.test');
+  check('a summer round is 20:00 too', summer.includes('DTSTART;TZID=Asia/Jerusalem:20261013T200000'));
   check('and repeats every day', ics.includes('\r\nRRULE:FREQ=DAILY\r\n'));
   check('with a reminder fifteen minutes before', ics.includes('\r\nTRIGGER:-PT15M\r\n'));
   check('every line ends in CRLF', !/[^\r]\n/.test(ics) && ics.endsWith('\r\n'));
@@ -1313,7 +1339,8 @@ function calendarTest(): void {
   check('folding Hebrew loses nothing', unfolded === hebrew);
   const g = new URL(googleCalendarUrl(round, 'https://example.test'));
   check('the Google link carries the same start and the daily rule',
-    g.searchParams.get('dates')?.startsWith(`${start}/`) === true && g.searchParams.get('recur') === 'RRULE:FREQ=DAILY');
+    g.searchParams.get('dates') === '20261025T200000/20261025T203000' &&
+      g.searchParams.get('ctz') === 'Asia/Jerusalem' && g.searchParams.get('recur') === 'RRULE:FREQ=DAILY');
 }
 
 // ---------------------------------------------------------------- recap
