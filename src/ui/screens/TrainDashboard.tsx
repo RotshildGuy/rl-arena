@@ -12,7 +12,7 @@ import { getStore, recordKey, type SetupRecord, type TrainingPoint } from '../..
 import type { SpeedMode, TrainSlotInit } from '../../workers/protocol';
 import { ALGORITHMS } from '../../core/rl/algorithms';
 import { useWakeLock } from '../device';
-import { compactNumber, durationText, lapTime, raceTime } from '../format';
+import { durationText, lapTime, raceTime } from '../format';
 import { PHYSICS_VERSION, type RacingSnapshot } from '../../core/games/racing/env';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { CoachAnchor, useCoachStep } from '../coach';
@@ -41,7 +41,7 @@ export function TrainDashboard() {
   const coach = useCoachStep();
   const game = getGame(gameId);
   const trainer = useTrainer();
-  const { status, slots: live, seats, stepsPerSec, error, speed, snapRef } = trainer;
+  const { status, slots: live, seats, error, speed, snapRef } = trainer;
 
   const [booting, setBooting] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -269,11 +269,7 @@ export function TrainDashboard() {
               aspect={16 / 10}
               draw={(ctx) => {
                 if (speed === 'turbo') {
-                  drawPlaceholder(ctx, [
-                    'מצב טורבו',
-                    stepsPerSec.toLocaleString('he-IL') + ' צעדי סביבה לשנייה',
-                    'הציור כבוי כדי לפנות את המעבד לאימון',
-                  ]);
+                  drawPlaceholder(ctx, ['מצב טורבו', 'הציור כבוי כדי לפנות את המעבד לאימון']);
                   return;
                 }
                 const snap = snapRef.current;
@@ -354,14 +350,15 @@ export function TrainDashboard() {
             </div>
           )}
 
+          {/* Only numbers somebody can act on. Exploration rate, steps per second
+              and the best reward ever scored describe the machinery, not the
+              driver — none of them says whether to keep training or what to
+              change, and the README promises a screen without them. */}
           <div className="card notched">
             <div className="cols-3">
               <Stat k={algo.episodesLabel} v={(slotLive?.live.episode ?? 0).toLocaleString('he-IL')} />
-              <Stat k="שיא נקודות" v={isFinite(slotLive?.best.reward ?? -Infinity) ? slotLive!.best.reward.toFixed(1) : '—'} />
               <Stat k={game.spec.scoreLabel} v={history.length ? history[history.length - 1].score.toFixed(2) : '—'} />
-              <Stat k="צעדים/שנייה" v={compactNumber(stepsPerSec)} />
               <Stat k="זמן אימון" v={durationText((boot.current[slotIndex]?.baseTrainedMs ?? 0) + trainer.elapsedMs())} />
-              <Stat k={algo.exploreLabel} v={(slotLive?.live.epsilon ?? 0).toFixed(2)} />
             </div>
           </div>
 
