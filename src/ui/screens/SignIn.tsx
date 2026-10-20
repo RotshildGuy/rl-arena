@@ -102,6 +102,30 @@ export function SignIn() {
           בחרו איך לשמור את המודלים והנקודות שלכם.
         </p>
 
+        {!inherited && (
+          <>
+            {/* Watching first: the race is what sells the idea, and a sign-in
+                form is a poor first thing to show anybody. One tap enters
+                without an account and opens the broadcast; an account can be
+                linked later, from inside, keeping everything. */}
+            <button
+              className="wide cyan"
+              disabled={busy !== null}
+              onClick={() =>
+                void attempt('anon', async () => {
+                  useApp.getState().setWatchFirst(true);
+                  await signIn.anonymous();
+                })
+              }
+            >
+              👀 קודם לצפות במרוץ האחרון
+            </button>
+            <p className="tiny dim" style={{ margin: '6px 0 14px' }}>
+              בלי חשבון ובלי פרטים. אם תרצו לאמן מודל אחר כך, אפשר לקשר חשבון בכל רגע.
+            </p>
+          </>
+        )}
+
         <button className="provider" disabled={busy !== null} onClick={() => void attempt('google', signIn.google)}>
           <GoogleMark />
           {busy === 'google' ? 'מתחבר…' : 'המשך עם Google'}

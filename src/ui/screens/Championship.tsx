@@ -130,6 +130,17 @@ export function Championship() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lastRound]);
 
+  // In through "watch the last race first": straight to the race on air, or
+  // the last one run, as soon as the season has loaded.
+  const watchFirst = useApp((s) => s.watchFirst);
+  const setWatchFirst = useApp((s) => s.setWatchFirst);
+  useEffect(() => {
+    if (!watchFirst || !state) return;
+    const target = liveCard ?? lastFinished;
+    setWatchFirst(false);
+    if (target) openRace(target.id, 'broadcast');
+  }, [watchFirst, state, liveCard, lastFinished, openRace, setWatchFirst]);
+
   // A car is either on the grid or it is not: an entry left retired under the
   // old withdrawal rules is filtered out here, so its model reads as
   // unregistered everywhere instead of wearing a badge it cannot shed.
