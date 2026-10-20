@@ -23,7 +23,7 @@ export const ACTION_LABELS = [
  *
  * `defaultLevel` is chosen so a fresh model starts on exactly the weights that
  * were the defaults before the sliders existed — the balance that is known to
- * train a decent driver.
+ * train a decent driver — with one exception, the wall, explained there.
  */
 export const RACING_REWARDS: RewardChannelDef[] = [
   {
@@ -67,7 +67,10 @@ export const RACING_REWARDS: RewardChannelDef[] = [
     label: 'פגיעה במעקה',
     hint: 'קנס על כל נגיעה בגדר (ברגע המגע, לא לאורך כל השפשוף)',
     levels: [-6, -4, -3, -2, -1.5, -1, -0.6, -0.3, -0.1, 0],
-    defaultLevel: 6,
+    // Notch 3, not the old 6. Since the tyres got a limit (physics 2) a crash
+    // costs real time, and a default that charged -1 for one taught models to
+    // corner on the wall; at -3 they learn to brake instead.
+    defaultLevel: 3,
     lowLabel: 'זהיר',
     highLabel: 'פזיז',
   },

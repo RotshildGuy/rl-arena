@@ -56,7 +56,11 @@ export class SessionSim {
   private readonly lapPositions: number[][];
   private readonly seenLaps: number[];
 
-  constructor(trackId: string, laps: number, cars: SimCar[], seed: number) {
+  /**
+   * `physics` is the version recorded on the race card. A card from before the
+   * field existed has none and ran on version 1, which is what it must replay on.
+   */
+  constructor(trackId: string, laps: number, cars: SimCar[], seed: number, physics = 1) {
     this.cars = cars;
     this.totalLaps = laps;
     this.actions = new Int32Array(cars.length);
@@ -70,6 +74,7 @@ export class SessionSim {
         carCollisions: true,
         maxSteps: maxStepsFor(laps),
         stuckLimit: STUCK_LIMIT,
+        physics,
       },
       RACE_REWARDS,
     );
@@ -163,6 +168,7 @@ export function runQualifying(
   weights: Map<string, string>,
   trackId: string,
   seed: number,
+  physics: number,
 ): QualiLap[] {
   const laps: QualiLap[] = [];
   for (const e of entries) {
@@ -172,7 +178,7 @@ export function runQualifying(
       continue;
     }
     const policy = Policy.fromBase64(e.arch.obsSize, e.arch.hidden, e.arch.nActions, w);
-    const sim = new SessionSim(trackId, QUALI_LAPS, [{ entryId: e.id, policy }], seed);
+    const sim = new SessionSim(trackId, QUALI_LAPS, [{ entryId: e.id, policy }], seed, physics);
     sim.runToEnd();
     const t = sim.env.telemetry(0);
     laps.push({ entryId: e.id, bestLapMs: t.bestLapMs, sectorsMs: t.bestSectorsMs, topSpeed: t.topSpeed });
@@ -261,7 +267,7 @@ export function runRaceDay(card: RaceCard, weights: Map<string, string>): RaceRe
       const grid = gridFor(session, resolved);
       const cars = policiesFor(grid, entries, weights);
       if (cars.length === 0) continue;
-      const sim = new SessionSim(card.trackId, lapsFor(session), cars, card.seed + session.offsetMs);
+      const sim = new SessionSim(card.trackId, lapsFor(session), cars, card.seed + session.offsetMs, card.physics);
       sim.runToEnd();
       const res = sim.result(session.id, grid);
       results.set(session.id, res);

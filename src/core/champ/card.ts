@@ -1,5 +1,14 @@
 import { OBS_VERSION } from '../games/racing/rewards';
-import { grandPrixName, lockAtForRound, raceIdForRound, seedForRound, SEASON_ID, startsAtForRound, trackForRound } from './schedule';
+import {
+  grandPrixName,
+  lockAtForRound,
+  physicsForRound,
+  raceIdForRound,
+  seedForRound,
+  SEASON_ID,
+  startsAtForRound,
+  trackForRound,
+} from './schedule';
 import { RACE_LAPS } from './format';
 import { runQualifying } from './sim';
 import type { ArenaEntry, RaceCard } from './types';
@@ -102,6 +111,7 @@ export function buildRaceCard(round: number, entries: ArenaEntry[], weights: Map
   const trackId = trackForRound(round);
   const seed = seedForRound(round);
   const field = eligibleEntries(entries, round);
+  const physics = physicsForRound(round);
   return {
     id: raceIdForRound(round),
     seasonId: SEASON_ID,
@@ -112,7 +122,10 @@ export function buildRaceCard(round: number, entries: ArenaEntry[], weights: Map
     seed,
     startsAt: startsAtForRound(round),
     entries: field,
-    qualifying: runQualifying(field, weights, trackId, seed),
+    qualifying: runQualifying(field, weights, trackId, seed, physics),
     createdAt: Date.now(),
+    // Left off the card while it is the default, so a card from before the
+    // switch is stored exactly as cards always were.
+    ...(physics > 1 ? { physics } : {}),
   };
 }

@@ -6,6 +6,8 @@ import { teamColor } from '../../core/champ/livery';
 import { GRID_SIZE, MIN_ENTRIES, SESSION_GAP_MS, lapsFor, planSessions } from '../../core/champ/format';
 import {
   airingRound,
+  DAY_MS,
+  PHYSICS_V2_ROUND,
   grandPrixName,
   lockAtForRound,
   raceIdForRound,
@@ -176,6 +178,8 @@ export function Championship() {
         />
       )}
 
+      <PhysicsNotice now={now} onTrain={() => go('library')} />
+
       <StaleCarNotice entries={myEntries} models={myModels} now={now} round={upcoming} onFix={() => go('library')} />
 
       <div className="split" style={{ marginBottom: 14 }}>
@@ -282,6 +286,39 @@ export function Championship() {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The championship moving to the new car physics.
+ *
+ * Every car on the grid learned to drive with tyres that never let go, and from
+ * the switch round on a car that never brakes goes into the wall. Its team has
+ * no way to find that out except by losing, so the date is said up front, and
+ * for a few days after it, and then the notice goes away by itself.
+ */
+function PhysicsNotice({ now, onTrain }: { now: number; onTrain(): void }) {
+  const at = startsAtForRound(PHYSICS_V2_ROUND);
+  if (now > at + 3 * DAY_MS) return null;
+  const before = now < at;
+  return (
+    <div className="card notched" style={{ marginBottom: 14, borderColor: 'rgba(0, 224, 255, 0.35)' }}>
+      <div className="row wrap">
+        <span className="pill" style={{ color: 'var(--accent-2)' }}>
+          {before ? `מסבב ${PHYSICS_V2_ROUND}` : 'חדש'}
+        </span>
+        <span style={{ minWidth: 0, flex: '1 1 260px' }}>
+          {before
+            ? `החל מ${grandPrixName(PHYSICS_V2_ROUND)} (${dateTimeText(at)}) `
+            : `מאז סבב ${PHYSICS_V2_ROUND} `}
+          לצמיגים יש גבול אחיזה: רכב שנכנס לפנייה מהר מדי מחליק, וגז מלא בהחלקה נגמר בקיר. רכבים
+          שאומנו לפני השינוי לא למדו לבלום — כדאי לאמן אותם מחדש ולעדכן את הרכב.
+        </span>
+        <button className="primary" onClick={onTrain}>
+          למוסך
+        </button>
+      </div>
+    </div>
   );
 }
 

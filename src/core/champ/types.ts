@@ -87,6 +87,12 @@ export interface RaceCard {
   /** Grid-setting session, run at card creation. Ordered fastest first. */
   qualifying: QualiLap[];
   createdAt: number;
+  /**
+   * The car physics this round runs on. Absent on cards from before there was
+   * more than one, which ran on version 1 — and a replay has to as well, or it
+   * would no longer produce the result that was published.
+   */
+  physics?: number;
 }
 
 export interface Finish {

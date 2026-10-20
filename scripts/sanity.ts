@@ -14,7 +14,9 @@ import { defaultRewards } from '../src/core/games/types';
 import { GaTrainer, GaLearner } from '../src/core/rl/ga';
 import { TrainingSession } from '../src/core/rl/session';
 import { getGame } from '../src/core/games/registry';
-import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS } from '../src/core/games/racing/env';
+import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../src/core/games/racing/env';
+import { bestBraking, drive, flatOutLoses } from './drivers';
+import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
 import { RACING_SPEC, OBS_SIZE } from '../src/core/games/racing/rewards';
 import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
@@ -359,6 +361,83 @@ function sharedSessionTest(): void {
 
 // --------------------------------------------------------- chequered flag
 /**
+ * The car physics.
+ *
+ * Two promises. Version 1 never changes, by a single bit: every race card from
+ * before version 2 replays on it, and a replay that drifts from the published
+ * result is a championship nobody can trust. The fingerprints below are of the
+ * position, heading and lap of four cars on random input, taken from the code
+ * that raced those rounds.
+ *
+ * And on the current version a dumb driver loses. Flat out, steering at the
+ * road ahead, used to be the fastest way round every circuit; now the tyres
+ * have a limit, and a driver that never brakes is beaten by one that does.
+ */
+function physicsTest(): void {
+  console.log(CHAPTER + 'car physics');
+
+  const V1_FINGERPRINTS: Record<string, string> = {
+    oval: 'feb5eb5d',
+    kidney: 'd45b411d',
+    technical: '8f6db783',
+    speedway: '343aa7e7',
+  };
+  const f = new Float32Array(1);
+  const u = new Uint32Array(f.buffer);
+  for (const def of TRACK_DEFS) {
+    const env = new RacingEnv(
+      { ...DEFAULT_RACING_CONFIG, trackId: def.id, nCars: 4, laps: 3, physics: 1 },
+      defaultRewards(RACING_SPEC),
+    );
+    env.reset(5);
+    const rng = mulberry32(9);
+    const act = new Int32Array(4);
+    let h = 2166136261;
+    for (let s = 0; s < 1500; s++) {
+      for (let i = 0; i < 4; i++) act[i] = rng() < 0.7 ? Math.floor(rng() * 3) : Math.floor(rng() * 9);
+      if (env.step(act).allDone) env.reset(s);
+      for (const c of env.snapshot().cars) {
+        for (const v of [c.x, c.y, c.angle]) {
+          f[0] = v;
+          h = Math.imul(h ^ u[0], 16777619) >>> 0;
+        }
+      }
+    }
+    const got = h.toString(16);
+    check(`physics 1 is unchanged on ${def.id}`, got === V1_FINGERPRINTS[def.id], got);
+  }
+
+  for (const def of TRACK_DEFS) {
+    const flat = drive(def.id, PHYSICS_VERSION, null);
+    const brake = bestBraking(def.id, PHYSICS_VERSION);
+    check(
+      `flat out loses to braking on ${def.id}`,
+      flatOutLoses(flat, brake),
+      `${flat.totalMs === null ? 'DNF' : (flat.totalMs / 1000).toFixed(2) + 's'} (${flat.wallHits} walls) vs ${
+        brake.totalMs === null ? 'DNF' : (brake.totalMs / 1000).toFixed(2) + 's'
+      }`,
+    );
+  }
+
+  const freePlay = new RacingEnv({ ...DEFAULT_RACING_CONFIG }, defaultRewards(RACING_SPEC));
+  freePlay.reset(1);
+  const go = new Int32Array(DEFAULT_RACING_CONFIG.nCars);
+  let slid = false;
+  for (let s = 0; s < 600 && !slid; s++) {
+    go.fill(2); // gas and full right lock: more than any tyre can hold
+    freePlay.step(go);
+    slid = freePlay.snapshot().cars.some((c) => c.sliding);
+  }
+  check('training and play run on the current physics, where a car can slide', slid);
+
+  check(
+    'the championship switches physics at its round, not before',
+    physicsForRound(PHYSICS_V2_ROUND - 1) === 1 && physicsForRound(PHYSICS_V2_ROUND) === PHYSICS_VERSION,
+    `round ${PHYSICS_V2_ROUND}`,
+  );
+}
+
+/**
  * The flag falls once, for everybody.
  *
  * When the leader completes the distance the race is over: the next car to reach
@@ -369,8 +448,10 @@ function sharedSessionTest(): void {
 function flagTest(): void {
   console.log(CHAPTER + 'the chequered flag');
   const n = 3;
+  // Physics 1, where these scripted drivers were tuned: what is under test is
+  // the flag, and it needs one car reliably laps down rather than in the wall.
   const env = new RacingEnv(
-    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: n, laps: 3, stuckLimit: 10 ** 9, maxSteps: 40000 },
+    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: n, laps: 3, stuckLimit: 10 ** 9, maxSteps: 40000, physics: 1 },
     defaultRewards(RACING_SPEC),
   );
   env.reset(5);
@@ -482,8 +563,10 @@ function timingTest(): void {
   // the lowest index — which in a race against a model is the human. The screen
   // cheerfully announced a win to a player who had just been beaten by nine
   // seconds. Rank has to come from *when* the flag was taken.
+  // Physics 1 for the same reason as the flag test: the scenario needs every
+  // car home on the lead lap, which these scripted drivers manage there.
   const duel = new RacingEnv(
-    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: 3, laps: 2, stuckLimit: 10 ** 9, maxSteps: 40000 },
+    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: 3, laps: 2, stuckLimit: 10 ** 9, maxSteps: 40000, physics: 1 },
     defaultRewards(RACING_SPEC),
   );
   duel.reset(5);
@@ -1193,6 +1276,7 @@ gaTest();
 sharedSessionTest();
 flagTest();
 timingTest();
+physicsTest();
 championshipTest();
 nameGenTest();
 teamLimitTest();

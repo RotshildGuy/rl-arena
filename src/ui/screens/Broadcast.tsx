@@ -175,7 +175,13 @@ function BroadcastStage({
     if (!weights || !window_ || grid.length === 0) return null;
     const cars = policiesFor(grid, entryById, weights);
     if (cars.length === 0) return null;
-    return new SessionSim(card.trackId, lapsFor(window_.session), cars, card.seed + window_.session.offsetMs);
+    return new SessionSim(
+      card.trackId,
+      lapsFor(window_.session),
+      cars,
+      card.seed + window_.session.offsetMs,
+      card.physics,
+    );
   }, [weights, window_, grid, entryById, card]);
 
   // Build (or rebuild) the simulation for the selected session.

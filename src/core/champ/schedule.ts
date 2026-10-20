@@ -80,6 +80,22 @@ export function raceIdForRound(round: number): string {
   return `${SEASON_ID}-R${String(round).padStart(3, '0')}`;
 }
 
+/**
+ * The first round raced on version 2 of the car physics — the one where tyres
+ * can be overdriven and walls cost time.
+ *
+ * Training switches the moment the code ships; the championship waits a few
+ * days, because every car already on the grid learned to drive on the old
+ * physics and its team needs time to retrain it. Until this round the cards
+ * keep running on version 1, and a card records its version so the switch
+ * never reaches back into a race that has already been run.
+ */
+export const PHYSICS_V2_ROUND = 40;
+
+export function physicsForRound(round: number): number {
+  return round >= PHYSICS_V2_ROUND ? 2 : 1;
+}
+
 /** Circuits rotate through the calendar, the way a real season does. */
 export function trackForRound(round: number): string {
   return TRACK_DEFS[(round - 1) % TRACK_DEFS.length].id;
