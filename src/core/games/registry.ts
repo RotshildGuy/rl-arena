@@ -125,7 +125,9 @@ const racing: GameModule = {
   touchHint: 'גז ובלם משמאל · היגוי מימין',
   matchNoun: 'מרוץ',
   seatHint: 'אתה נוהג ברכב הראשון',
-  effort: { dqnGradSteps: 65_000, gaEnvSteps: 1_200_000 },
+  // The genetic driver needs about a quarter longer since the tyres got a limit
+  // (physics 2): braking for corners is one more thing to stumble on.
+  effort: { dqnGradSteps: 65_000, gaEnvSteps: 1_500_000 },
   touchControls: {
     // Throttle left, steering right. `start` is the physical left edge whatever
     // the page's writing direction, and a stacked column reads top-down, so gas

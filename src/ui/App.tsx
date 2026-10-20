@@ -19,6 +19,7 @@ import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
 import { CoachAnchor, useCoachStep } from './coach';
 import { useIsNarrow } from './device';
+import { track } from '../storage/metrics';
 
 interface Tab {
   id: Screen;
@@ -78,6 +79,9 @@ function Arena() {
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
   const competitor = useApp((s) => s.competitor);
   const coach = useCoachStep();
+
+  // Counted once a day, behind the gate: a visit is somebody who came in.
+  useEffect(() => track('visit'), []);
 
   // The team name lives with the account, not with the browser, so the first
   // thing to do behind the gate is ask the account what it is. On the device

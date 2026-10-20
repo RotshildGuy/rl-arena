@@ -14,6 +14,7 @@ import { STEP_MS, type RacingSnapshot } from '../../core/games/racing/env';
 import type { RaceCard } from '../../core/champ/types';
 import { lapTime, raceTime, timeText, untilText } from '../format';
 import { useIsPortrait, useWakeLock } from '../device';
+import { track } from '../../storage/metrics';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -112,6 +113,7 @@ function BroadcastStage({
   const [endMs, setEndMs] = useState<number | null>(null);
 
   useWakeLock(true);
+  useEffect(() => track('watch'), []);
 
   // A live day pulls the viewer along with it: when the next session starts, the
   // broadcast follows, the same way a television feed would.
@@ -175,7 +177,13 @@ function BroadcastStage({
     if (!weights || !window_ || grid.length === 0) return null;
     const cars = policiesFor(grid, entryById, weights);
     if (cars.length === 0) return null;
-    return new SessionSim(card.trackId, lapsFor(window_.session), cars, card.seed + window_.session.offsetMs);
+    return new SessionSim(
+      card.trackId,
+      lapsFor(window_.session),
+      cars,
+      card.seed + window_.session.offsetMs,
+      card.physics,
+    );
   }, [weights, window_, grid, entryById, card]);
 
   // Build (or rebuild) the simulation for the selected session.
@@ -546,6 +554,7 @@ function BroadcastStage({
             max={durationMs}
             step={100}
             value={Math.min(headMs, durationMs)}
+            style={{ ['--fill' as string]: `${durationMs > 0 ? (Math.min(headMs, durationMs) / durationMs) * 100 : 0}%` }}
             aria-label="מיקום בצפייה החוזרת"
             onChange={(e) => seek(Number(e.target.value))}
           />

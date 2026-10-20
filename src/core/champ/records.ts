@@ -97,3 +97,79 @@ export function nextRoundOnTrack(trackId: string, afterRound: number): number | 
   const offset = ((index - afterRound % n) % n + n) % n;
   return afterRound + 1 + offset;
 }
+
+/**
+ * What a lap in training has to beat, on one circuit.
+ *
+ * A lap time with nothing next to it does not say when a model is good enough
+ * to enter. The nearest real yardstick is the pole of the last Grand Prix held
+ * on the same circuit — a single flying lap on an empty track, which is exactly
+ * what the best lap in training is. Before that circuit has had a Grand Prix
+ * with a pole, the all-time lap record from the records tab stands in.
+ *
+ * Car physics matters: a pole set on tyres that never let go is not a target
+ * for a car that can slide. A target from the physics being trained on is
+ * always preferred, and one from another version says so (`samePhysics`).
+ */
+export interface TrainingTarget {
+  kind: 'pole' | 'record';
+  ms: number;
+  driver: string;
+  round: number;
+  raceName: string;
+  samePhysics: boolean;
+}
+
+export function trainingTarget(
+  cards: RaceCard[],
+  results: Map<string, RaceResult>,
+  trackId: string,
+  physics: number,
+  now: number,
+): TrainingTarget | null {
+  const held = cards
+    .filter((c) => c.trackId === trackId && c.startsAt <= now)
+    .sort((a, b) => b.round - a.round);
+  const physicsOf = (c: RaceCard) => c.physics ?? 1;
+
+  const poleOf = (c: RaceCard): TrainingTarget | null => {
+    const q = c.qualifying[0];
+    if (!q || q.bestLapMs === null) return null;
+    const e = c.entries.find((x) => x.id === q.entryId);
+    return {
+      kind: 'pole',
+      ms: q.bestLapMs,
+      driver: e?.driver ?? '—',
+      round: c.round,
+      raceName: c.name,
+      samePhysics: physicsOf(c) === physics,
+    };
+  };
+  const recordOf = (pool: RaceCard[]): TrainingTarget | null => {
+    const rec = trackRecords(pool, results).find((r) => r.trackId === trackId);
+    const best = rec?.lap ?? null;
+    if (!best) return null;
+    const card = pool.find((c) => c.id === best.raceId);
+    return {
+      kind: 'record',
+      ms: best.ms,
+      driver: best.driver,
+      round: best.round,
+      raceName: card?.name ?? '',
+      samePhysics: card ? physicsOf(card) === physics : false,
+    };
+  };
+
+  const same = held.filter((c) => physicsOf(c) === physics);
+  for (const c of same) {
+    const t = poleOf(c);
+    if (t) return t;
+  }
+  const sameRecord = recordOf(same);
+  if (sameRecord) return sameRecord;
+  for (const c of held) {
+    const t = poleOf(c);
+    if (t) return t;
+  }
+  return recordOf(held);
+}

@@ -1,9 +1,19 @@
 import { OBS_VERSION } from '../games/racing/rewards';
-import { grandPrixName, lockAtForRound, raceIdForRound, seedForRound, SEASON_ID, startsAtForRound, trackForRound } from './schedule';
+import {
+  grandPrixName,
+  lockAtForRound,
+  physicsForRound,
+  raceIdForRound,
+  seedForRound,
+  SEASON_ID,
+  startsAtForRound,
+  trackForRound,
+} from './schedule';
 import { RACE_LAPS } from './format';
 import { runQualifying } from './sim';
 import type { ArenaEntry, RaceCard } from './types';
 import { nameKey } from './names';
+import { isHouse, isHouseId, withHouse } from './house';
 
 /**
  * Cars one team may put on the grid for a round.
@@ -26,6 +36,9 @@ export const MAX_CARS_PER_TEAM = 2;
  * The `createdAt` cut is what keeps the championship honest when a round is run
  * late: a model entered this afternoon cannot collect points for a race that was
  * supposed to happen last Tuesday.
+ *
+ * A thin grid is then topped up with house cars (`withHouse`), after every
+ * real car has its seat.
  */
 export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntry[] {
   const lock = lockAtForRound(round);
@@ -33,6 +46,9 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
     .filter(
       (e) =>
         !e.retired &&
+        // The house is added below, by the rules, never by an entry claiming to be it.
+        !isHouse(e) &&
+        !isHouseId(e.id) &&
         e.gameId === 'racing' &&
         e.obsVersion === OBS_VERSION &&
         e.createdAt <= lock,
@@ -62,7 +78,10 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
     perTeam.set(t, n + 1);
     if (n < MAX_CARS_PER_TEAM) chosen.add(e.id);
   }
-  return field.filter((e) => chosen.has(e.id));
+  return withHouse(
+    field.filter((e) => chosen.has(e.id)),
+    round,
+  );
 }
 
 /**
@@ -102,6 +121,7 @@ export function buildRaceCard(round: number, entries: ArenaEntry[], weights: Map
   const trackId = trackForRound(round);
   const seed = seedForRound(round);
   const field = eligibleEntries(entries, round);
+  const physics = physicsForRound(round);
   return {
     id: raceIdForRound(round),
     seasonId: SEASON_ID,
@@ -112,7 +132,10 @@ export function buildRaceCard(round: number, entries: ArenaEntry[], weights: Map
     seed,
     startsAt: startsAtForRound(round),
     entries: field,
-    qualifying: runQualifying(field, weights, trackId, seed),
+    qualifying: runQualifying(field, weights, trackId, seed, physics),
     createdAt: Date.now(),
+    // Left off the card while it is the default, so a card from before the
+    // switch is stored exactly as cards always were.
+    ...(physics > 1 ? { physics } : {}),
   };
 }

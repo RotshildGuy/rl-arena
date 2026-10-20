@@ -1,11 +1,12 @@
 import { driverTag } from '../core/champ/livery';
-import { nameProblem, normalizeName } from '../core/champ/names';
+import { nameProblem, normalizeName, teamNameProblem } from '../core/champ/names';
 import type { ArenaEntry } from '../core/champ/types';
 import { getArena } from '../storage/arena';
 import { getStore, newModelId, type ModelMeta } from '../storage';
 import { getCompetitor } from './identity';
 import { claimName, NameTakenError } from '../storage/teamNames';
 import { invalidateChampionship } from './useChampionship';
+import { track } from '../storage/metrics';
 
 export class EntryError extends Error {}
 
@@ -38,7 +39,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   // Both names go onto a public leaderboard, so they are checked here rather
   // than at the keyboard: a model can be renamed at any time, and this is the
   // one moment the name becomes everybody else's problem.
-  const teamIssue = nameProblem(team);
+  const teamIssue = teamNameProblem(team);
   if (teamIssue) throw new EntryError(`שם המתחרה — ${teamIssue}`);
   const driverIssue = nameProblem(driver);
   if (driverIssue) throw new EntryError(`שם המודל — ${driverIssue}`);
@@ -109,6 +110,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   };
 
   await arena.putEntry(entry, rec.weightsB64);
+  track('enter');
   invalidateChampionship();
   return entry;
 }

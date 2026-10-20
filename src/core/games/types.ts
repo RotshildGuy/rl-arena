@@ -37,6 +37,37 @@ export interface EnvSpec {
   /** What score() measures, e.g. "הקפות". Shown on the training dashboard. */
   scoreLabel: string;
   rewardChannels: RewardChannelDef[];
+  /** Ready-made tables, one tap each, for anyone who does not want ten sliders. */
+  presets?: RewardPreset[];
+}
+
+/**
+ * A driving style: a notch for some channels, the default for the rest.
+ * Notches rather than weights, so a preset reads the way the sliders do.
+ */
+export interface RewardPreset {
+  id: string;
+  label: string;
+  hint: string;
+  levels: Record<string, number>;
+}
+
+/** The full reward table a preset stands for. */
+export function presetRewards(spec: EnvSpec, preset: RewardPreset): RewardConfig {
+  const out: RewardConfig = {};
+  for (const c of spec.rewardChannels) out[c.key] = levelValue(c, preset.levels[c.key] ?? c.defaultLevel);
+  return out;
+}
+
+/** The preset a table is exactly on, if any — so the editor can light it up. */
+export function matchingPreset(spec: EnvSpec, value: RewardConfig): RewardPreset | null {
+  for (const p of spec.presets ?? []) {
+    const table = presetRewards(spec, p);
+    if (spec.rewardChannels.every((c) => levelOf(c, value[c.key] ?? channelDefault(c)) === levelOf(c, table[c.key]))) {
+      return p;
+    }
+  }
+  return null;
 }
 
 export interface StepResult {

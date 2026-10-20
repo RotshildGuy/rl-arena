@@ -6,6 +6,8 @@ import { teamColor } from '../../core/champ/livery';
 import { GRID_SIZE, MIN_ENTRIES, SESSION_GAP_MS, lapsFor, planSessions } from '../../core/champ/format';
 import {
   airingRound,
+  DAY_MS,
+  PHYSICS_V2_ROUND,
   grandPrixName,
   lockAtForRound,
   raceIdForRound,
@@ -13,6 +15,8 @@ import {
   trackForRound,
 } from '../../core/champ/schedule';
 import { eligibleEntries } from '../../core/champ/card';
+import { carRecaps, type CarRecap } from '../../core/champ/recap';
+import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
@@ -23,6 +27,7 @@ import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
+import { downloadRaceCalendar, googleCalendarUrl, REMINDER_MINUTES } from '../calendar';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -87,6 +92,17 @@ export function Championship() {
     );
     return done.length ? done[done.length - 1] : null;
   }, [state, now]);
+
+  // Recomputed when the season reloads, and when the clock settles a race day
+  // that was still on air — keyed on the round, not the second, because building
+  // the table twice is not free.
+  const lastRound = lastFinished?.round ?? 0;
+  const recaps = useMemo(() => {
+    if (!state || !lastFinished) return [];
+    const settled = settledResults(state.cards, state.results, now);
+    return carRecaps(lastFinished, state.cards, settled, state.uid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, lastRound]);
 
   // A car is either on the grid or it is not: an entry left retired under the
   // old withdrawal rules is filtered out here, so its model reads as
@@ -174,6 +190,12 @@ export function Championship() {
           onWatch={() => openRace(liveCard.id, 'broadcast')}
           onReport={() => openRace(liveCard.id, 'report')}
         />
+      )}
+
+      <PhysicsNotice now={now} onTrain={() => go('library')} />
+
+      {lastFinished && recaps.length > 0 && (
+        <MyRaceCard card={lastFinished} recaps={recaps} onOpen={() => openRace(lastFinished.id, 'report')} />
       )}
 
       <StaleCarNotice entries={myEntries} models={myModels} now={now} round={upcoming} onFix={() => go('library')} />
@@ -274,7 +296,9 @@ export function Championship() {
           <p style={{ margin: '0 0 14px' }}>
             {nextField.length >= MIN_ENTRIES
               ? 'הטבלאות ייבנו מיד אחרי שהאורות ייכבו.'
-              : `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שייערך גרנד פרי. אמנו מודל ורשמו אותו.`}
+              : upcoming >= HOUSE_FROM_ROUND
+                ? `רשמו מודל אחד, ו${HOUSE_TEAM} תשלים את הגריד עד ${HOUSE_GRID} רכבים — יהיה מרוץ כבר הערב.`
+                : `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שייערך גרנד פרי. אמנו מודל ורשמו אותו.`}
           </p>
           <button className="primary" onClick={() => go('library')}>
             למוסך
@@ -282,6 +306,39 @@ export function Championship() {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The championship moving to the new car physics.
+ *
+ * Every car on the grid learned to drive with tyres that never let go, and from
+ * the switch round on a car that never brakes goes into the wall. Its team has
+ * no way to find that out except by losing, so the date is said up front, and
+ * for a few days after it, and then the notice goes away by itself.
+ */
+function PhysicsNotice({ now, onTrain }: { now: number; onTrain(): void }) {
+  const at = startsAtForRound(PHYSICS_V2_ROUND);
+  if (now > at + 3 * DAY_MS) return null;
+  const before = now < at;
+  return (
+    <div className="card notched" style={{ marginBottom: 14, borderColor: 'rgba(0, 224, 255, 0.35)' }}>
+      <div className="row wrap">
+        <span className="pill" style={{ color: 'var(--accent-2)' }}>
+          {before ? `מסבב ${PHYSICS_V2_ROUND}` : 'חדש'}
+        </span>
+        <span style={{ minWidth: 0, flex: '1 1 260px' }}>
+          {before
+            ? `החל מ${grandPrixName(PHYSICS_V2_ROUND)} (${dateTimeText(at)}) `
+            : `מאז סבב ${PHYSICS_V2_ROUND} `}
+          לצמיגים יש גבול אחיזה: רכב שנכנס לפנייה מהר מדי מחליק, וגז מלא בהחלקה נגמר בקיר. רכבים
+          שאומנו לפני השינוי לא למדו לבלום — כדאי לאמן אותם מחדש ולעדכן את הרכב.
+        </span>
+        <button className="primary" onClick={onTrain}>
+          למוסך
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -453,7 +510,14 @@ function NextRace({
         <div className="cols-3" style={{ gap: 10, marginBottom: 16 }}>
           <div className="stat">
             <div className="k">רשומים</div>
-            <div className="v">{field.length}</div>
+            <div className="v">
+              {field.filter((e) => !isHouse(e)).length}
+              {field.some(isHouse) && (
+                <span className="dim" style={{ fontSize: 13 }} title={HOUSE_TEAM}>
+                  {' '}+{field.filter(isHouse).length} בית
+                </span>
+              )}
+            </div>
           </div>
           <div className="stat">
             <div className="k">פורמט</div>
@@ -470,7 +534,9 @@ function NextRace({
         </div>
 
         <div className="small muted" style={{ marginBottom: 14 }}>
-          {field.length < MIN_ENTRIES
+          {field.length === 0 && round >= HOUSE_FROM_ROUND
+            ? `מספיק מודל אחד רשום: ${HOUSE_TEAM} משלימה את הגריד עד ${HOUSE_GRID} רכבים.`
+            : field.length < MIN_ENTRIES
             ? `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שהמרוץ ייערך.`
             : field.length <= GRID_SIZE
               ? `כל ${field.length} המודלים מזניקים יחד. המוקדמות קובעות את סדר הזינוק.`
@@ -504,11 +570,36 @@ function NextRace({
           </div>
         )}
 
-        <button className="primary" onClick={onEnter}>
-          {field.length ? 'רשום עוד מודל' : 'רשום מודל לאליפות'}
-        </button>
+        <div className="row wrap">
+          <button className="primary" onClick={onEnter}>
+            {field.length ? 'רשום עוד מודל' : 'רשום מודל לאליפות'}
+          </button>
+          <AddToCalendar round={round} />
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The race is the reason to come back, and nothing reminds anybody of it. One
+ * daily event, a reminder before the lights, a link back here — no server and
+ * no permission to ask for.
+ */
+function AddToCalendar({ round }: { round: number }) {
+  const site = window.location.origin;
+  return (
+    <>
+      <button
+        onClick={() => downloadRaceCalendar(round, site)}
+        title={`אירוע יומי בשעת המרוץ, עם תזכורת ${REMINDER_MINUTES} דקות לפני`}
+      >
+        📅 הוסף ליומן
+      </button>
+      <a className="small" href={googleCalendarUrl(round, site)} target="_blank" rel="noopener noreferrer">
+        Google Calendar
+      </a>
+    </>
   );
 }
 
@@ -696,5 +787,68 @@ function LastRace({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * How the last race went for this team's own cars, one line each.
+ *
+ * The podium below is the race as everybody saw it; this is the race as the
+ * team cares about it — seventh is not on any podium. Shown only when one of
+ * their cars was in the latest race, so it never repeats old news.
+ */
+function MyRaceCard({ card, recaps, onOpen }: { card: RaceCard; recaps: CarRecap[]; onOpen(): void }) {
+  return (
+    <div className="card notched" style={{ marginBottom: 14 }}>
+      <div className="head">
+        <div className="eyebrow">מה קרה לרכב שלך · {card.name}</div>
+        <div className="fill" />
+        <button className="ghost small" onClick={onOpen}>
+          הדוח המלא →
+        </button>
+      </div>
+      {recaps.map((r) => (
+        <div className="row wrap" key={r.entryId} style={{ padding: '6px 0' }}>
+          <span className={posClass(r.position, r.status === 'dnf')}>{r.position}</span>
+          <DriverCell driver={r.driver} team={r.team} tag={r.tag} />
+          <div style={{ flex: 1 }} />
+          {(r.status === 'dnf' || !r.classified) && (
+            <span className="pill warn small">{r.status === 'dnf' ? 'פרש' : 'לא מדורג'}</span>
+          )}
+          <span className="mono small" style={{ fontWeight: 700 }} title="נקודות בסבב">
+            +{r.points}
+          </span>
+          {r.gained !== null && (
+            <span
+              className="mono small"
+              style={{ color: r.gained > 0 ? 'var(--good)' : r.gained < 0 ? 'var(--warn)' : undefined }}
+              title={`זינק ממקום ${r.startPos}`}
+            >
+              {r.gained > 0 ? `▲${r.gained}` : r.gained < 0 ? `▼${-r.gained}` : '＝'} מהזינוק
+            </span>
+          )}
+          {r.bestLapMs !== null && (
+            <span
+              className="mono small"
+              style={r.fastestOfDay ? { color: 'var(--purple)' } : undefined}
+              title={r.fastestOfDay ? 'ההקפה המהירה של היום' : 'ההקפה המהירה שלו'}
+            >
+              {lapTime(r.bestLapMs)}
+            </span>
+          )}
+          {r.standing !== null && <StandingMove now={r.standing} before={r.standingBefore} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StandingMove({ now, before }: { now: number; before: number | null }) {
+  const moved = before === null ? null : before - now;
+  return (
+    <span className="small muted" title="המקום באליפות הנהגים">
+      בטבלה: <span className="mono">{now}</span>
+      {moved === null ? ' (חדש)' : moved > 0 ? ` ▲${moved}` : moved < 0 ? ` ▼${-moved}` : ''}
+    </span>
   );
 }

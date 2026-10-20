@@ -1,5 +1,6 @@
 import type { ArenaEntry, DayPlace, RaceCard, RaceResult } from './types';
 import { nameKey } from './names';
+import { isHouse } from './house';
 
 /**
  * The scoring system Formula 1 has used since 2010, with the fastest-lap bonus
@@ -122,6 +123,8 @@ function unionFind() {
  * compatibility forms are not a different name.
  */
 function driverKeys(e: ArenaEntry): string[] {
+  // A house car is only ever itself, whatever a real car happens to be called.
+  if (isHouse(e)) return [`h\u0000${e.id}`];
   const driver = nameKey(e.driver);
   return [`u\u0000${e.uid}\u0000${driver}`, `t\u0000${nameKey(e.team)}\u0000${driver}`];
 }
@@ -294,6 +297,8 @@ export function buildStandings({ cards, results }: SeasonInput): {
   const teamMap = new Map<string, TeamStanding>();
   const teamAsOf = new Map<string, number>();
   for (const d of drivers) {
+    // House cars score drivers' points, but the house is not a constructor.
+    if (isHouse(d)) continue;
     const key = teamSets.find(teamOf(d));
     let t = teamMap.get(key);
     if (!t) {

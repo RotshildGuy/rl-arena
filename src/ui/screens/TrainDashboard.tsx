@@ -12,10 +12,13 @@ import { getStore, recordKey, type SetupRecord, type TrainingPoint } from '../..
 import type { SpeedMode, TrainSlotInit } from '../../workers/protocol';
 import { ALGORITHMS } from '../../core/rl/algorithms';
 import { useWakeLock } from '../device';
-import { compactNumber, durationText, lapTime, raceTime } from '../format';
-import type { RacingSnapshot } from '../../core/games/racing/env';
+import { durationText, lapTime, raceTime } from '../format';
+import { PHYSICS_VERSION, type RacingSnapshot } from '../../core/games/racing/env';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { CoachAnchor, useCoachStep } from '../coach';
+import { track } from '../../storage/metrics';
+import { useChampionship } from '../useChampionship';
+import { trainingTarget, type TrainingTarget } from '../../core/champ/records';
 
 const SPEEDS: Array<{ id: SpeedMode; label: string; hint: string }> = [
   { id: 'watch', label: '×1', hint: 'זמן אמת — לראות מה המודל עושה' },
@@ -38,7 +41,7 @@ export function TrainDashboard() {
   const coach = useCoachStep();
   const game = getGame(gameId);
   const trainer = useTrainer();
-  const { status, slots: live, seats, stepsPerSec, error, speed, snapRef } = trainer;
+  const { status, slots: live, seats, error, speed, snapRef } = trainer;
 
   const [booting, setBooting] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,6 +112,7 @@ export function TrainDashboard() {
       );
       setBooting(false);
       trainer.play();
+      track('train');
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,6 +156,7 @@ export function TrainDashboard() {
         patchSlot(i, { modelId: rec.id, restart: false });
         saved.push(rec.name);
       }
+      track('save');
       showToast(thenLeave ? `נשמר: ${saved.join(' · ')}` : `נקודת שמירה נוצרה ל-${saved.length} מודלים`);
       if (thenLeave) go('library');
     } catch (e) {
@@ -204,6 +209,15 @@ export function TrainDashboard() {
     return { lap, race };
   }, [history, slotIndex, draft.config]);
 
+  // The season is usually already loaded by the time anybody trains — the app
+  // opens on the championship — so this costs nothing in the common case.
+  const champ = useChampionship().state;
+  const target = useMemo(() => {
+    if (!hasLaps || !champ) return null;
+    const physics = Number(draft.config.physics ?? PHYSICS_VERSION);
+    return trainingTarget(champ.cards, champ.results, String(draft.config.trackId ?? ''), physics, Date.now());
+  }, [champ, hasLaps, draft.config]);
+
   return (
     <>
       <div className="toolbar">
@@ -255,11 +269,7 @@ export function TrainDashboard() {
               aspect={16 / 10}
               draw={(ctx) => {
                 if (speed === 'turbo') {
-                  drawPlaceholder(ctx, [
-                    'מצב טורבו',
-                    stepsPerSec.toLocaleString('he-IL') + ' צעדי סביבה לשנייה',
-                    'הציור כבוי כדי לפנות את המעבד לאימון',
-                  ]);
+                  drawPlaceholder(ctx, ['מצב טורבו', 'הציור כבוי כדי לפנות את המעבד לאימון']);
                   return;
                 }
                 const snap = snapRef.current;
@@ -331,6 +341,7 @@ export function TrainDashboard() {
                 <Stat k="הקפה מהירה" v={lapTime(records.lap)} accent />
                 <Stat k="מרוץ מלא" v={raceTime(records.race)} />
               </div>
+              {target && <TargetLine target={target} lap={records.lap} />}
               <div className="small muted" style={{ marginTop: 8 }}>
                 {records.race === null
                   ? `עוד לא הושלמו ${String(draft.config.laps ?? 3)} הקפות ברצף. השיא ייקבע ברגע שהרכב יראה את הדגל המשובץ.`
@@ -339,14 +350,15 @@ export function TrainDashboard() {
             </div>
           )}
 
+          {/* Only numbers somebody can act on. Exploration rate, steps per second
+              and the best reward ever scored describe the machinery, not the
+              driver — none of them says whether to keep training or what to
+              change, and the README promises a screen without them. */}
           <div className="card notched">
             <div className="cols-3">
               <Stat k={algo.episodesLabel} v={(slotLive?.live.episode ?? 0).toLocaleString('he-IL')} />
-              <Stat k="שיא נקודות" v={isFinite(slotLive?.best.reward ?? -Infinity) ? slotLive!.best.reward.toFixed(1) : '—'} />
               <Stat k={game.spec.scoreLabel} v={history.length ? history[history.length - 1].score.toFixed(2) : '—'} />
-              <Stat k="צעדים/שנייה" v={compactNumber(stepsPerSec)} />
               <Stat k="זמן אימון" v={durationText((boot.current[slotIndex]?.baseTrainedMs ?? 0) + trainer.elapsedMs())} />
-              <Stat k={algo.exploreLabel} v={(slotLive?.live.epsilon ?? 0).toFixed(2)} />
             </div>
           </div>
 
@@ -436,6 +448,37 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
 function setupLabel(config: Record<string, unknown>): string {
   const track = TRACK_DEFS.find((t) => t.id === config.trackId)?.name ?? String(config.trackId ?? '');
   return `${track} · ${String(config.laps ?? '?')} הקפות`;
+}
+
+/**
+ * The one number that says when a model is good enough: how far its best lap is
+ * from the pole of the last Grand Prix on this circuit.
+ */
+function TargetLine({ target, lap }: { target: TrainingTarget; lap: number | null }) {
+  const gap = lap === null ? null : (lap - target.ms) / 1000;
+  const label = target.kind === 'pole' ? `הפול של ${target.raceName} (סבב ${target.round})` : 'שיא ההקפה במסלול';
+  return (
+    <div className="small" style={{ marginTop: 10 }}>
+      <div>
+        {label}: <span className="mono" style={{ color: 'var(--purple)' }}>{lapTime(target.ms)}</span>
+        <span className="dim"> · {target.driver}</span>
+        {' · '}אתה: <span className="mono">{lapTime(lap)}</span>
+        {gap !== null && (
+          <>
+            {' · '}
+            <b className="mono" style={{ color: gap <= 0 ? 'var(--good)' : 'var(--warn)' }}>
+              {gap <= 0 ? `מהיר ב-${(-gap).toFixed(1)} שנ׳` : `+${gap.toFixed(1)} שנ׳`}
+            </b>
+          </>
+        )}
+      </div>
+      {!target.samePhysics && (
+        <div className="dim tiny" style={{ marginTop: 2 }}>
+          נקבע בפיזיקה הקודמת, כשהצמיגים לא החליקו — היעד האמיתי כנראה איטי יותר.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Stat({ k, v, accent }: { k: string; v: string; accent?: boolean }) {

@@ -203,6 +203,47 @@ function drawWorld(
   const bump = Math.max(1, minPx / (CAR_RADIUS * view.scale));
   const len = CAR_RADIUS * 1.7 * bump;
   const wid = CAR_RADIUS * 1.0 * bump;
+  // Drifts, under the cars. A sliding car's nose and its path part company, so
+  // the tyre streaks are drawn back from the rear wheels along the way it is
+  // actually travelling, longer the further it is out of line, with smoke where
+  // the rubber is. Drawn from the snapshot alone, with no trail kept between
+  // frames, because a replay can jump to any moment and has no frames before it.
+  for (let i = 0; i < snap.cars.length; i++) {
+    const c = snap.cars[i];
+    if (!c.sliding || c.done) continue;
+    const fwd = Math.sqrt(Math.max(0, c.speed * c.speed - c.slip * c.slip));
+    const heading = c.angle + Math.atan2(c.slip, fwd);
+    const back = Math.min(4, Math.abs(c.slip)) * len * 0.9;
+    const bx = -Math.cos(heading) * back;
+    const by = -Math.sin(heading) * back;
+    const cos = Math.cos(c.angle);
+    const sin = Math.sin(c.angle);
+    for (const side of [-1, 1]) {
+      // Rear wheel, car frame to world.
+      const wx = c.x - cos * len * 0.4 - sin * side * wid * 0.38;
+      const wy = c.y - sin * len * 0.4 + cos * side * wid * 0.38;
+      // A gradient throws on a non-finite point, where a plain fill only draws
+      // nothing; a bad number must not take the whole frame down with it.
+      if (!Number.isFinite(wx + wy + bx + by)) continue;
+      const streak = ctx.createLinearGradient(wx, wy, wx + bx, wy + by);
+      streak.addColorStop(0, 'rgba(12, 13, 18, 0.75)');
+      streak.addColorStop(1, 'rgba(12, 13, 18, 0)');
+      ctx.strokeStyle = streak;
+      ctx.lineWidth = wid * 0.28;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(wx, wy);
+      ctx.lineTo(wx + bx, wy + by);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(210, 216, 230, 0.16)';
+      ctx.beginPath();
+      ctx.arc(wx + bx * 0.35, wy + by * 0.35, wid * 0.55, 0, Math.PI * 2);
+      ctx.arc(wx + bx * 0.7, wy + by * 0.7, wid * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   for (let i = 0; i < snap.cars.length; i++) {
     const c = snap.cars[i];
     ctx.save();

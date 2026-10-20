@@ -9,6 +9,8 @@ import { MAX_CARS_PER_TEAM } from '../../core/champ/card';
 import { NAME_MAX } from '../../core/champ/names';
 import { POINTS, FASTEST_LAP_BONUS, CLASSIFY_FRACTION } from '../../core/champ/points';
 import { lockLeadText } from '../../core/champ/schedule';
+import { loadMetrics } from '../../storage/metrics';
+import { dayKey, summarize, type MetricsSummary } from '../../core/metrics';
 
 /**
  * The page nobody reads until they need it: how to play, what the rules are,
@@ -83,6 +85,13 @@ function HowTo() {
         העונש על פגיעה בקיר נמוך מדי, הוא יגלה שמשתלם להישען על הגדר ולדחוף לאורך כל המסלול.
         זה יעבור שערים, זה יצבור ניקוד, וזה יהיה איטי להחריד. כשהמודל מתנהג מוזר הוא לא טועה —
         הוא עשה בדיוק את מה שביקשתם. ההסבר המלא נמצא בכפתור "הסבר על אימון" במוסך.
+      </p>
+      <p>
+        <b>לצמיגים יש גבול.</b> רכב שנכנס לפנייה מהר מדי מאבד אחיזה ומחליק החוצה — דריפט. גז
+        מלא בזמן החלקה רק מגדיל אותה, ובסוף היא נגמרת בקיר: התנגשות חזקה עוצרת את הרכב כמעט
+        לגמרי, והמנוע נכבה לרבע שנייה. מי שמשאיר את הרגל על הגז כל הסיבוב מפסיד לנהג שיודע
+        איפה לבלום — וזה בדיוק מה שהמודל צריך ללמוד. בלימה לפני הפנייה, או הרמת הרגל מהגז
+        באמצע החלקה, מחזירות את האחיזה.
       </p>
       <p>
         אפשר לאמן <b>כמה מודלים יחד על אותו מסלול</b> — לכל אחד רשת ומחוונים משלו, והם
@@ -161,7 +170,7 @@ function Terms() {
   return (
     <>
       <h2>תנאי שימוש</h2>
-      <p className="muted">עודכן לאחרונה: ספטמבר 2026</p>
+      <p className="muted">עודכן לאחרונה: אוקטובר 2026</p>
 
       <h3>מה זה</h3>
       <p>
@@ -238,7 +247,7 @@ function Privacy() {
 
       <p>
         קצר: <b>אין כאן מעקב ואין פרסום.</b> השירות לא מבקש שם אמיתי או מספר טלפון ולא מפעיל
-        כלי אנליטיקה כלשהו. <b>אפשר להשתמש בו בלי למסור שום פרט</b> — כניסה בלי חשבון היא אחת
+        כלי אנליטיקה של צד שלישי. <b>אפשר להשתמש בו בלי למסור שום פרט</b> — כניסה בלי חשבון היא אחת
         משלוש האפשרויות במסך הפתיחה, והיא עובדת במלואה.
       </p>
 
@@ -277,11 +286,17 @@ function Privacy() {
         <li>
           <b>תוצאות מרוצים</b> שהמודלים שלכם השתתפו בהם.
         </li>
+        <li>
+          <b>ספירת שימוש.</b> פעם ביום לכל היותר, לכל אחת מחמש פעולות — כניסה לאתר, התחלת אימון,
+          שמירת מודל, רישום לאליפות וצפייה בשידור — נרשם שהמזהה שלכם עשה אותה באותו תאריך. בלי
+          שעה, בלי מכשיר, בלי כתובת ובלי שום פרט נוסף, ובאותו Firestore של האליפות ולא אצל צד
+          שלישי. רק מפעילי האתר יכולים לקרוא את זה, והשימוש היחיד הוא לדעת כמה אנשים חוזרים.
+        </li>
       </ul>
 
       <h3>מה לא נשמר</h3>
       <p className="muted">
-        שם אמיתי · טלפון · מיקום · עוגיות מעקב · פרופיל פרסומי · כלי אנליטיקה. אימייל נשמר רק
+        שם אמיתי · טלפון · מיקום · עוגיות מעקב · פרופיל פרסומי · כלי אנליטיקה של צד שלישי. אימייל נשמר רק
         אם בחרתם להתחבר עם מייל או עם Google, ולעולם לא מוצג לאחרים.
         הגופנים באתר מוגשים מהשרת שלנו ולא מרשת חיצונית, כך שטעינת הדף לא מדווחת לאף צד שלישי.
       </p>
@@ -333,7 +348,8 @@ function Privacy() {
       <h3>הזכויות שלכם</h3>
       <p>
         אתם יכולים למחוק את כל מה שלכם בלחיצה אחת, בטאב "קרדיטים" כאן למעלה. המחיקה מסירה את כל
-        המודלים ואת כל הרישומים לאליפות, ומסירה אתכם ממרוצים עתידיים.
+        המודלים ואת כל הרישומים לאליפות, ומסירה אתכם ממרוצים עתידיים. ספירת השימוש לא נמחקת:
+        היא מחזיקה רק את המזהה האקראי ותאריכים, ואחרי המחיקה המזהה הזה כבר לא מקושר לשום דבר.
       </p>
 
       {CONTACT ? (
@@ -445,6 +461,8 @@ function Notices() {
       )}
       {account && <AccountModal onClose={() => setAccount(false)} />}
 
+      {auth.phase === 'in' && <MetricsPanel />}
+
       <h3>המזהה שלכם</h3>
       <p className="muted small">
         זה המזהה שהמודלים שלכם שמורים תחתיו. הוא אינו כולל שום פרט אישי, גם כשהחשבון מקושר.
@@ -476,6 +494,55 @@ function Notices() {
           </button>
         )}
       </div>
+    </>
+  );
+}
+
+/**
+ * Retention for the operators, and nothing for anybody else.
+ *
+ * Only `admins()` may read the metrics collection, so for everybody else the
+ * read is refused and the section never renders — there is no button to find
+ * and no empty state to wonder about.
+ */
+function MetricsPanel() {
+  const [summary, setSummary] = useState<MetricsSummary | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void loadMetrics(45)
+      .then((rows) => {
+        if (!cancelled) setSummary(summarize(rows, dayKey(Date.now())));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (!summary || summary.accounts === 0) return null;
+
+  const pct = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` : '—');
+  const { funnel } = summary;
+  return (
+    <>
+      <h3>מדדים (מפעילים בלבד)</h3>
+      <p className="muted small">45 הימים האחרונים · {summary.accounts} חשבונות</p>
+      <ul className="small">
+        {summary.retention.map((r) => (
+          <li key={r.day}>
+            חזרו אחרי {r.day} {r.day === 1 ? 'יום' : 'ימים'}: <b>{pct(r.returned, r.cohort)}</b>{' '}
+            <span className="muted">
+              ({r.returned} מתוך {r.cohort})
+            </span>
+          </li>
+        ))}
+        <li>
+          מבקרים שהגיעו לרישום לאליפות: <b>{pct(funnel.enter, funnel.visit)}</b>{' '}
+          <span className="muted">
+            (ביקור {funnel.visit} · אימון {funnel.train} · שמירה {funnel.save} · רישום {funnel.enter} · צפייה{' '}
+            {funnel.watch})
+          </span>
+        </li>
+      </ul>
     </>
   );
 }

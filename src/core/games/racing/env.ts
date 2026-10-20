@@ -12,6 +12,64 @@ const STEER_RATE = 0.06;
 /** Fraction of sideways velocity killed per step — lower means more drift. */
 const GRIP = 0.82;
 
+/**
+ * Which set of car physics a race runs on.
+ *
+ * Version 1 put the car on rails: the tyres took 82% of any sideways motion
+ * every step whatever the speed, so the only limit in a corner was how fast
+ * the wheel turned. Flat out and steering at the next gate went round every
+ * circuit without touching a wall — a two-line script was as good a driver as
+ * anything a model could learn, and there was nothing to learn.
+ *
+ * Version 2 gives the tyres a limit. They can only hold so much sideways
+ * force, so a car that turns in too fast keeps going the way it was going,
+ * slides, and meets the outside wall — and the wall now costs real time
+ * instead of being something to lean on. The driver has to brake for corners,
+ * pick where to brake, and catch a slide. That is the skill the championship
+ * is meant to reward.
+ *
+ * The version is part of the race, not a global switch: a race card records
+ * the physics it was run on, so a replay of a race from before this change
+ * still produces the result that was published.
+ */
+export const PHYSICS_VERSION = 2;
+
+/** Sideways velocity the tyres can take out per step while gripping. */
+const LAT_GRIP = 0.14;
+/** Once sliding, grip is lower than the grip that was lost: a slide holds. */
+const SLIDE_GRIP = 0.1;
+/** Sideways speed past which the tyres let go, and below which they catch again. */
+const SLIDE_START = 0.9;
+const SLIDE_END = 0.45;
+/** Power or brakes on mid-corner share the same tyres, and leave less for turning. */
+const GRIP_ON_GAS = 0.88;
+const GRIP_ON_BRAKE = 0.8;
+/**
+ * Full power in a slide spins the rear tyres and leaves them almost nothing
+ * to hold the car with — so a slide driven on the throttle grows until it
+ * reaches the wall, and the way to catch one is to lift.
+ */
+const GRIP_SLIDE_ON_GAS = 0.55;
+/** Speed scrubbed per step, per unit of sideways slide. A drift is never free. */
+const SLIDE_DRAG = 0.05;
+
+/** Walls, version 2. Speed along the wall that survives each step of contact. */
+const WALL_SCRAPE = 0.6;
+/** How much of the speed into the wall comes back out of it. */
+const WALL_BOUNCE = 0.25;
+/** An impact this hard is a crash rather than a scrape. */
+const CRASH_SPEED = 0.9;
+/** What is left of the car's speed after a crash. */
+const CRASH_KEEP = 0.25;
+/** Steps after a crash in which the throttle does nothing: the car has spun and stalled. */
+const CRASH_STALL = 15;
+/**
+ * How much of the acceleration is gone at top speed. An engine pulls hardest
+ * from low down, so speed carried through a corner is worth more than speed
+ * that has to be built again after it — and a crash costs the whole climb.
+ */
+const ACCEL_FADE = 0.45;
+
 export interface RacingConfig {
   trackId: string;
   nCars: number;
@@ -30,6 +88,12 @@ export interface RacingConfig {
    * watch.
    */
   neverStuck?: number;
+  /**
+   * The car physics to run, `PHYSICS_VERSION` when absent. Training and free
+   * play always take the current one; a championship race passes the version
+   * recorded on its card.
+   */
+  physics?: number;
 }
 
 export const DEFAULT_RACING_CONFIG: RacingConfig = {
@@ -54,6 +118,10 @@ export interface CarSnapshot {
   touchingWall: boolean;
   touchingCar: boolean;
   reverse: boolean;
+  /** True while the tyres have let go and the car is sliding. */
+  sliding: boolean;
+  /** Sideways speed in the car's frame, signed; how far out of line it is. */
+  slip: number;
   /** Continuous distance covered, in laps. Monotone, so it survives the start line. */
   trackPos: number;
   /** Which third of the lap the car is in, 0-2. */
@@ -155,7 +223,12 @@ export class RacingEnv implements Env<RacingSnapshot> {
   private prevTouchingWall: Uint8Array;
   private prevTouchingCar: Uint8Array;
   private reverseFlag: Uint8Array;
+  private slidingFlag: Uint8Array;
+  private slipLat: Float32Array;
+  /** Steps left in which this car's throttle is dead after a crash. */
+  private stall: Int32Array;
   private rank: Int32Array;
+  private readonly physics: number;
 
   // --- timing ---
   /** Continuous progress in centreline-index units. Monotone, unlike `ci`, which wraps. */
@@ -205,8 +278,12 @@ export class RacingEnv implements Env<RacingSnapshot> {
     this.nAgents = config.nCars;
     this.track = getTrack(config.trackId);
     this.rng = mulberry32(1);
+    this.physics = config.physics ?? PHYSICS_VERSION;
 
     const n = this.nAgents;
+    this.slidingFlag = new Uint8Array(n);
+    this.slipLat = new Float32Array(n);
+    this.stall = new Int32Array(n);
     this.px = new Float32Array(n);
     this.py = new Float32Array(n);
     this.prevX = new Float32Array(n);
@@ -297,6 +374,9 @@ export class RacingEnv implements Env<RacingSnapshot> {
       this.prevY[i] = this.py[i];
       this.vx[i] = 0;
       this.vy[i] = 0;
+      this.slidingFlag[i] = 0;
+      this.slipLat[i] = 0;
+      this.stall[i] = 0;
       this.angle[i] = Math.atan2(ty, tx) + (this.rng() - 0.5) * 0.2;
       this.nextCp[i] = 0;
       this.laps[i] = 0;
@@ -580,12 +660,42 @@ export class RacingEnv implements Env<RacingSnapshot> {
       cos = Math.cos(this.angle[i]);
       sin = Math.sin(this.angle[i]);
 
-      if (throttle === 0) fwd += ACCEL;
+      // Version 1 carried the velocity round with the nose: whatever way the
+      // car pointed, it went. In version 2 turning points the car somewhere new
+      // and the velocity has to be dragged round after it by the tyres, so it is
+      // re-read in the new frame — which is what turns a steering input into
+      // sideways speed the tyres must deal with.
+      if (this.physics >= 2) {
+        fwd = this.vx[i] * cos + this.vy[i] * sin;
+        lat = -this.vx[i] * sin + this.vy[i] * cos;
+        if (this.stall[i] > 0) this.stall[i]--;
+        else if (throttle === 0) fwd += ACCEL * (1 - ACCEL_FADE * Math.max(0, fwd) / MAX_SPEED);
+        if (throttle === 2) fwd -= BRAKE;
+      } else if (throttle === 0) fwd += ACCEL;
       else if (throttle === 2) fwd -= BRAKE;
 
       fwd *= DRAG;
-      lat *= 1 - GRIP;
+      if (this.physics >= 2) {
+        // Grip is a budget, not a ratio. The tyres take out as much sideways
+        // speed as they can hold, and no more: turn in too fast and the rest
+        // stays, and the car slides towards the outside of the corner.
+        const sliding = this.slidingFlag[i] === 1;
+        let grip = sliding ? SLIDE_GRIP : LAT_GRIP;
+        if (throttle === 0) grip *= sliding ? GRIP_SLIDE_ON_GAS : GRIP_ON_GAS;
+        else if (throttle === 2) grip *= GRIP_ON_BRAKE;
+        const held = Math.min(Math.abs(lat) * GRIP, grip);
+        lat -= Math.sign(lat) * held;
+        const slide = Math.abs(lat);
+        // Hysteresis: the tyres let go at one speed and catch again at a lower
+        // one, so a slide is something that has to be driven out of.
+        if (!sliding && slide > SLIDE_START) this.slidingFlag[i] = 1;
+        else if (sliding && slide < SLIDE_END) this.slidingFlag[i] = 0;
+        if (this.slidingFlag[i]) fwd -= Math.sign(fwd) * Math.min(Math.abs(fwd), slide * SLIDE_DRAG);
+      } else {
+        lat *= 1 - GRIP;
+      }
       fwd = Math.max(-MAX_SPEED * 0.3, Math.min(MAX_SPEED, fwd));
+      this.slipLat[i] = lat;
 
       this.vx[i] = fwd * cos - lat * sin;
       this.vy[i] = fwd * sin + lat * cos;
@@ -606,12 +716,32 @@ export class RacingEnv implements Env<RacingSnapshot> {
       this.px[i] += nx * depth;
       this.py[i] += ny * depth;
       const vn = this.vx[i] * nx + this.vy[i] * ny;
-      if (vn < 0) {
-        this.vx[i] -= vn * nx * 1.2;
-        this.vy[i] -= vn * ny * 1.2;
+      if (this.physics >= 2) {
+        // Split the velocity against the wall: what goes into it comes back
+        // weakly, what runs along it is scrubbed off every step it stays in
+        // contact — so riding the outside wall round a corner is the slowest
+        // way round it, not a shortcut. A hard hit is a crash.
+        let tx = this.vx[i] - vn * nx;
+        let ty = this.vy[i] - vn * ny;
+        tx *= WALL_SCRAPE;
+        ty *= WALL_SCRAPE;
+        const out = vn < 0 ? -vn * WALL_BOUNCE : vn;
+        this.vx[i] = tx + out * nx;
+        this.vy[i] = ty + out * ny;
+        if (-vn > CRASH_SPEED) {
+          this.vx[i] *= CRASH_KEEP;
+          this.vy[i] *= CRASH_KEEP;
+          this.stall[i] = CRASH_STALL;
+        }
+        this.slidingFlag[i] = 0;
+      } else {
+        if (vn < 0) {
+          this.vx[i] -= vn * nx * 1.2;
+          this.vy[i] -= vn * ny * 1.2;
+        }
+        this.vx[i] *= 0.55;
+        this.vy[i] *= 0.55;
       }
-      this.vx[i] *= 0.55;
-      this.vy[i] *= 0.55;
       this.touchingWall[i] = 1;
     }
 
@@ -867,6 +997,8 @@ export class RacingEnv implements Env<RacingSnapshot> {
         touchingWall: this.touchingWall[i] === 1,
         touchingCar: this.touchingCar[i] === 1,
         reverse: this.reverseFlag[i] === 1,
+        sliding: this.slidingFlag[i] === 1,
+        slip: this.slipLat[i],
         trackPos: this.arc[i] / this.track.def.samples,
         sector: this.sectorIdx[i],
         currentLapMs: this.lineCross[i] > 0 ? (this.step_ - this.lapStartStep[i]) * STEP_MS : 0,

@@ -10,13 +10,15 @@ import { encodeWeights, decodeWeights } from '../src/core/nn/serialize';
 import { DqnAgent } from '../src/core/rl/dqn';
 import { mulberry32 } from '../src/core/rng';
 import { TRACK_DEFS, buildTrack, segmentsIntersect } from '../src/core/games/racing/tracks';
-import { defaultRewards } from '../src/core/games/types';
+import { defaultRewards, levelOf, matchingPreset, presetRewards } from '../src/core/games/types';
 import { GaTrainer, GaLearner } from '../src/core/rl/ga';
 import { TrainingSession } from '../src/core/rl/session';
 import { getGame } from '../src/core/games/registry';
-import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS } from '../src/core/games/racing/env';
-import { RACING_SPEC, OBS_SIZE } from '../src/core/games/racing/rewards';
-import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
+import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../src/core/games/racing/env';
+import { bestBraking, drive, flatOutLoses } from './drivers';
+import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
+import { RACING_SPEC, OBS_SIZE, RACING_PRESETS } from '../src/core/games/racing/rewards';
+import { planSessions, GRID_SIZE, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, nameKey, normalizeName, NAME_MAX } from '../src/core/champ/names';
 import { resolveCompetitor } from '../src/ui/competitorMerge';
@@ -31,7 +33,7 @@ import {
   LOCK_BEFORE_MS,
   DAY_MS,
 } from '../src/core/champ/schedule';
-import { nextRoundOnTrack } from '../src/core/champ/records';
+import { nextRoundOnTrack, trainingTarget } from '../src/core/champ/records';
 import { eligibleEntries, MAX_CARS_PER_TEAM } from '../src/core/champ/card';
 import {
   broadcastOpensAt,
@@ -44,6 +46,14 @@ import {
 } from '../src/core/champ/timing';
 import type { DayPlace, RaceCard, RaceResult } from '../src/core/champ/types';
 import { coachStepFor, type CoachState } from '../src/ui/coachStep';
+import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
+import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
+import { carRecaps } from '../src/core/champ/recap';
+import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
+import { teamNameProblem } from '../src/core/champ/names';
+import { readFileSync } from 'node:fs';
+import { Policy } from '../src/core/rl/policy';
+import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -359,6 +369,83 @@ function sharedSessionTest(): void {
 
 // --------------------------------------------------------- chequered flag
 /**
+ * The car physics.
+ *
+ * Two promises. Version 1 never changes, by a single bit: every race card from
+ * before version 2 replays on it, and a replay that drifts from the published
+ * result is a championship nobody can trust. The fingerprints below are of the
+ * position, heading and lap of four cars on random input, taken from the code
+ * that raced those rounds.
+ *
+ * And on the current version a dumb driver loses. Flat out, steering at the
+ * road ahead, used to be the fastest way round every circuit; now the tyres
+ * have a limit, and a driver that never brakes is beaten by one that does.
+ */
+function physicsTest(): void {
+  console.log(CHAPTER + 'car physics');
+
+  const V1_FINGERPRINTS: Record<string, string> = {
+    oval: 'feb5eb5d',
+    kidney: 'd45b411d',
+    technical: '8f6db783',
+    speedway: '343aa7e7',
+  };
+  const f = new Float32Array(1);
+  const u = new Uint32Array(f.buffer);
+  for (const def of TRACK_DEFS) {
+    const env = new RacingEnv(
+      { ...DEFAULT_RACING_CONFIG, trackId: def.id, nCars: 4, laps: 3, physics: 1 },
+      defaultRewards(RACING_SPEC),
+    );
+    env.reset(5);
+    const rng = mulberry32(9);
+    const act = new Int32Array(4);
+    let h = 2166136261;
+    for (let s = 0; s < 1500; s++) {
+      for (let i = 0; i < 4; i++) act[i] = rng() < 0.7 ? Math.floor(rng() * 3) : Math.floor(rng() * 9);
+      if (env.step(act).allDone) env.reset(s);
+      for (const c of env.snapshot().cars) {
+        for (const v of [c.x, c.y, c.angle]) {
+          f[0] = v;
+          h = Math.imul(h ^ u[0], 16777619) >>> 0;
+        }
+      }
+    }
+    const got = h.toString(16);
+    check(`physics 1 is unchanged on ${def.id}`, got === V1_FINGERPRINTS[def.id], got);
+  }
+
+  for (const def of TRACK_DEFS) {
+    const flat = drive(def.id, PHYSICS_VERSION, null);
+    const brake = bestBraking(def.id, PHYSICS_VERSION);
+    check(
+      `flat out loses to braking on ${def.id}`,
+      flatOutLoses(flat, brake),
+      `${flat.totalMs === null ? 'DNF' : (flat.totalMs / 1000).toFixed(2) + 's'} (${flat.wallHits} walls) vs ${
+        brake.totalMs === null ? 'DNF' : (brake.totalMs / 1000).toFixed(2) + 's'
+      }`,
+    );
+  }
+
+  const freePlay = new RacingEnv({ ...DEFAULT_RACING_CONFIG }, defaultRewards(RACING_SPEC));
+  freePlay.reset(1);
+  const go = new Int32Array(DEFAULT_RACING_CONFIG.nCars);
+  let slid = false;
+  for (let s = 0; s < 600 && !slid; s++) {
+    go.fill(2); // gas and full right lock: more than any tyre can hold
+    freePlay.step(go);
+    slid = freePlay.snapshot().cars.some((c) => c.sliding);
+  }
+  check('training and play run on the current physics, where a car can slide', slid);
+
+  check(
+    'the championship switches physics at its round, not before',
+    physicsForRound(PHYSICS_V2_ROUND - 1) === 1 && physicsForRound(PHYSICS_V2_ROUND) === PHYSICS_VERSION,
+    `round ${PHYSICS_V2_ROUND}`,
+  );
+}
+
+/**
  * The flag falls once, for everybody.
  *
  * When the leader completes the distance the race is over: the next car to reach
@@ -369,8 +456,10 @@ function sharedSessionTest(): void {
 function flagTest(): void {
   console.log(CHAPTER + 'the chequered flag');
   const n = 3;
+  // Physics 1, where these scripted drivers were tuned: what is under test is
+  // the flag, and it needs one car reliably laps down rather than in the wall.
   const env = new RacingEnv(
-    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: n, laps: 3, stuckLimit: 10 ** 9, maxSteps: 40000 },
+    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: n, laps: 3, stuckLimit: 10 ** 9, maxSteps: 40000, physics: 1 },
     defaultRewards(RACING_SPEC),
   );
   env.reset(5);
@@ -482,8 +571,10 @@ function timingTest(): void {
   // the lowest index — which in a race against a model is the human. The screen
   // cheerfully announced a win to a player who had just been beaten by nine
   // seconds. Rank has to come from *when* the flag was taken.
+  // Physics 1 for the same reason as the flag test: the scenario needs every
+  // car home on the lead lap, which these scripted drivers manage there.
   const duel = new RacingEnv(
-    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: 3, laps: 2, stuckLimit: 10 ** 9, maxSteps: 40000 },
+    { ...DEFAULT_RACING_CONFIG, trackId: 'oval', nCars: 3, laps: 2, stuckLimit: 10 ** 9, maxSteps: 40000, physics: 1 },
     defaultRewards(RACING_SPEC),
   );
   duel.reset(5);
@@ -664,6 +755,27 @@ function championshipTest(): void {
 
   const gap = startsAtForRound(4) - startsAtForRound(3);
   check('rounds are exactly a day apart', gap === DAY_MS, `${gap / 3_600_000}h`);
+
+  // 20:00 in Israel, every day, checked against the real zone database.
+  const israelHour = (at: number) =>
+    Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hourCycle: 'h23' }).format(at));
+  const offHours: number[] = [];
+  for (let r = 1; r <= 365 * 5; r++) if (israelHour(startsAtForRound(r)) !== 20) offHours.push(r);
+  check('every round for five years starts at 20:00 Israel time', offHours.length === 0, offHours.slice(0, 5).join(', '));
+  const alreadyRaced: number[] = [];
+  for (let r = 1; r <= 41; r++) {
+    if (startsAtForRound(r) !== Date.UTC(2026, 8, 14 + r - 1, 17)) alreadyRaced.push(r);
+  }
+  check('rounds up to the clock change keep their old start, 17:00 UTC', alreadyRaced.length === 0, alreadyRaced.join(', '));
+  const sunday = startsAtForRound(42);
+  check('round 42, Sunday 25.10, is the first at 18:00 UTC', sunday === Date.UTC(2026, 9, 25, 18));
+  check('and the evening before it is round 41', currentRound(sunday - 1) === 41 && currentRound(sunday) === 42);
+  let monotonic = true;
+  for (let r = 1; r < 365 * 3; r++) {
+    const at = startsAtForRound(r);
+    if (currentRound(at) !== r || currentRound(at - 1) !== r - 1) monotonic = false;
+  }
+  check('the current round turns over exactly at each lights out, clock changes included', monotonic);
   check('nothing is raced before the season opens', currentRound(startsAtForRound(1) - 1) === 0);
   check('round one opens on time', currentRound(startsAtForRound(1)) === 1);
 }
@@ -1183,6 +1295,201 @@ function coachTest(): void {
   check('withdrawing a car brings it back', at({ ...named, models: 1, screen: 'library' }) === 'enter');
 }
 
+// ---------------------------------------------------------------- metrics
+function metricsTest(): void {
+  console.log(CHAPTER + 'Retention metrics');
+  const row = (uid: string, day: string, event: MetricRow['event'] = 'visit'): MetricRow => ({ uid, event, day });
+  const rows: MetricRow[] = [
+    // a: back the next day and a month later.
+    row('a', '2026-09-01'), row('a', '2026-09-02'), row('a', '2026-10-05'), row('a', '2026-09-01', 'enter'),
+    // b: never back.
+    row('b', '2026-09-01'),
+    // c: back after a week, on a later day only — and exactly 30 days old today.
+    row('c', '2026-09-10'), row('c', '2026-09-20'), row('c', '2026-09-10', 'train'),
+    // d: arrived yesterday — too new to count as lost on day 7.
+    row('d', '2026-10-09'),
+  ];
+  const s = summarize(rows, '2026-10-10');
+  const at = (d: number) => s.retention.find((r) => r.day === d)!;
+  check('every account is counted once', s.accounts === 4, String(s.accounts));
+  check('day 1: a and c came back, b did not, d is counted', at(1).cohort === 4 && at(1).returned === 2, JSON.stringify(at(1)));
+  check('day 7 leaves out an account too new to have had the chance', at(7).cohort === 3 && at(7).returned === 2, JSON.stringify(at(7)));
+  check('day 30 counts only accounts a month old', at(30).cohort === 3 && at(30).returned === 1, JSON.stringify(at(30)));
+  check('the funnel counts accounts, not events', s.funnel.visit === 4 && s.funnel.enter === 1 && s.funnel.train === 1);
+  check('days are UTC', dayKey(Date.UTC(2026, 9, 10, 23, 30)) === '2026-10-10');
+}
+
+// ---------------------------------------------------------------- calendar
+function calendarTest(): void {
+  console.log(CHAPTER + 'Race calendar');
+  const round = 42;
+  const ics = raceCalendarIcs(round, 'https://example.test', Date.UTC(2026, 9, 1));
+  const start = new Date(startsAtForRound(round)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const lines = ics.split('\r\n');
+  // Round 42 is Sunday 25.10.2026, the evening Israel goes back to winter time.
+  check('the event starts at 20:00 Israel time on the round\'s day',
+    ics.includes('\r\nDTSTART;TZID=Asia/Jerusalem:20261025T200000\r\n'), start);
+  check('and carries the zone, so it stays at 20:00 through clock changes',
+    ics.includes('\r\nBEGIN:VTIMEZONE\r\nTZID:Asia/Jerusalem\r\n'));
+  const summer = raceCalendarIcs(30, 'https://example.test');
+  check('a summer round is 20:00 too', summer.includes('DTSTART;TZID=Asia/Jerusalem:20261013T200000'));
+  check('and repeats every day', ics.includes('\r\nRRULE:FREQ=DAILY\r\n'));
+  check('with a reminder fifteen minutes before', ics.includes('\r\nTRIGGER:-PT15M\r\n'));
+  check('every line ends in CRLF', !/[^\r]\n/.test(ics) && ics.endsWith('\r\n'));
+  const enc = new TextEncoder();
+  const longest = Math.max(...lines.map((l) => enc.encode(l).length));
+  check('no content line is longer than 75 octets', longest <= 75, String(longest));
+  const hebrew = 'SUMMARY:' + 'מרוץ '.repeat(30);
+  const unfolded = foldLine(hebrew).replace(/\r\n /g, '');
+  check('folding Hebrew loses nothing', unfolded === hebrew);
+  const g = new URL(googleCalendarUrl(round, 'https://example.test'));
+  check('the Google link carries the same start and the daily rule',
+    g.searchParams.get('dates') === '20261025T200000/20261025T203000' &&
+      g.searchParams.get('ctz') === 'Asia/Jerusalem' && g.searchParams.get('recur') === 'RRULE:FREQ=DAILY');
+}
+
+// ---------------------------------------------------------------- recap
+function recapTest(): void {
+  console.log(CHAPTER + 'What happened to my car');
+  // Round 1: a wins. Round 2: a starts from pole but finishes third, b0 wins.
+  const ids = ['a', 'b0', 'b1', 'b2'];
+  const r1 = fakeCard(1, ids);
+  const r2 = fakeCard(2, ids);
+  const results = new Map<string, RaceResult>([
+    [r1.id, fakeResult(r1.id, [fakePlace('a', 1), fakePlace('b0', 2), fakePlace('b1', 3), fakePlace('b2', 4)])],
+    [r2.id, fakeResult(r2.id, [fakePlace('b0', 1), fakePlace('b1', 2), fakePlace('a', 3), fakePlace('b2', 4)])],
+  ]);
+  const res2 = results.get(r2.id)!;
+  res2.sessions = [{
+    sessionId: 'race', grid: ids, fastestLap: { entryId: 'a', ms: 41_200 },
+    classification: [{
+      entryId: 'a', position: 3, laps: RACE_LAPS, totalMs: 1, gapMs: 1, bestLapMs: 41_200, bestSectorsMs: [],
+      lapTimesMs: [], lapPositions: [], topSpeed: 1, overtakes: 0, wallHits: 0, carHits: 0, lapsLed: 0,
+      status: 'finished', gridPos: 1,
+    }],
+  }];
+  res2.fastestLap = { entryId: 'a', ms: 41_200 };
+  const [mine, ...more] = carRecaps(r2, [r1, r2], results, 'u');
+  check('one line per car of the team, and only theirs', !!mine && more.length === 0 && mine.entryId === 'a');
+  check('final place and the points it earned', mine.position === 3 && mine.points === POINTS[2]);
+  check('two places lost from pole', mine.startPos === 1 && mine.gained === -2, String(mine.gained));
+  check('its own quickest lap, marked as the fastest of the day', mine.bestLapMs === 41_200 && mine.fastestOfDay);
+  // After round 1: a 25, b0 18. After round 2: b0 43, a 40 — a drops to second.
+  check('the table move is worked out from before and after the round', mine.standingBefore === 1 && mine.standing === 2,
+    `${mine.standingBefore} → ${mine.standing}`);
+  check('a team with no car in the race gets no card', carRecaps(r2, [r1, r2], results, 'nobody').length === 0);
+  check('nor does a race whose result is not out yet', carRecaps(r2, [r1, r2], new Map([[r1.id, results.get(r1.id)!]]), 'u').length === 0);
+}
+
+// ---------------------------------------------------------------- target
+function targetTest(): void {
+  console.log(CHAPTER + 'Training target');
+  const ids = ['a', 'b0'];
+  const pole = (c: RaceCard, ms: number, physics?: number): RaceCard => ({
+    ...c,
+    physics,
+    qualifying: [{ entryId: 'b0', bestLapMs: ms, sectorsMs: [], topSpeed: 1 }, { entryId: 'a', bestLapMs: ms + 500, sectorsMs: [], topSpeed: 1 }],
+  });
+  const n = TRACK_DEFS.length;
+  const track = trackForRound(1);
+  // Rounds 1 and 1+n run the same circuit; 1+2n is in the future.
+  const cards = [
+    pole({ ...fakeCard(1, ids), trackId: track }, 42_000, 1),
+    pole({ ...fakeCard(1 + n, ids), trackId: track }, 41_000, 2),
+    pole({ ...fakeCard(1 + 2 * n, ids), trackId: track }, 30_000, 2),
+    pole({ ...fakeCard(2, ids), trackId: trackForRound(2) }, 20_000, 2),
+  ];
+  const now = startsAtForRound(1 + n) + 1000;
+  const t = trainingTarget(cards, new Map(), track, 2, now);
+  check('the latest pole on this circuit, not a future one or another track', t?.kind === 'pole' && t.ms === 41_000, String(t?.ms));
+  check('and who set it', t?.driver === 'b0' && t.round === 1 + n && t.samePhysics);
+  const old = trainingTarget(cards, new Map(), track, 2, startsAtForRound(1) + 1000);
+  check('a pole from the old physics is used, but flagged', old?.ms === 42_000 && old.samePhysics === false);
+  check('no Grand Prix on this circuit, no target', trainingTarget(cards, new Map(), trackForRound(3), 2, now) === null);
+}
+
+// ---------------------------------------------------------------- sliders
+function sliderTest(): void {
+  console.log(CHAPTER + 'Sliders and styles');
+  // Right always means "more of this": a bigger bonus, a harsher penalty, or —
+  // for contact, the one channel that crosses zero — more willingness to touch.
+  const backwards = RACING_SPEC.rewardChannels.filter((c) => {
+    const penalty = c.levels.every((v) => v <= 0) && c.key !== 'carHit';
+    const strength = c.levels.map((v) => (penalty ? -v : v));
+    return strength.some((v, i) => i > 0 && v < strength[i - 1]);
+  });
+  check('every slider grows to the right', backwards.length === 0, backwards.map((c) => c.key).join(', ') || 'all ten');
+  // The flip is display only: a fresh model starts on the same weights as before.
+  const d = defaultRewards(RACING_SPEC);
+  check('the default weights did not move',
+    d.wallHit === -3 && d.reverse === -0.3 && d.idle === -0.15 && d.timeStep === -0.005 && d.carHit === -0.5,
+    JSON.stringify({ wallHit: d.wallHit, reverse: d.reverse, idle: d.idle, timeStep: d.timeStep }));
+  const wall = RACING_SPEC.rewardChannels.find((c) => c.key === 'wallHit')!;
+  check('a saved weight still opens on the matching notch', levelOf(wall, -6) === 10 && levelOf(wall, 0) === 1);
+
+  const balanced = RACING_PRESETS.find((p) => p.id === 'balanced')!;
+  check('balanced is the defaults', matchingPreset(RACING_SPEC, d)?.id === 'balanced' &&
+    JSON.stringify(presetRewards(RACING_SPEC, balanced)) === JSON.stringify(d));
+  const careful = presetRewards(RACING_SPEC, RACING_PRESETS.find((p) => p.id === 'careful')!);
+  const aggressive = presetRewards(RACING_SPEC, RACING_PRESETS.find((p) => p.id === 'aggressive')!);
+  check('careful punishes the wall harder and pays less for speed', careful.wallHit < d.wallHit && careful.speed < d.speed);
+  check('aggressive pays more for speed and overtakes', aggressive.speed > d.speed && aggressive.overtake > d.overtake);
+  check('no style touches what teaches a car to follow the road',
+    [careful, aggressive].every((t) => t.checkpoint === d.checkpoint && t.lap === d.lap && t.finish === d.finish));
+  check('a table tuned by hand is no preset', matchingPreset(RACING_SPEC, { ...d, lap: 30 }) === null);
+}
+
+// ---------------------------------------------------------------- house
+function houseTest(): void {
+  console.log(CHAPTER + 'House drivers');
+  const round = HOUSE_FROM_ROUND;
+  const before = lockAtForRound(round) - 1000;
+  const real = (id: string, uid: string) => ({ ...fakeCard(round, [id]).entries[0], id, uid, team: uid, createdAt: before });
+
+  const solo = eligibleEntries([real('a', 'u1')], round);
+  check('one real car is topped up so there is a race', solo.length >= MIN_ENTRIES && solo[0].id === 'a',
+    solo.map((e) => e.id).join(','));
+  check('with the weakest house car first', solo[1]?.id === HOUSE_DRIVERS[0].id);
+  const two = eligibleEntries([real('a', 'u1'), real('b', 'u1')], round);
+  check('a thin grid fills to six', two.length === HOUSE_GRID, String(two.length));
+  const full = eligibleEntries(['a', 'b', 'c', 'd', 'e', 'f'].map((id) => real(id, `u-${id}`)), round);
+  check('a full grid gets no house car', full.every((e) => e.uid !== HOUSE_UID));
+  check('an empty grid stays empty', eligibleEntries([], round).length === 0);
+  check('rounds before the house existed are left as they were',
+    eligibleEntries([{ ...real('a', 'u1'), createdAt: 0 }], round - 1).length === 1);
+  const impostor = eligibleEntries([real('a', 'u1'), { ...real('house-1', 'u2') }, { ...real('x', HOUSE_UID) }], round);
+  check('an entry posing as the house is ignored',
+    impostor.filter((e) => e.id === 'house-1').length === 1 && impostor.every((e) => e.id !== 'x' && (e.id !== 'house-1' || e.uid === HOUSE_UID)));
+
+  // The house scores drivers' points but is no constructor.
+  const card = { ...fakeCard(round, []), entries: two };
+  // The house cars take the top four places.
+  const houseWin = fakeResult(card.id, [...two].reverse().map((e, i) => fakePlace(e.id, i + 1)));
+  const s = buildStandings({ cards: [card], results: new Map([[card.id, houseWin]]) });
+  check('house cars are in the drivers\' table', s.drivers.some((d) => d.uid === HOUSE_UID && d.points > 0));
+  check('but not in the teams\' table', s.teams.every((t) => t.uid !== HOUSE_UID && t.team !== HOUSE_TEAM), s.teams.map((t) => t.team).join(','));
+  check('nobody can take the house team\'s name', teamNameProblem(HOUSE_TEAM) !== null && teamNameProblem(' קבוצת  הבית ') !== null);
+
+  // The files exist, match the declared shape, and drive.
+  for (const h of HOUSE_DRIVERS) {
+    let ok = false;
+    let detail = '';
+    try {
+      const file = JSON.parse(readFileSync(`public/house/${h.id}.json`, 'utf8')) as { weightsB64: string; arch: typeof h.arch };
+      const shape = JSON.stringify(file.arch) === JSON.stringify(h.arch);
+      const policy = Policy.fromBase64(h.arch.obsSize, h.arch.hidden, h.arch.nActions, file.weightsB64);
+      const sim = new SessionSim(trackForRound(round), QUALI_LAPS, [{ entryId: h.id, policy }], 1, physicsForRound(round));
+      sim.runToEnd();
+      const lap = sim.env.telemetry(0).bestLapMs;
+      ok = shape && lap !== null;
+      detail = `${shape ? '' : 'arch mismatch '}lap ${lap === null ? '—' : (lap / 1000).toFixed(2)}`;
+    } catch (e) {
+      detail = String(e);
+    }
+    check(`${h.id} loads and sets a lap on the first house circuit`, ok, detail);
+  }
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1193,6 +1500,7 @@ gaTest();
 sharedSessionTest();
 flagTest();
 timingTest();
+physicsTest();
 championshipTest();
 nameGenTest();
 teamLimitTest();
@@ -1201,5 +1509,11 @@ competitorTest();
 broadcastClockTest();
 earlyFeedTest();
 coachTest();
+metricsTest();
+calendarTest();
+recapTest();
+targetTest();
+sliderTest();
+houseTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
