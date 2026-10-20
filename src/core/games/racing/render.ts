@@ -46,6 +46,34 @@ export interface RenderOpts {
    * a number. Indexed like `colors`; a car without one is solid with darker wings.
    */
   looks?: Array<CarLook | undefined>;
+  /**
+   * Draw the scenery by day: light grass, light gravel, light overlays. The
+   * road itself is dark asphalt either way, so the cars read the same.
+   */
+  daylight?: boolean;
+}
+
+/** The colours that change between day and night. Everything on the road stays. */
+function palette(opts: RenderOpts) {
+  return opts.daylight
+    ? {
+        grass: '#cfe0c0',
+        gravel: '#d9cfb6',
+        wall: '#6b768d',
+        gate: 'rgba(148, 163, 184, 0.14)',
+        miniBg: 'rgba(255, 255, 255, 0.85)',
+        miniEdge: 'rgba(22, 30, 58, 0.18)',
+        miniTrack: 'rgba(43, 48, 61, 0.7)',
+      }
+    : {
+        grass: '#0a130e',
+        gravel: '#2a2822',
+        wall: '#8a97b3',
+        gate: 'rgba(148, 163, 184, 0.1)',
+        miniBg: 'rgba(7, 8, 13, 0.8)',
+        miniEdge: 'rgba(100, 116, 139, 0.5)',
+        miniTrack: 'rgba(148, 163, 184, 0.55)',
+      };
 }
 
 /** A car's paint. Drawing only: the car's size for the physics never changes. */
@@ -296,8 +324,9 @@ function drawWorld(
 
   // Gravel traps along both walls: a wide stroke whose track-side half the
   // asphalt then paints over, leaving a band of gravel outside each wall.
+  const pal = palette(opts);
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#2a2822';
+  ctx.strokeStyle = pal.gravel;
   ctx.lineWidth = 34;
   ctx.stroke(scenery.outer);
   ctx.stroke(scenery.inner);
@@ -325,7 +354,7 @@ function drawWorld(
   ctx.stroke(scenery.gridBoxes);
 
   // Checkpoint gates, faint.
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.1)';
+  ctx.strokeStyle = pal.gate;
   ctx.lineWidth = px;
   ctx.beginPath();
   for (let c = 0; c < track.nCheckpoints; c++) {
@@ -345,7 +374,7 @@ function drawWorld(
     ctx.restore();
   }
 
-  ctx.strokeStyle = '#8a97b3';
+  ctx.strokeStyle = pal.wall;
   ctx.lineWidth = 2 * px;
   ctx.beginPath();
   poly(ctx, track.outer);
@@ -571,6 +600,7 @@ function drawLabels(ctx: CanvasRenderingContext2D, snap: RacingSnapshot, view: V
     if (p.x < -80 || p.y < -40 || p.x > ctx.canvas.width + 80 || p.y > ctx.canvas.height + 40) continue;
     const offset = CAR_RADIUS * 1.4 * view.scale + 14;
     const tw = ctx.measureText(label).width;
+    // Dark in daylight too: a tag sits over the road, in the car's own colour.
     ctx.fillStyle = 'rgba(2, 6, 23, 0.7)';
     ctx.fillRect(p.x - tw / 2 - 4, p.y - offset - 11, tw + 8, 15);
     ctx.fillStyle = colorOf(opts, i);
@@ -595,8 +625,9 @@ function drawMinimap(ctx: CanvasRenderingContext2D, snap: RacingSnapshot, track:
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = 'rgba(7, 8, 13, 0.8)';
-  ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+  const pal = palette(opts);
+  ctx.fillStyle = pal.miniBg;
+  ctx.strokeStyle = pal.miniEdge;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.roundRect(x0, y0, size, size, 8);
@@ -611,7 +642,7 @@ function drawMinimap(ctx: CanvasRenderingContext2D, snap: RacingSnapshot, track:
   const mini = fitView(size, size, track, size * 0.08);
   ctx.setTransform(new DOMMatrix().translate(x0, y0).multiply(mini.matrix));
   const px = 1 / mini.scale;
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+  ctx.strokeStyle = pal.miniTrack;
   ctx.lineWidth = 1.5 * px;
   ctx.beginPath();
   poly(ctx, track.outer);
@@ -644,8 +675,8 @@ export function renderRacing(ctx: CanvasRenderingContext2D, snap: RacingSnapshot
   const track = getTrack(snap.trackId);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  // Grass, at night: what is outside the circuit and inside its infield.
-  ctx.fillStyle = '#0a130e';
+  // Grass: what is outside the circuit and inside its infield.
+  ctx.fillStyle = palette(opts).grass;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const view =

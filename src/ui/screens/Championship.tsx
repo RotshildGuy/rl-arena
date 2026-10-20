@@ -35,7 +35,7 @@ import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateText, dateTimeText, lapTime, posClass, timeText, untilText } from '../format';
-import { downloadRaceCalendar, googleCalendarUrl, REMINDER_MINUTES } from '../calendar';
+import { googleCalendarUrl } from '../calendar';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -639,19 +639,17 @@ function NextRace({
  * no permission to ask for.
  */
 function AddToCalendar({ round }: { round: number }) {
+  // A Google Calendar event rather than a downloaded .ics: a file lands in the
+  // downloads folder on most phones and has to be found and opened, where the
+  // link opens the calendar with the event filled in, one tap from saved.
   const site = window.location.origin;
   return (
-    <>
-      <button
-        onClick={() => downloadRaceCalendar(round, site)}
-        title={`אירוע יומי בשעת המרוץ, עם תזכורת ${REMINDER_MINUTES} דקות לפני`}
-      >
-        📅 הוסף ליומן
-      </button>
-      <a className="small" href={googleCalendarUrl(round, site)} target="_blank" rel="noopener noreferrer">
-        Google Calendar
-      </a>
-    </>
+    <button
+      onClick={() => window.open(googleCalendarUrl(round, site), '_blank', 'noopener')}
+      title="אירוע יומי ב-20:00 ב-Google Calendar"
+    >
+      📅 הוסף ליומן
+    </button>
   );
 }
 

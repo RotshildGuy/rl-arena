@@ -140,16 +140,3 @@ export function googleCalendarUrl(round: number, url: string): string {
   });
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
-
-/** Hand the `.ics` to the browser, which passes it to the calendar app. */
-export function downloadRaceCalendar(round: number, url: string): void {
-  const blob = new Blob([raceCalendarIcs(round, url)], { type: 'text/calendar;charset=utf-8' });
-  const href = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = href;
-  a.download = 'rl-arena-race.ics';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 10_000);
-}
