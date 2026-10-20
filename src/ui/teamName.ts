@@ -1,4 +1,4 @@
-import { nameProblem, normalizeName } from '../core/champ/names';
+import { teamNameProblem, normalizeName } from '../core/champ/names';
 import { getArena } from '../storage/arena';
 import { claimName } from '../storage/teamNames';
 import { getCompetitor } from './identity';
@@ -21,7 +21,7 @@ export class TeamNameError extends Error {}
  */
 export async function changeTeamName(raw: string): Promise<string> {
   const name = normalizeName(raw);
-  const issue = nameProblem(name);
+  const issue = teamNameProblem(name);
   if (issue) throw new TeamNameError(issue);
 
   await claimName(name, getCompetitor() || undefined);

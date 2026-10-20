@@ -16,6 +16,7 @@ import {
 } from '../../core/champ/schedule';
 import { eligibleEntries } from '../../core/champ/card';
 import { carRecaps, type CarRecap } from '../../core/champ/recap';
+import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
@@ -295,7 +296,9 @@ export function Championship() {
           <p style={{ margin: '0 0 14px' }}>
             {nextField.length >= MIN_ENTRIES
               ? 'הטבלאות ייבנו מיד אחרי שהאורות ייכבו.'
-              : `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שייערך גרנד פרי. אמנו מודל ורשמו אותו.`}
+              : upcoming >= HOUSE_FROM_ROUND
+                ? `רשמו מודל אחד, ו${HOUSE_TEAM} תשלים את הגריד עד ${HOUSE_GRID} רכבים — יהיה מרוץ כבר הערב.`
+                : `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שייערך גרנד פרי. אמנו מודל ורשמו אותו.`}
           </p>
           <button className="primary" onClick={() => go('library')}>
             למוסך
@@ -507,7 +510,14 @@ function NextRace({
         <div className="cols-3" style={{ gap: 10, marginBottom: 16 }}>
           <div className="stat">
             <div className="k">רשומים</div>
-            <div className="v">{field.length}</div>
+            <div className="v">
+              {field.filter((e) => !isHouse(e)).length}
+              {field.some(isHouse) && (
+                <span className="dim" style={{ fontSize: 13 }} title={HOUSE_TEAM}>
+                  {' '}+{field.filter(isHouse).length} בית
+                </span>
+              )}
+            </div>
           </div>
           <div className="stat">
             <div className="k">פורמט</div>
@@ -524,7 +534,9 @@ function NextRace({
         </div>
 
         <div className="small muted" style={{ marginBottom: 14 }}>
-          {field.length < MIN_ENTRIES
+          {field.length === 0 && round >= HOUSE_FROM_ROUND
+            ? `מספיק מודל אחד רשום: ${HOUSE_TEAM} משלימה את הגריד עד ${HOUSE_GRID} רכבים.`
+            : field.length < MIN_ENTRIES
             ? `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שהמרוץ ייערך.`
             : field.length <= GRID_SIZE
               ? `כל ${field.length} המודלים מזניקים יחד. המוקדמות קובעות את סדר הזינוק.`

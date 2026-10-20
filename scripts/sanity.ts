@@ -18,7 +18,7 @@ import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../s
 import { bestBraking, drive, flatOutLoses } from './drivers';
 import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
 import { RACING_SPEC, OBS_SIZE, RACING_PRESETS } from '../src/core/games/racing/rewards';
-import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
+import { planSessions, GRID_SIZE, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, nameKey, normalizeName, NAME_MAX } from '../src/core/champ/names';
 import { resolveCompetitor } from '../src/ui/competitorMerge';
@@ -49,6 +49,11 @@ import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
 import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
 import { carRecaps } from '../src/core/champ/recap';
+import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
+import { teamNameProblem } from '../src/core/champ/names';
+import { readFileSync } from 'node:fs';
+import { Policy } from '../src/core/rl/policy';
+import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -1434,6 +1439,57 @@ function sliderTest(): void {
   check('a table tuned by hand is no preset', matchingPreset(RACING_SPEC, { ...d, lap: 30 }) === null);
 }
 
+// ---------------------------------------------------------------- house
+function houseTest(): void {
+  console.log(CHAPTER + 'House drivers');
+  const round = HOUSE_FROM_ROUND;
+  const before = lockAtForRound(round) - 1000;
+  const real = (id: string, uid: string) => ({ ...fakeCard(round, [id]).entries[0], id, uid, team: uid, createdAt: before });
+
+  const solo = eligibleEntries([real('a', 'u1')], round);
+  check('one real car is topped up so there is a race', solo.length >= MIN_ENTRIES && solo[0].id === 'a',
+    solo.map((e) => e.id).join(','));
+  check('with the weakest house car first', solo[1]?.id === HOUSE_DRIVERS[0].id);
+  const two = eligibleEntries([real('a', 'u1'), real('b', 'u1')], round);
+  check('a thin grid fills to six', two.length === HOUSE_GRID, String(two.length));
+  const full = eligibleEntries(['a', 'b', 'c', 'd', 'e', 'f'].map((id) => real(id, `u-${id}`)), round);
+  check('a full grid gets no house car', full.every((e) => e.uid !== HOUSE_UID));
+  check('an empty grid stays empty', eligibleEntries([], round).length === 0);
+  check('rounds before the house existed are left as they were',
+    eligibleEntries([{ ...real('a', 'u1'), createdAt: 0 }], round - 1).length === 1);
+  const impostor = eligibleEntries([real('a', 'u1'), { ...real('house-1', 'u2') }, { ...real('x', HOUSE_UID) }], round);
+  check('an entry posing as the house is ignored',
+    impostor.filter((e) => e.id === 'house-1').length === 1 && impostor.every((e) => e.id !== 'x' && (e.id !== 'house-1' || e.uid === HOUSE_UID)));
+
+  // The house scores drivers' points but is no constructor.
+  const card = { ...fakeCard(round, []), entries: two };
+  // The house cars take the top four places.
+  const houseWin = fakeResult(card.id, [...two].reverse().map((e, i) => fakePlace(e.id, i + 1)));
+  const s = buildStandings({ cards: [card], results: new Map([[card.id, houseWin]]) });
+  check('house cars are in the drivers\' table', s.drivers.some((d) => d.uid === HOUSE_UID && d.points > 0));
+  check('but not in the teams\' table', s.teams.every((t) => t.uid !== HOUSE_UID && t.team !== HOUSE_TEAM), s.teams.map((t) => t.team).join(','));
+  check('nobody can take the house team\'s name', teamNameProblem(HOUSE_TEAM) !== null && teamNameProblem(' קבוצת  הבית ') !== null);
+
+  // The files exist, match the declared shape, and drive.
+  for (const h of HOUSE_DRIVERS) {
+    let ok = false;
+    let detail = '';
+    try {
+      const file = JSON.parse(readFileSync(`public/house/${h.id}.json`, 'utf8')) as { weightsB64: string; arch: typeof h.arch };
+      const shape = JSON.stringify(file.arch) === JSON.stringify(h.arch);
+      const policy = Policy.fromBase64(h.arch.obsSize, h.arch.hidden, h.arch.nActions, file.weightsB64);
+      const sim = new SessionSim(trackForRound(round), QUALI_LAPS, [{ entryId: h.id, policy }], 1, physicsForRound(round));
+      sim.runToEnd();
+      const lap = sim.env.telemetry(0).bestLapMs;
+      ok = shape && lap !== null;
+      detail = `${shape ? '' : 'arch mismatch '}lap ${lap === null ? '—' : (lap / 1000).toFixed(2)}`;
+    } catch (e) {
+      detail = String(e);
+    }
+    check(`${h.id} loads and sets a lap on the first house circuit`, ok, detail);
+  }
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1458,5 +1514,6 @@ calendarTest();
 recapTest();
 targetTest();
 sliderTest();
+houseTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

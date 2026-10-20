@@ -3,6 +3,7 @@ import { eligibleEntries } from '../core/champ/card';
 import { MIN_ENTRIES } from '../core/champ/format';
 import { airingRound, currentRound, raceIdForRound, roundsToBackfill, startsAtForRound } from '../core/champ/schedule';
 import { runRaceDay } from '../core/champ/sim';
+import { houseWeightsUrl, isHouse } from '../core/champ/house';
 import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
 import { getArena, type ArenaStore } from '../storage/arena';
 import { getChampCache } from '../storage/champCache';
@@ -91,9 +92,30 @@ export interface ChampionshipState {
 
 export type SyncProgress = (note: string | null) => void;
 
+/** House weights are static files; one fetch each per session is plenty. */
+const houseWeights = new Map<string, Promise<string | null>>();
+
+function loadHouseWeights(id: string): Promise<string | null> {
+  let p = houseWeights.get(id);
+  if (!p) {
+    p = fetch(houseWeightsUrl(id))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { weightsB64?: string } | null) => j?.weightsB64 ?? null)
+      .catch(() => {
+        houseWeights.delete(id);
+        return null;
+      });
+    houseWeights.set(id, p);
+  }
+  return p;
+}
+
 async function weightsForEntries(arena: ArenaStore, entries: ArenaEntry[]): Promise<WeightPairs> {
   const pairs = await Promise.all(
-    entries.map(async (e) => [e.id, await arena.loadEntryWeights(e.id)] as [string, string | null]),
+    entries.map(
+      async (e) =>
+        [e.id, isHouse(e) ? await loadHouseWeights(e.id) : await arena.loadEntryWeights(e.id)] as [string, string | null],
+    ),
   );
   return pairs.filter((p): p is [string, string] => p[1] !== null);
 }
@@ -143,7 +165,10 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
         if (field.length >= MIN_ENTRIES) {
           onProgress(`מריץ מוקדמות לסבב ${round}…`);
           const weights = await weightsForEntries(arena, field);
-          if (weights.length >= MIN_ENTRIES) {
+          // A house car whose file did not load would be frozen onto the card
+          // without a car to drive; better to leave the card to the next visit.
+          const houseMissing = field.some((e) => isHouse(e) && !weights.some(([id]) => id === e.id));
+          if (weights.length >= MIN_ENTRIES && !houseMissing) {
             card = await arena.putCard(await buildCard(round, entries, weights), new Map(weights));
             await cache.putCard(card);
           }
