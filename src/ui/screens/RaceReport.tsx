@@ -7,6 +7,8 @@ import { shadeFor, teamColor } from '../../core/champ/livery';
 import { lapsFor } from '../../core/champ/format';
 import { dayStatus, sessionWindows } from '../../core/champ/timing';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
+import { diagnoseDay } from '../../core/champ/diagnose';
+import { AdviceLine } from '../components/AdviceLine';
 import type { ArenaEntry, Finish, RaceCard, RaceResult, SessionResult } from '../../core/champ/types';
 import { dateTimeText, gapTime, lapClass, lapTime, posClass, raceTime, untilText } from '../format';
 
@@ -106,6 +108,9 @@ export function RaceReport() {
       )}
 
       {shown && <Report card={card} result={shown} />}
+
+      {/* Only once the whole day is over: the advice reads the final places. */}
+      {result && status.phase === 'done' && <Diagnosis card={card} result={result} uid={state.uid} />}
 
       <Qualifying card={card} />
     </>
@@ -480,6 +485,51 @@ function Qualifying({ card }: { card: RaceCard }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What went wrong, car by car, and which slider to move. The team's own cars
+ * come first and open; everybody else's is one tap away, because reading why
+ * a rival lost is half of working out how to beat them.
+ */
+function Diagnosis({ card, result, uid }: { card: RaceCard; result: RaceResult; uid: string }) {
+  const advice = useMemo(() => diagnoseDay(card, result), [card, result]);
+  const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
+  const [showAll, setShowAll] = useState(false);
+  const rows = result.places
+    .filter((p) => (advice.get(p.entryId)?.length ?? 0) > 0)
+    .sort((a, b) => Number(entries.get(b.entryId)?.uid === uid) - Number(entries.get(a.entryId)?.uid === uid) || a.position - b.position);
+  const mine = rows.filter((p) => entries.get(p.entryId)?.uid === uid);
+  const shown = showAll || mine.length === 0 ? rows : mine;
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="card notched" style={{ marginTop: 14 }}>
+      <div className="head">
+        <div className="eyebrow">אבחון — למה, ומה לשנות</div>
+        <div className="fill" />
+        {mine.length > 0 && rows.length > mine.length && (
+          <button className="ghost small" onClick={() => setShowAll((v) => !v)}>
+            {showAll ? 'רק שלי' : `כל ${rows.length} הרכבים`}
+          </button>
+        )}
+      </div>
+      {shown.map((p) => {
+        const e = entries.get(p.entryId);
+        return (
+          <div key={p.entryId} style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+            <div className="row" style={{ marginBottom: 4 }}>
+              <span className={posClass(p.position, p.status === 'dnf')}>{p.position}</span>
+              <DriverCell driver={e?.driver ?? '—'} team={e?.team ?? '—'} tag={e?.tag} />
+            </div>
+            {advice.get(p.entryId)!.map((a, i) => (
+              <AdviceLine key={i} advice={a} />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

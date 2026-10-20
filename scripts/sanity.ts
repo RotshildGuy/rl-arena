@@ -44,11 +44,14 @@ import {
   sessionWindows,
   settledResults,
 } from '../src/core/champ/timing';
-import type { DayPlace, RaceCard, RaceResult } from '../src/core/champ/types';
+import type { DayPlace, Finish, RaceCard, RaceResult } from '../src/core/champ/types';
 import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
 import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
 import { carRecaps } from '../src/core/champ/recap';
+import { diagnoseCar, diagnoseDay } from '../src/core/champ/diagnose';
+import { buildRaceCard } from '../src/core/champ/card';
+import { runRaceDay } from '../src/core/champ/sim';
 import { hallOfFame, seasonCards, seasonComplete } from '../src/core/champ/seasons';
 import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound, displaySeason } from '../src/core/champ/schedule';
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
@@ -1540,6 +1543,50 @@ function seasonTest(): void {
       seasonComplete(2, noFinal, results, startsAtForRound(49) + 4 * 3_600_000));
 }
 
+// ---------------------------------------------------------------- diagnosis
+function diagnoseTest(): void {
+  console.log(CHAPTER + 'Post-race diagnosis');
+  const finish = (entryId: string, position: number, over: Partial<Finish> = {}): Finish => ({
+    entryId, position, laps: RACE_LAPS, totalMs: 1, gapMs: 1, bestLapMs: 40_000, bestSectorsMs: [], lapTimesMs: [],
+    lapPositions: [], topSpeed: 10, overtakes: 0, wallHits: 0, carHits: 0, lapsLed: 0, status: 'finished', gridPos: position,
+    ...over,
+  });
+  const day = (cls: Finish[]) => {
+    const card = fakeCard(42, cls.map((f) => f.entryId));
+    const result = fakeResult(card.id, cls.map((f) => fakePlace(f.entryId, f.position)));
+    result.sessions = [{ sessionId: 'race', grid: [], classification: cls, fastestLap: { entryId: cls[0].entryId, ms: 40_000 } }];
+    return { card, result };
+  };
+  const kinds = (cls: Finish[], id: string) => { const d = day(cls); return diagnoseCar(d.card, d.result, id).map((a) => a.kind); };
+
+  check('a car that covered under half the distance is not ready',
+    kinds([finish('w', 1), finish('x', 2, { laps: 3, status: 'dnf' })], 'x').includes('unready'));
+  const walls = day([finish('w', 1), finish('x', 2, { wallHits: 9 })]);
+  const wallAdvice = diagnoseCar(walls.card, walls.result, 'x').find((a) => a.kind === 'walls');
+  check('lots of wall contact points at the wall slider, to the right',
+    wallAdvice?.slider === 'wallHit' && wallAdvice.direction === 'right');
+  check('a low top speed points at the speed slider',
+    kinds([finish('w', 1, { topSpeed: 12 }), finish('y', 2, { topSpeed: 12 }), finish('x', 3, { topSpeed: 9 })], 'x').includes('speed'));
+  check('contact that cost places points at the contact slider, to the left',
+    kinds([finish('w', 1), finish('x', 4, { carHits: 8, gridPos: 1 })], 'x').includes('contact'));
+  check('contact while gaining places is left alone',
+    !kinds([finish('w', 1), finish('x', 2, { carHits: 8, gridPos: 5 })], 'x').includes('contact'));
+  check('a clean, slower car still gets advice', kinds([finish('w', 1), finish('x', 2, { bestLapMs: 42_000 })], 'x').join() === 'pace');
+  check('a clean winner gets none', kinds([finish('w', 1), finish('x', 2)], 'w').length === 0);
+
+  // A real day, with house cars: nobody who lost leaves without advice.
+  const round = HOUSE_FROM_ROUND;
+  const weights = new Map(HOUSE_DRIVERS.map((h) => [h.id, (JSON.parse(readFileSync(`public/house/${h.id}.json`, 'utf8')) as { weightsB64: string }).weightsB64]));
+  const real = { ...HOUSE_DRIVERS[1], id: 'me', uid: 'u1', team: 'Real', driver: 'me', tag: 'ME', createdAt: 0 };
+  weights.set('me', weights.get('house-2')!);
+  const card = buildRaceCard(round, [real], weights);
+  const result = runRaceDay(card, weights);
+  const advice = diagnoseDay(card, result);
+  const bare = result.places.filter((p) => p.position > 1 && (advice.get(p.entryId)?.length ?? 0) === 0);
+  check('on a real race day every car that did not win gets advice', bare.length === 0,
+    result.places.map((p) => `${p.position}.${p.entryId}:${(advice.get(p.entryId) ?? []).map((a) => a.kind).join('+') || '-'}`).join(' '));
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1566,5 +1613,6 @@ targetTest();
 sliderTest();
 houseTest();
 seasonTest();
+diagnoseTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

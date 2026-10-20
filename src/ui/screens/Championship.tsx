@@ -19,12 +19,14 @@ import {
 } from '../../core/champ/schedule';
 import { eligibleEntries } from '../../core/champ/card';
 import { carRecaps, type CarRecap } from '../../core/champ/recap';
+import { diagnoseCar } from '../../core/champ/diagnose';
+import { AdviceLine } from '../components/AdviceLine';
 import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
-import type { ArenaEntry, RaceCard } from '../../core/champ/types';
+import type { ArenaEntry, RaceCard, RaceResult } from '../../core/champ/types';
 import { DriverCell } from '../components/Livery';
 import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
@@ -221,7 +223,12 @@ export function Championship() {
       <PhysicsNotice now={now} onTrain={() => go('library')} />
 
       {lastFinished && recaps.length > 0 && (
-        <MyRaceCard card={lastFinished} recaps={recaps} onOpen={() => openRace(lastFinished.id, 'report')} />
+        <MyRaceCard
+          card={lastFinished}
+          result={state?.results.get(lastFinished.id) ?? null}
+          recaps={recaps}
+          onOpen={() => openRace(lastFinished.id, 'report')}
+        />
       )}
 
       <StaleCarNotice entries={myEntries} models={myModels} now={now} round={upcoming} onFix={() => go('library')} />
@@ -828,7 +835,17 @@ function LastRace({
  * team cares about it — seventh is not on any podium. Shown only when one of
  * their cars was in the latest race, so it never repeats old news.
  */
-function MyRaceCard({ card, recaps, onOpen }: { card: RaceCard; recaps: CarRecap[]; onOpen(): void }) {
+function MyRaceCard({
+  card,
+  result,
+  recaps,
+  onOpen,
+}: {
+  card: RaceCard;
+  result: RaceResult | null;
+  recaps: CarRecap[];
+  onOpen(): void;
+}) {
   return (
     <div className="card notched" style={{ marginBottom: 14 }}>
       <div className="head">
@@ -868,6 +885,15 @@ function MyRaceCard({ card, recaps, onOpen }: { card: RaceCard; recaps: CarRecap
             </span>
           )}
           {r.standing !== null && <StandingMove now={r.standing} before={r.standingBefore} />}
+          {result && r.position > 1 && (() => {
+            // The first thing to fix, right under the line it explains.
+            const first = diagnoseCar(card, result, r.entryId)[0];
+            return first ? (
+              <div style={{ flexBasis: '100%' }}>
+                <AdviceLine advice={first} />
+              </div>
+            ) : null;
+          })()}
         </div>
       ))}
     </div>
