@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { DriverCell } from '../components/Livery';
+import { findCopies } from '../../core/champ/copies';
 import { PositionChart, type PositionLine } from '../components/PositionChart';
 import { shadeFor, teamColor } from '../../core/champ/livery';
 import { lapsFor } from '../../core/champ/format';
@@ -117,7 +118,21 @@ export function RaceReport() {
   );
 }
 
+/**
+ * "Copy of X" for a car that raced with exactly the weights another team
+ * raced with first (`core/champ/copies.ts`), or undefined.
+ */
+function useCopyNote(card: RaceCard): (entryId: string) => string | undefined {
+  const { state } = useChampionship();
+  const copies = useMemo(() => findCopies(state?.cards ?? [card]), [state, card]);
+  return (entryId) => {
+    const c = copies.get(`${card.id}/${entryId}`);
+    return c ? `עותק של ${c.driver} (${c.team})` : undefined;
+  };
+}
+
 function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
+  const copyNote = useCopyNote(card);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
   const windows = useMemo(() => sessionWindows(card), [card]);
   const [sessionId, setSessionId] = useState(result.sessions[result.sessions.length - 1]?.sessionId ?? '');
@@ -229,6 +244,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                         team={e?.team ?? '-'}
                         tag={e?.tag}
                         color={colorOf.get(f.entryId)}
+                        note={copyNote(f.entryId)}
                       />
                     </td>
                     <td className="mono num">
@@ -429,6 +445,7 @@ function LapTimes({
 
 /** Qualifying: the session that sets the grid, and the source of pole positions. */
 function Qualifying({ card }: { card: RaceCard }) {
+  const copyNote = useCopyNote(card);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
   const pole = card.qualifying.find((q) => q.bestLapMs !== null)?.bestLapMs ?? null;
   const bestSectors = [0, 1, 2].map((s) => {
@@ -467,7 +484,7 @@ function Qualifying({ card }: { card: RaceCard }) {
                     <span className={posClass(i + 1, q.bestLapMs === null)}>{q.bestLapMs === null ? '-' : i + 1}</span>
                   </td>
                   <td>
-                    <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} />
+                    <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} note={copyNote(q.entryId)} />
                   </td>
                   <td className={`mono num ${i === 0 ? 't-purple' : ''}`}>{lapTime(q.bestLapMs)}</td>
                   <td className="mono num muted">

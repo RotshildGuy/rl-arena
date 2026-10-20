@@ -93,6 +93,11 @@ export interface RaceCard {
    * would no longer produce the result that was published.
    */
   physics?: number;
+  /**
+   * A fingerprint of the weights each car raced with (`weightsFingerprint`),
+   * for spotting exact copies of another team's car. Absent on older cards.
+   */
+  fingerprints?: Record<string, string>;
 }
 
 export interface Finish {

@@ -58,6 +58,7 @@ import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } fr
 import { teamNameProblem } from '../src/core/champ/names';
 import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
 import { leagueView, newLeagueId } from '../src/core/champ/league';
+import { findCopies, weightsFingerprint } from '../src/core/champ/copies';
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { Policy } from '../src/core/rl/policy';
@@ -1593,6 +1594,8 @@ function diagnoseTest(): void {
   const card = buildRaceCard(round, [real], weights);
   const result = runRaceDay(card, weights);
   const advice = diagnoseDay(card, result);
+  check('a race card records a fingerprint for every car', card.entries.every((e) => !!card.fingerprints?.[e.id]) &&
+    card.fingerprints?.me === card.fingerprints?.['house-2']);
   const bare = result.places.filter((p) => p.position > 1 && (advice.get(p.entryId)?.length ?? 0) === 0);
   check('on a real race day every car that did not win gets advice', bare.length === 0,
     result.places.map((p) => `${p.position}.${p.entryId}:${(advice.get(p.entryId) ?? []).map((a) => a.kind).join('+') || '-'}`).join(' '));
@@ -1614,6 +1617,20 @@ function leagueTest(): void {
   check('a race none of them ran is not in it', leagueView([card], new Map([[card.id, result]]), ['nobody']).cards.length === 0);
   const id = newLeagueId();
   check('an invitation code is ten readable characters', /^[a-km-z2-9]{10}$/.test(id) && !/[ilo01]/.test(id), id);
+}
+
+function copiesTest(): void {
+  console.log(CHAPTER + 'Copied cars');
+  const a = fakeCard(42, ['a', 'b0']);
+  a.fingerprints = { a: weightsFingerprint('AAAA'), b0: weightsFingerprint('BBBB') };
+  const b = fakeCard(43, ['a', 'b0', 'b1']);
+  // b1 (team Beta) races with exactly Alpha's weights from the round before.
+  b.fingerprints = { a: weightsFingerprint('AAAA'), b0: weightsFingerprint('BBBB'), b1: weightsFingerprint('AAAA') };
+  const copies = findCopies([b, a]);
+  check('a car with another team\'s exact weights is a copy of it', copies.get(`${b.id}/b1`)?.driver === 'a', JSON.stringify([...copies]));
+  check('the original is not', !copies.has(`${b.id}/a`) && !copies.has(`${a.id}/a`));
+  check('a team racing its own weights again is not copying', !copies.has(`${b.id}/b0`));
+  check('one changed character is a different fingerprint', weightsFingerprint('AAAA') !== weightsFingerprint('AAAB'));
 }
 
 function feedbackTest(): void {
@@ -1666,6 +1683,7 @@ seasonTest();
 diagnoseTest();
 feedbackTest();
 leagueTest();
+copiesTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

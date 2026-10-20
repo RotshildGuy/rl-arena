@@ -13,6 +13,7 @@ import { RACE_LAPS } from './format';
 import { runQualifying } from './sim';
 import type { ArenaEntry, RaceCard } from './types';
 import { nameKey } from './names';
+import { weightsFingerprint } from './copies';
 import { isHouse, isHouseId, withHouse } from './house';
 
 /**
@@ -137,5 +138,8 @@ export function buildRaceCard(round: number, entries: ArenaEntry[], weights: Map
     // Left off the card while it is the default, so a card from before the
     // switch is stored exactly as cards always were.
     ...(physics > 1 ? { physics } : {}),
+    fingerprints: Object.fromEntries(
+      field.filter((e) => weights.has(e.id)).map((e) => [e.id, weightsFingerprint(weights.get(e.id)!)]),
+    ),
   };
 }
