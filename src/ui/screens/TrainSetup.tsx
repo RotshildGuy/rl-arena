@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
 import {
   MAX_TRAIN_SLOTS,
+  nextGrandPrixTrack,
   TIME_LIMITS,
   TRAINING_GRID,
   TRAINING_HIDDEN_OPTIONS,
@@ -19,6 +20,7 @@ import { getStore, type ModelMeta } from '../../storage';
 import { randomModelName } from '../../core/champ/nameGen';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { TeamNameForm } from '../components/TeamNameForm';
+import { TRACK_DEFS } from '../../core/games/racing/tracks';
 
 export function TrainSetup() {
   const { gameId, draft, patchDraft, patchSlot, addSlot, removeSlot, slotFromModel, newDraft, go, competitor } =
@@ -197,6 +199,20 @@ export function TrainSetup() {
               hiddenKeys={TRAINING_HIDDEN_OPTIONS}
               onChange={(config) => patchDraft({ config: withTrainingDefaults(gameId, config) })}
             />
+            {gameId === 'racing' && draft.config.trackId !== nextGrandPrixTrack() && (
+              <div className="auth-note warn small" style={{ margin: '0 0 10px' }}>
+                הגרנד פרי הבא נוסע ב{TRACK_DEFS.find((t) => t.id === nextGrandPrixTrack())?.name ?? 'מסלול אחר'}.
+                מודל שמתאמן על מסלול אחד לא בהכרח יודע לנסוע על אחר.{' '}
+                <button
+                  className="ghost small"
+                  onClick={() =>
+                    patchDraft({ config: withTrainingDefaults(gameId, { ...draft.config, trackId: nextGrandPrixTrack() }) })
+                  }
+                >
+                  לאמן שם
+                </button>
+              </div>
+            )}
             {gameId === 'racing' && (
               <div className="small muted">
                 האימון תמיד רץ על גריד מלא של {TRAINING_GRID} רכבים, {TRAINING_LAPS} הקפות ומגע בין רכבים -

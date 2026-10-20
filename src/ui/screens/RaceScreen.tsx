@@ -354,6 +354,14 @@ export function RaceScreen() {
               made the control strip tall enough to take a third of a landscape
               phone away from the thing being controlled. */}
           <TouchPad layout={game.touchControls} keys={keysRef} />
+          {phase === 'racing' && snap?.raceMs !== undefined && (
+            <div className="stage-overlay-end">
+              <span className="pill mono">
+                {raceTime(snap.raceMs)}
+                {snap.cars?.[0] && snap.laps ? ` · הקפה ${Math.min(snap.cars[0].lap + 1, snap.laps)}/${snap.laps}` : ''}
+              </span>
+            </div>
+          )}
           {phase !== 'done' && standings.length > 0 && (
             <div className="stage-overlay">
               <div className="tower">
@@ -372,6 +380,11 @@ export function RaceScreen() {
           {phase === 'done' && (
             <div className="done-overlay">
               <div className={`pill ${won ? 'good' : ''}`}>{winnerLine}</div>
+              {/* The finishing order with times: a winner's name alone was
+                  a thin reward for a race somebody just drove. */}
+              <table className="timing" style={{ maxWidth: 420 }}>
+                <tbody>{standingsRows}</tbody>
+              </table>
               <button className="primary" onClick={restart}>
                 עוד {game.matchNoun}
               </button>

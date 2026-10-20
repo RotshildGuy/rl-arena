@@ -204,7 +204,9 @@ function Arena() {
         {competitor && (
           <span className="pill" title="שם המתחרה שלכם - הקבוצה שהמודלים שלכם מתחרים בשמה">
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
-            {competitor}
+            {/* Its own direction: a Latin name inside the RTL bar was cut off
+                from its start, losing exactly the part that identifies it. */}
+            <bdi dir="auto" className="pill-name">{competitor}</bdi>
           </span>
         )}
         <CloudBadge state={cloud.state} message={cloud.message} />

@@ -29,7 +29,7 @@ import {
 import { eligibleEntries } from '../../core/champ/card';
 import { RACE_LAPS } from '../../core/champ/format';
 import { Modal } from '../components/Modal';
-import { durationText, lapTime, raceTime, timeText } from '../format';
+import { durationText, lapTime, raceTime, whenText } from '../format';
 import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { TrainingPrimer, hasSeenPrimer, markPrimerSeen } from '../components/TrainingPrimer';
 import { exportModel, importModel, ModelFileError } from '../modelFile';
@@ -172,7 +172,10 @@ export function Garage() {
     try {
       const wasEntered = carOf(m.id) !== null;
       await enterChampionship(m);
-      showToast(wasEntered ? 'המשקולות עודכנו - הרכב ישתתף עם הגרסה החדשה' : `${m.name} נרשם לאליפות`);
+      // Say when it races: "registered" alone left people asking which race, and when.
+      const round = Date.now() >= lockAtForRound(currentRound() + 1) ? currentRound() + 2 : currentRound() + 1;
+      const when = `סבב ${round}, ${whenText(startsAtForRound(round))}`;
+      showToast(wasEntered ? `הרכב עודכן - יתחרה בגרסה החדשה ב${when}` : `${m.name} נרשם - יתחרה ב${when}`);
       champ.reload();
     } catch (e) {
       showToast(e instanceof EntryError ? e.message : 'הרישום נכשל');
@@ -291,6 +294,7 @@ export function Garage() {
             markPrimerSeen();
             setPrimer(false);
           }}
+          onStart={models !== null && models.length === 0 ? startNew : undefined}
         />
       )}
 
@@ -336,8 +340,8 @@ export function Garage() {
             <span className="dim tiny">{grandPrixName(nextRound)}</span>
             <span className="dim tiny">
               {locked
-                ? `הרישום לסבב ${nextRound} סגור · הסבב הבא ב-${timeText(startsAtForRound(nextRound + 1))}`
-                : `הרישום לסבב ${nextRound} נסגר ב-${timeText(lockAtForRound(nextRound))}`}
+                ? `הרישום לסבב ${nextRound} סגור · רכב שיירשם עכשיו יתחרה בסבב ${nextRound + 1}, ${whenText(startsAtForRound(nextRound + 1))}`
+                : `הסבב הבא: ${whenText(startsAtForRound(nextRound))} · אפשר להירשם עד ${whenText(lockAtForRound(nextRound))}`}
             </span>
         </div>
       </div>
@@ -396,8 +400,8 @@ export function Garage() {
                       {ALGORITHMS[m.algorithm]?.episodesLabel ?? 'סבבים'}{' '}
                       <b>{m.training.episodes.toLocaleString('he-IL')}</b>
                     </span>
-                    <span>
-                      {game.spec.scoreLabel} <b>{m.training.bestScore.toFixed(2)}</b>
+                    <span title="הכי רחוק שהמודל הגיע בניסיון אחד">
+                      הכי רחוק <b>{m.training.bestScore.toFixed(1)}</b> {game.spec.scoreLabel}
                     </span>
                     {/* The circuit that matters is the one the next Grand Prix
                         runs on, not whichever the model happened to train on
@@ -495,9 +499,8 @@ export function Garage() {
                       </button>
                     </div>
 
+                    {/* Continue and race are on the card itself, right above. */}
                     <div className="row wrap" style={{ marginBottom: 14 }}>
-                      <button onClick={() => continueTraining(m, false)}>המשך אימון</button>
-                      <button onClick={() => race(m)}>התחרה מולו</button>
                       <button
                         onClick={() => {
                           setRenameText(m.name);

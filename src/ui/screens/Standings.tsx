@@ -168,7 +168,7 @@ export function Standings() {
                   <th style={{ width: 46 }}>#</th>
                   <th>נהג</th>
                   <th className="num">נקודות</th>
-                  <th className="num">נצחונות</th>
+                  <th className="num">ניצחונות</th>
                   <th className="num">פודיומים</th>
                   <th className="num">פול</th>
                   <th className="num">הקפה מהירה</th>
@@ -210,7 +210,7 @@ export function Standings() {
                 <th style={{ width: 46 }}>#</th>
                 <th>קבוצה</th>
                 <th className="num">נקודות</th>
-                <th className="num">נצחונות</th>
+                <th className="num">ניצחונות</th>
                 <th className="num">פודיומים</th>
               </tr>
             </thead>
@@ -330,7 +330,7 @@ export function Standings() {
         </div>
         <div className="small muted" style={{ marginTop: 8 }}>
           שיטת הניקוד המקובלת במרוצי מכוניות: נקודות לעשרת הראשונים, ונקודת בונוס להקפה המהירה ביותר -
-          אך ורק אם הנהג סיים בעשירייה. שוויון נקודות נשבר לפי מספר הנצחונות, ואם גם הוא שווה - לפי
+          אך ורק אם הנהג סיים בעשירייה. שוויון נקודות נשבר לפי מספר הניצחונות, ואם גם הוא שווה - לפי
           מספר המקומות השניים, וכן הלאה. רכב שלא השלים לפחות מחצית מהמרחק של המנצח אינו מסווג
           ואינו צובר נקודות, גם אם דורג בעשירייה.
         </div>
@@ -463,7 +463,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                 <>
                   <DriverCell driver={h.driver.driver} team={h.driver.team} tag={h.driver.tag} />
                   <div className="small muted" style={{ marginTop: 4 }}>
-                    <span className="mono">{h.driver.points}</span> נקודות · {h.driver.wins} נצחונות
+                    <span className="mono">{h.driver.points}</span> נקודות · {h.driver.wins} ניצחונות
                     {h.runnerUp && ` · ${h.driver.points - h.runnerUp.points} לפני ${h.runnerUp.driver}`}
                   </div>
                 </>
@@ -484,7 +484,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                     </div>
                   </div>
                   <div className="small muted" style={{ marginTop: 4 }}>
-                    <span className="mono">{h.team.points}</span> נקודות · {h.team.wins} נצחונות
+                    <span className="mono">{h.team.points}</span> נקודות · {h.team.wins} ניצחונות
                   </div>
                 </>
               ) : (

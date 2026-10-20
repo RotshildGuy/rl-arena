@@ -126,8 +126,8 @@ export function RaceSetup() {
                   on={race.opponents.includes(m.id)}
                   driver={m.name}
                   team={m.owner || team || 'ללא שם'}
-                  note={`${m.training.episodes.toLocaleString('he-IL')} ניסיונות אימון · שיא ${m.training.bestScore.toFixed(2)} ${game.spec.scoreLabel}`}
-                  right={m.training.bestLapMs ? lapTime(m.training.bestLapMs) : ''}
+                  note={`${m.training.episodes.toLocaleString('he-IL')} ניסיונות אימון`}
+                  right={m.training.bestLapMs ? `הקפה מהירה ${lapTime(m.training.bestLapMs)}` : ''}
                   onToggle={toggle}
                 />
               ))}
@@ -148,7 +148,7 @@ export function RaceSetup() {
                   team={e.team}
                   tag={e.tag}
                   note={`${e.episodes.toLocaleString('he-IL')} ניסיונות אימון`}
-                  right={formGuide.has(e.id) ? lapTime(formGuide.get(e.id)!) : ''}
+                  right={formGuide.has(e.id) ? `הקפה מהירה ${lapTime(formGuide.get(e.id)!)}` : ''}
                   onToggle={toggle}
                 />
               ))}

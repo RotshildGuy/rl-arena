@@ -6,6 +6,7 @@ import { DEFAULT_GA_HYPER, type GaHyper } from '../core/rl/ga';
 import type { AlgorithmId } from '../core/rl/algorithms';
 import type { ModelMeta } from '../storage';
 import { isMobileClass } from './device';
+import { lockAtForRound, nextRound, trackForRound } from '../core/champ/schedule';
 import { getCompetitor, pushCompetitor, setCompetitor as persistCompetitor } from './identity';
 
 /**
@@ -178,12 +179,25 @@ function braverRewards(gameId: GameId): RewardConfig {
   return out;
 }
 
+/**
+ * The circuit of the next Grand Prix a car registered now would race in. A
+ * new model trains there by default: a first model trained on whatever track
+ * the list happened to start with was a model "not yet trained" on the one
+ * that mattered, and nobody new knows to change the map first.
+ */
+export function nextGrandPrixTrack(now = Date.now()): string {
+  const next = nextRound(now);
+  return trackForRound(now >= lockAtForRound(next) ? next + 1 : next);
+}
+
 function freshDraft(gameId: GameId): TrainDraft {
   const game = getGame(gameId);
+  const base = game.defaultConfig();
+  if (gameId === 'racing') base.trackId = nextGrandPrixTrack();
   const hidden = isMobileClass ? [48, 48] : DEFAULT_HYPER.hidden;
   return {
     owner: getCompetitor(),
-    config: withTrainingDefaults(gameId, game.defaultConfig()),
+    config: withTrainingDefaults(gameId, base),
     slots: [freshSlot(gameId)],
     hyper: { ...DEFAULT_HYPER, hidden },
     gaHyper: {

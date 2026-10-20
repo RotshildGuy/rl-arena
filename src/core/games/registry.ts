@@ -122,7 +122,7 @@ const racing: GameModule = {
     maxSteps: 60 * 60 * 6,
   }),
   controlsHint: 'חיצים או WASD · ↑ גז · ↓ בלם',
-  touchHint: 'גז ובלם משמאל · היגוי מימין',
+  touchHint: 'החזיקו גז או בלם משמאל · היגוי מימין',
   matchNoun: 'מרוץ',
   seatHint: 'אתם נוהגים ברכב הראשון',
   // The genetic driver needs about a quarter longer since the tyres got a limit

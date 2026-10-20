@@ -1222,7 +1222,8 @@ input[type='number'] { direction: ltr; text-align: end; }
   .topbar > * { flex-shrink: 0; }
   .topbar > .spacer { flex-shrink: 1; }
   /* The team name is the one thing here long enough to be a problem. */
-  .topbar > .pill:not(.small) { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .topbar > .pill:not(.small) { flex-shrink: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .topbar > .pill .pill-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   h1 { font-size: 20px; }
   .card { padding: 13px; }
 

@@ -53,6 +53,14 @@ export function timeText(ms: number): string {
   return new Date(ms).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** "היום 20:00", "מחר 19:55", or a date - a bare clock time reads as today. */
+export function whenText(ms: number, now = Date.now()): string {
+  const day = (t: number) => new Date(t).toLocaleDateString('en-CA');
+  const tomorrow = now + 24 * 60 * 60 * 1000;
+  const which = day(ms) === day(now) ? 'היום' : day(ms) === day(tomorrow) ? 'מחר' : `ב-${dateText(ms)}`;
+  return `${which} ב-${timeText(ms)}`;
+}
+
 export function dateTimeText(ms: number): string {
   return `${dateText(ms)} · ${timeText(ms)}`;
 }

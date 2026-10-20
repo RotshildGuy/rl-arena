@@ -220,7 +220,9 @@ export function TrainDashboard() {
           ? `נשמר: ${saved.join(' · ')}`
           : mode === 'quiet'
             ? 'האימון נשמר אוטומטית'
-            : `נקודת שמירה נוצרה ל-${saved.length} מודלים`,
+            : saved.length > 1
+              ? `${saved.length} המודלים נשמרו - האימון ממשיך`
+              : 'נשמר - האימון ממשיך',
       );
       if (thenLeave) leaveNow(leaveTo ?? 'library');
     } catch (e) {
@@ -370,7 +372,7 @@ export function TrainDashboard() {
             {running ? '⏸ השהה' : '▶ המשך'}
           </button>
           <button onClick={() => save('checkpoint')} disabled={saving || booting}>
-            נקודת שמירה
+            שמירה באמצע
           </button>
           <CoachAnchor
             step={coach === 'save' ? coach : null}
@@ -414,7 +416,7 @@ export function TrainDashboard() {
               aspect={16 / 10}
               draw={(ctx) => {
                 if (speed === 'turbo') {
-                  drawPlaceholder(ctx, ['מצב טורבו', 'הציור כבוי כדי לפנות את המעבד לאימון']);
+                  drawPlaceholder(ctx, ['מצב טורבו - מאמן הכי מהר', 'המסלול מוסתר כדי לא לבזבז זמן על ציור.', 'לחצו ×4 כדי לצפות שוב.']);
                   return;
                 }
                 const snap = snapRef.current;
@@ -607,7 +609,8 @@ function setupLabel(config: Record<string, unknown>): string {
  */
 function TargetLine({ target, lap }: { target: TrainingTarget; lap: number | null }) {
   const gap = lap === null ? null : (lap - target.ms) / 1000;
-  const label = target.kind === 'pole' ? `הפול של ${target.raceName} (סבב ${target.round})` : 'שיא ההקפה במסלול';
+  const label =
+    target.kind === 'pole' ? `ההקפה הכי מהירה במוקדמות של ${target.raceName} (סבב ${target.round})` : 'שיא ההקפה במסלול';
   return (
     <div className="small" style={{ marginTop: 10 }}>
       <div>
@@ -625,7 +628,7 @@ function TargetLine({ target, lap }: { target: TrainingTarget; lap: number | nul
       </div>
       {!target.samePhysics && (
         <div className="dim tiny" style={{ marginTop: 2 }}>
-          נקבע בפיזיקה הקודמת, כשהצמיגים לא החליקו - היעד האמיתי כנראה איטי יותר.
+          נקבע לפני שינוי בהתנהגות הרכבים, אז היעד האמיתי כנראה קצת איטי יותר.
         </div>
       )}
     </div>

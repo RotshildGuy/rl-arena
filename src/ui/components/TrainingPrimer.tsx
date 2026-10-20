@@ -29,15 +29,25 @@ export function markPrimerSeen(): void {
   }
 }
 
-export function TrainingPrimer({ onClose }: { onClose(): void }) {
+/**
+ * `onStart`, when given, makes the button do what it says - open a new
+ * training run. Without it the button only closes, and says only that.
+ */
+export function TrainingPrimer({ onClose, onStart }: { onClose(): void; onStart?(): void }) {
   return (
     <Modal
       eyebrow="לפני שמתחילים"
       title="המודל לא מנסה לנהוג טוב"
       onClose={onClose}
       footer={
-        <button className="primary" onClick={onClose}>
-          הבנתי, בואו נאמן
+        <button
+          className="primary"
+          onClick={() => {
+            onClose();
+            onStart?.();
+          }}
+        >
+          {onStart ? 'הבנתי, בואו נאמן' : 'הבנתי'}
         </button>
       }
     >
