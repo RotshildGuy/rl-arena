@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship } from '../useChampionship';
 import { earnedCoins } from '../../core/champ/coins';
@@ -57,7 +58,7 @@ export function Shop() {
     return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
   }, [state, uid]);
 
-  if (!state || !wallet || !doc) return <div className="empty">{progress ?? 'טוען את החנות…'}</div>;
+  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" note={progress} />;
 
   const balance = wallet.total - spent(doc.purchases);
   const owned = new Set(doc.purchases);

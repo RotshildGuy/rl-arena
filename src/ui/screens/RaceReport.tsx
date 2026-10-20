@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { DriverCell } from '../components/Livery';
@@ -24,7 +25,8 @@ export function RaceReport() {
   const card = state?.cards.find((c) => c.id === viewRaceId) ?? null;
   const result = card ? (state?.results.get(card.id) ?? null) : null;
 
-  if (!state || !card) {
+  if (!state) return <PageSkeleton variant="race" note={progress} />;
+  if (!card) {
     return (
       <div className="empty">
         {progress ?? 'לא נמצא מרוץ.'}

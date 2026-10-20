@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { buildStandings } from '../../core/champ/points';
@@ -246,6 +247,11 @@ export function Championship() {
 
       <StaleCarNotice entries={myEntries} models={myModels} now={now} round={upcoming} onFix={() => go('library')} />
 
+      {/* Until the season has loaded there is nothing true to say about the next
+          race - its field, its format - so the shape of it stands in. */}
+      {!state && <PageSkeleton variant="race" />}
+
+      {state && (
       <div className="split" style={{ marginBottom: 14 }}>
         <NextRace
           round={upcoming}
@@ -271,6 +277,7 @@ export function Championship() {
           )}
         </div>
       </div>
+      )}
 
       {standings && standings.drivers.length > 0 && (
         <div className="split">
@@ -360,12 +367,15 @@ export function Championship() {
  *
  * Every car on the grid learned to drive with tyres that never let go, and from
  * the switch round on a car that never brakes goes into the wall. Its team has
- * no way to find that out except by losing, so the date is said up front, and
- * for a few days after it, and then the notice goes away by itself.
+ * no way to find that out except by losing, so the date is said up front - and
+ * once that race day is over the notice has nothing left to warn about and
+ * goes away by itself.
  */
+const NOTICE_AFTER_START_MS = 2 * 60 * 60 * 1000;
+
 function PhysicsNotice({ now, onTrain }: { now: number; onTrain(): void }) {
   const at = startsAtForRound(PHYSICS_V2_ROUND);
-  if (now > at + 3 * DAY_MS) return null;
+  if (now > at + NOTICE_AFTER_START_MS) return null;
   const before = now < at;
   return (
     <div className="card notched" style={{ marginBottom: 14, borderColor: 'rgba(0, 224, 255, 0.35)' }}>

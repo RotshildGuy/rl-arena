@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { Canvas } from '../components/Canvas';
@@ -50,7 +51,14 @@ export function Broadcast() {
     );
   }, [state, viewRaceId]);
 
-  if (!state || !card) {
+  if (!state) {
+    return (
+      <div style={{ margin: 20 }}>
+        <PageSkeleton variant="race" note={progress} />
+      </div>
+    );
+  }
+  if (!card) {
     return (
       <div className="empty" style={{ margin: 20 }}>
         {progress ?? 'אין מרוץ להציג.'}

@@ -11,14 +11,16 @@ interface Props {
    * be smaller than the number of models training on it.
    */
   minima?: Record<string, number>;
+  /** Options decided elsewhere, not offered at all. */
+  hiddenKeys?: string[];
 }
 
-export function GameOptions({ options, value, onChange, disabledKeys = [], minima = {} }: Props) {
+export function GameOptions({ options, value, onChange, disabledKeys = [], minima = {}, hiddenKeys = [] }: Props) {
   const set = (key: string, v: unknown) => onChange({ ...value, [key]: v });
 
   return (
     <>
-      {options.map((o) => {
+      {options.filter((o) => !hiddenKeys.includes(o.key)).map((o) => {
         const disabled = disabledKeys.includes(o.key);
         return (
           <div className="field" key={o.key}>
