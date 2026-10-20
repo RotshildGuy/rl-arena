@@ -1679,6 +1679,27 @@ function coinsTest(): void {
     .every((i) => !['#c77dff', '#3de87a', '#ffd84d'].includes(i.value.toLowerCase())));
 }
 
+function rivalTest(): void {
+  console.log(CHAPTER + 'Training against a championship car');
+  let rivalCalls = 0;
+  const rival = { act: () => (rivalCalls++, 1) };
+  const learnerSeats: number[][] = [];
+  const session = new TrainingSession({
+    gameId: 'racing',
+    config: { ...DEFAULT_RACING_CONFIG, nCars: 3, laps: 1, maxSteps: 60 },
+    rewards: [defaultRewards(RACING_SPEC)],
+    seed: 5,
+    rivals: [rival],
+    makeLearner: (_slot, seats) => {
+      learnerSeats.push(seats);
+      return new GaLearner({ gameId: 'racing', hyper: { populationSize: 4, hidden: [8] }, seed: 1, seatCount: seats.length });
+    },
+  });
+  for (let i = 0; i < 30; i++) session.step();
+  check('the rival takes the last seat and the learners the rest', learnerSeats[0].join() === '0,1' && session.rivals.length === 1);
+  check('and drives every step it is on track', rivalCalls >= 25, String(rivalCalls));
+}
+
 function feedbackTest(): void {
   console.log(CHAPTER + 'Feedback');
   check('a one-word report is sent back for more', feedbackProblem('broken') !== null);
@@ -1731,6 +1752,7 @@ feedbackTest();
 leagueTest();
 copiesTest();
 coinsTest();
+rivalTest();
 functionsCalendarTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);

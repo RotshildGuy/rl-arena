@@ -9,7 +9,8 @@ import { drawPlaceholder, renderGame } from '../gameRenderers';
 import { CAR_COLORS } from '../../core/games/racing/render';
 import { saveModel } from '../saveModel';
 import { getStore, recordKey, type SetupRecord, type TrainingPoint } from '../../storage';
-import type { SpeedMode, TrainSlotInit } from '../../workers/protocol';
+import type { SpeedMode, TrainInit, TrainSlotInit } from '../../workers/protocol';
+import { getArena } from '../../storage/arena';
 import { ALGORITHMS } from '../../core/rl/algorithms';
 import { useWakeLock } from '../device';
 import { durationText, lapTime, raceTime } from '../format';
@@ -100,13 +101,34 @@ export function TrainDashboard() {
         histories.push(history);
       }
 
+      // A championship car to race against: its weights, frozen, in the last
+      // seat. One more car on the grid so it never takes a learner's place.
+      let rivals: TrainInit['rivals'] = [];
+      let config = draft.config;
+      if (draft.rival && gameId === 'racing') {
+        try {
+          const arena = await getArena();
+          const w = await arena.loadEntryWeights(draft.rival.entryId);
+          if (w) {
+            rivals = [{ ...draft.rival.arch, weightsB64: w }];
+            const cars = Number(config.nCars ?? 1);
+            config = { ...config, nCars: Math.max(cars, models.length + 1) };
+          } else {
+            showToast('לא הצלחתי לטעון את היריב - מתאמנים בלעדיו');
+          }
+        } catch {
+          showToast('לא הצלחתי לטעון את היריב - מתאמנים בלעדיו');
+        }
+      }
+
       trainer.init(
         {
           gameId,
-          config: draft.config,
+          config,
           seed: Math.floor(Math.random() * 1e9),
           slots: inits,
           speed: 'fast',
+          rivals,
         },
         histories,
       );
@@ -254,6 +276,11 @@ export function TrainDashboard() {
           <div className="row wrap small muted">
             {status === 'error' && <span className="pill warn">שגיאה: {error}</span>}
             {booting && <span className="pill">מאתחל…</span>}
+            {draft.rival && (
+              <span className="pill" title="רכב מהאליפות, קפוא, במושב האחרון">
+                🏁 יריב: {draft.rival.driver} · {draft.rival.team}
+              </span>
+            )}
             {remainingMs !== null && !limitHit.current && (
               <span className="pill" title="עצירה ושמירה אוטומטית">
                 ⏱ <span className="mono">{durationText(remainingMs)}</span> עד שמירה

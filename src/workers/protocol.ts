@@ -28,6 +28,8 @@ export interface TrainInit {
   seed: number;
   slots: TrainSlotInit[];
   speed: SpeedMode;
+  /** Frozen cars to train against, taking the last seats. */
+  rivals?: Array<{ obsSize: number; hidden: number[]; nActions: number; weightsB64: string }>;
 }
 
 export interface SlotLive {

@@ -17,6 +17,12 @@ export interface SessionInit {
   seed: number;
   /** Builds the learner for a slot once its seats are known. */
   makeLearner: (slot: number, seats: number[]) => Learner;
+  /**
+   * Frozen drivers - a car from the championship to train against. They take
+   * the last seats on the grid, drive their own network and learn nothing; the
+   * models training around them learn to race them.
+   */
+  rivals?: Array<{ act(obs: Float32Array): number }>;
 }
 
 const NO_STATS: SlotStats[] = [];
@@ -39,6 +45,8 @@ export class TrainingSession {
   /** Environment seat indices held by each learner. */
   readonly seats: number[][];
   readonly gameId: string;
+  /** Seats past the learners' are the rivals', in order. */
+  readonly rivals: Array<{ act(obs: Float32Array): number }>;
 
   /** Steps taken in the episode now running. */
   episodeSteps = 0;
@@ -61,11 +69,14 @@ export class TrainingSession {
     this.env = game.createEnv(init.config, init.rewards[0]);
 
     const nSeats = this.env.nAgents;
-    const nSlots = Math.max(1, Math.min(init.rewards.length, nSeats));
+    // At least one seat is always somebody learning.
+    this.rivals = (init.rivals ?? []).slice(0, Math.max(0, nSeats - 1));
+    const learnSeats = nSeats - this.rivals.length;
+    const nSlots = Math.max(1, Math.min(init.rewards.length, learnSeats));
     this.seats = Array.from({ length: nSlots }, () => [] as number[]);
-    this.slotOfSeat = new Int32Array(nSeats);
+    this.slotOfSeat = new Int32Array(nSeats).fill(-1);
     this.indexInSlot = new Int32Array(nSeats);
-    for (let s = 0; s < nSeats; s++) {
+    for (let s = 0; s < learnSeats; s++) {
       const slot = s % nSlots;
       this.indexInSlot[s] = this.seats[slot].length;
       this.slotOfSeat[s] = slot;
@@ -123,15 +134,23 @@ export class TrainingSession {
     const n = this.env.nAgents;
     for (let seat = 0; seat < n; seat++) {
       this.active[seat] = this.env.isAgentDone(seat) ? 0 : 1;
-      this.actions[seat] = this.active[seat]
-        ? this.learners[this.slotOfSeat[seat]].act(this.indexInSlot[seat], this.cur[seat])
-        : 0;
+      const slot = this.slotOfSeat[seat];
+      this.actions[seat] = !this.active[seat]
+        ? 0
+        : slot < 0
+          ? this.rivals[seat - (n - this.rivals.length)].act(this.cur[seat])
+          : this.learners[slot].act(this.indexInSlot[seat], this.cur[seat]);
     }
 
     const res = this.env.step(this.actions);
     for (let seat = 0; seat < n; seat++) {
       if (!this.active[seat]) continue;
       this.env.observe(seat, this.nxt[seat]);
+      if (this.slotOfSeat[seat] < 0) {
+        // A rival only needs to see where it is next step.
+        this.cur[seat].set(this.nxt[seat]);
+        continue;
+      }
       this.learners[this.slotOfSeat[seat]].observe(
         this.indexInSlot[seat],
         this.cur[seat],

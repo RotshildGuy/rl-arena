@@ -62,6 +62,15 @@ export interface TrainDraft {
    * that ends with a saved model beats a long one that ends in a pocket.
    */
   timeLimitMin: number;
+  /** A championship car to train against: it drives, frozen, in the last seat. */
+  rival: RivalPick | null;
+}
+
+export interface RivalPick {
+  entryId: string;
+  driver: string;
+  team: string;
+  arch: { obsSize: number; hidden: number[]; nActions: number };
 }
 
 export const TIME_LIMITS = [0, 5, 15, 30];
@@ -175,6 +184,7 @@ function freshDraft(gameId: GameId): TrainDraft {
       populationSize: isMobileClass ? 20 : DEFAULT_GA_HYPER.populationSize,
     },
     timeLimitMin: isMobileClass ? 5 : 0,
+    rival: null,
   };
 }
 
