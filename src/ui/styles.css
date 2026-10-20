@@ -217,6 +217,10 @@
 .match-fill { background: var(--bg); }
 
 * { box-sizing: border-box; }
+/* No grey-blue square flashing over whatever is tapped on a phone: every
+   control already answers a press itself (the state layer and the slight
+   shrink), so the browser's own highlight only gets in the way. */
+html { -webkit-tap-highlight-color: transparent; }
 html, body, #root { height: 100%; }
 /* Nothing is ever wider than the screen. A single row that overflows would
    make a phone zoom the whole page out or let it slide sideways, and a page
