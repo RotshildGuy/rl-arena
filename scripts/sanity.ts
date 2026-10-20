@@ -56,6 +56,7 @@ import { hallOfFame, seasonCards, seasonComplete } from '../src/core/champ/seaso
 import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound, displaySeason } from '../src/core/champ/schedule';
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
+import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { Policy } from '../src/core/rl/policy';
@@ -1286,13 +1287,13 @@ function coachTest(): void {
 
   const screens: CoachState['screen'][] = [
     'championship', 'standings', 'broadcast', 'report', 'library',
-    'trainSetup', 'training', 'raceSetup', 'race', 'info',
+    'trainSetup', 'training', 'raceSetup', 'race', 'info', 'feedback',
   ];
   const spoken = screens.filter((screen) => at({ ...named, models: 2, registered: true, screen }) !== null);
   check('a car on the grid ends the walkthrough everywhere', spoken.length === 0, spoken.join(', ') || 'silent');
 
   // Someone watching a race or reading the terms is left alone, even mid-guide.
-  const quiet = (['broadcast', 'report', 'race', 'info'] as CoachState['screen'][]).filter(
+  const quiet = (['broadcast', 'report', 'race', 'info', 'feedback'] as CoachState['screen'][]).filter(
     (screen) => at({ ...named, models: 0, screen }) !== null,
   );
   check('and nobody is nudged over a race or the rules', quiet.length === 0, quiet.join(', ') || 'silent');
@@ -1590,6 +1591,13 @@ function diagnoseTest(): void {
 
 // ---------------------------------------------------------------- house style
 /** The em dash is not used in this project, anywhere (see CLAUDE.md). */
+function feedbackTest(): void {
+  console.log(CHAPTER + 'Feedback');
+  check('a one-word report is sent back for more', feedbackProblem('broken') !== null);
+  check('a real one goes through', feedbackProblem('the broadcast froze on lap 3 of the final') === null);
+  check('and an essay is capped', feedbackProblem('x'.repeat(FEEDBACK_MAX + 1)) !== null);
+}
+
 function dashTest(): void {
   console.log(CHAPTER + 'House style');
   const banned = String.fromCharCode(0x2014);
@@ -1631,6 +1639,7 @@ sliderTest();
 houseTest();
 seasonTest();
 diagnoseTest();
+feedbackTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

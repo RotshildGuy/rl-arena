@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useApp } from '../store';
+import { CONTACT_EMAIL } from '../contact';
 import { getArena } from '../../storage/arena';
 import { deleteMyData } from '../deleteMyData';
 import { getAuthView, isLinked, providerLabel, subscribeAuth } from '../auth';
@@ -28,7 +29,7 @@ const TABS: Array<{ id: Tab; label: string }> = [
 ];
 
 /** Where privacy and takedown requests go. */
-const CONTACT = 'rotshild189@gmail.com';
+const CONTACT = CONTACT_EMAIL;
 
 export function Info() {
   const { go, infoTab, openInfo } = useApp();
@@ -285,6 +286,10 @@ function Privacy() {
         </li>
         <li>
           <b>תוצאות מרוצים</b> שהמודלים שלכם השתתפו בהם.
+        </li>
+        <li>
+          <b>פניות ששלחתם</b> (באג או רעיון): הטקסט, סוג הפנייה ושם המסך שממנו נשלחה. פרטי קשר
+          ופרטי דפדפן נשמרים רק אם בחרתם לצרף אותם. רק אתם ומפעילי האתר יכולים לקרוא אותן.
         </li>
         <li>
           <b>ספירת שימוש.</b> פעם ביום לכל היותר, לכל אחת מחמש פעולות - כניסה לאתר, התחלת אימון,

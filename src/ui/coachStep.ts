@@ -49,7 +49,7 @@ export function coachStepFor({ screen, competitor, models, registered }: CoachSt
 
   // Reading the rules, watching a race or driving one: a nudge on top of any of
   // those is a nag rather than a guide.
-  if (screen === 'info' || screen === 'broadcast' || screen === 'report' || screen === 'race') return null;
+  if (screen === 'info' || screen === 'feedback' || screen === 'broadcast' || screen === 'report' || screen === 'race') return null;
 
   if (!competitor.trim()) return 'name';
 

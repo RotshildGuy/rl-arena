@@ -24,7 +24,8 @@ export type Screen =
   | 'training'
   | 'raceSetup'
   | 'race'
-  | 'info';
+  | 'info'
+  | 'feedback';
 
 export type InfoTab = 'how' | 'terms' | 'privacy' | 'notices';
 
@@ -88,6 +89,9 @@ interface AppState {
   infoTab: InfoTab;
 
   go(screen: Screen): void;
+  /** The screen the feedback form was opened from: it goes with the report. */
+  feedbackFrom: Screen;
+  openFeedback(): void;
   openRace(raceId: string, screen: 'broadcast' | 'report'): void;
   setCompetitor(name: string): void;
   /** The same, for a name that came *from* the account - so it is not sent back. */
@@ -179,6 +183,8 @@ export const useApp = create<AppState>((set, get) => ({
   race: { config: getGame(GAME_IDS[0]).defaultConfig(), opponents: [] },
 
   go: (screen) => set({ screen }),
+  feedbackFrom: 'championship',
+  openFeedback: () => set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' })),
 
   openRace: (viewRaceId, screen) => set({ viewRaceId, screen }),
 

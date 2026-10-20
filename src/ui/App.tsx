@@ -15,6 +15,7 @@ import { TrainDashboard } from './screens/TrainDashboard';
 import { RaceSetup } from './screens/RaceSetup';
 import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
+import { Feedback } from './screens/Feedback';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
 import { ThemeButton } from './components/ThemeButton';
@@ -77,6 +78,7 @@ function Arena() {
   const toast = useApp((s) => s.toast);
   const go = useApp((s) => s.go);
   const openInfo = useApp((s) => s.openInfo);
+  const openFeedback = useApp((s) => s.openFeedback);
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
   const competitor = useApp((s) => s.competitor);
   const coach = useCoachStep();
@@ -183,7 +185,8 @@ function Arena() {
           {screen === 'raceSetup' && <RaceSetup />}
           {screen === 'race' && <RaceScreen />}
           {screen === 'info' && <Info />}
-          {!bare && screen !== 'info' && <Footer onOpen={openInfo} />}
+          {screen === 'feedback' && <Feedback />}
+          {!bare && screen !== 'info' && <Footer onOpen={openInfo} onFeedback={openFeedback} />}
         </div>
       </main>
 
@@ -230,9 +233,19 @@ function GateInfo() {
  * in the header alone is a link nobody finds on a phone, where the header is
  * three things wide.
  */
-function Footer({ onOpen }: { onOpen: (tab: 'how' | 'terms' | 'privacy' | 'notices') => void }) {
+function Footer({
+  onOpen,
+  onFeedback,
+}: {
+  onOpen: (tab: 'how' | 'terms' | 'privacy' | 'notices') => void;
+  onFeedback(): void;
+}) {
   return (
     <footer className="site-foot">
+      <button className="ghost small" onClick={onFeedback}>
+        🐞 באג או רעיון?
+      </button>
+      <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('how')}>
         איך זה עובד
       </button>

@@ -577,6 +577,33 @@ match /metrics/{day}/events/{id} {
 
 עד שהכלל מתפרסם, Firestore דוחה את הכתיבות והאפליקציה ממשיכה כרגיל - האירוע פשוט לא נספר.
 
+### פניות: באגים ורעיונות
+
+בתחתית כל עמוד יש "באג או רעיון?", שפותח טופס (`ui/screens/Feedback.tsx`). פנייה נשמרת ב-
+`feedback/{id}` עם הטקסט, הסוג ושם המסך שממנו נפתח הטופס. פרטי דפדפן ודרך ליצור קשר מצורפים
+רק אם השולח בחר בהם. השולח רואה את הפניות שלו עם הסטטוס ותשובה, אם נכתבה; מי שב-`admins()`
+רואה את כולן באותו עמוד, ויכול לסמן "נקראה" / "טופלה" ולכתוב תשובה. בלי ענן הפנייה נשמרת
+בדפדפן והעמוד מציע לשלוח במייל.
+
+הכלל, בתוך `match /databases/{database}/documents`:
+
+```
+match /feedback/{id} {
+  allow create: if request.auth != null
+    && request.resource.data.uid == request.auth.uid
+    && request.resource.data.kind in ['bug', 'idea', 'other']
+    && request.resource.data.status == 'new'
+    && request.resource.data.text is string
+    && request.resource.data.text.size() >= 10
+    && request.resource.data.text.size() <= 2000
+    && request.resource.data.keys().hasOnly(['uid', 'kind', 'text', 'screen', 'device', 'contact', 'createdAt', 'status']);
+  allow read: if request.auth != null
+    && (resource.data.uid == request.auth.uid || request.auth.uid in admins());
+  allow update: if request.auth != null && request.auth.uid in admins()
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reply']);
+}
+```
+
 ### מה קורה כשההתחברות עצמה שבורה
 
 ספק כבוי בקונסולה או דומיין לא מורשה הם תקלות שאי אפשר לפתור מהדפדפן, ולכן הם לא משאירים
