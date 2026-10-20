@@ -10,6 +10,15 @@
      · numbers are monospaced and tabular, so a column of lap times lines up and
        a tenth of a second is visible without reading;
      · a team's colour is its identity and appears on every row it owns.
+
+   The surfaces those sit on are glass: translucent, frosted panels with a lit
+   top edge, floating over a dark field with a little colour moving under it.
+   The idea is taken from Apple's Liquid Glass, and the shapes and the roles —
+   pill-shaped buttons, a filled primary, tonal secondaries, a floating
+   navigation bar with an indicator under the current tab — from Material 3.
+   Glass is for chrome and containers only. Data stays on solid ground: a
+   timing table, a canvas or a pinned column is never see-through, because a
+   lap time with something blurry moving behind it is harder to read.
    ========================================================================== */
 
 /* ----------------------------------------------------------------- fonts
@@ -86,8 +95,39 @@
   --green: #3de87a;
   --yellow: #ffd84d;
 
-  --radius: 4px;
-  --notch: 14px;
+  /* Shape scale. Containers are rounder than the controls inside them, so a
+     button never looks as if it were about to fall out of its card. */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+
+  /* Glass. A tint to keep text legible whatever drifts behind it, a sheen that
+     is brighter at the top as if lit from above, a hairline edge, and the blur
+     itself. Each glass surface also gets `--glass-rim`: a highlight along the
+     inside of its top edge, which is most of what makes a panel read as a
+     sheet of glass rather than a grey box. */
+  --glass-tint: rgba(17, 21, 35, 0.58);
+  --glass-tint-strong: rgba(14, 17, 29, 0.82);
+  --glass-sheen: linear-gradient(170deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015) 55%);
+  --glass-edge: rgba(255, 255, 255, 0.1);
+  --glass-edge-strong: rgba(255, 255, 255, 0.16);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
+  --glass-blur: blur(22px) saturate(165%);
+
+  /* Material-style state layers: one hover and one press tint, used by every
+     control, so they all answer a finger the same way. */
+  --state-hover: rgba(255, 255, 255, 0.07);
+  --state-press: rgba(255, 255, 255, 0.12);
+
+  /* The solid surface for data: tables, pinned columns, scroll covers. */
+  --surface-solid: #0e111c;
+
+  --elev-1: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  --elev-2: 0 26px 70px -20px rgba(0, 0, 0, 0.8);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
   color-scheme: dark;
 }
 
@@ -108,11 +148,15 @@ body {
   font-size: 14px;
   line-height: 1.5;
   background-color: var(--bg);
-  /* Speed lines: a texture you feel rather than see. */
+  /* Speed lines, and the colour for the glass to bend. A frosted panel over a
+     flat black field is just a grey panel, so a few soft pools of the livery
+     colours sit under everything. The page itself never scrolls (`.content`
+     does), so this layer stays put while the panels slide over it. */
   background-image:
-    repeating-linear-gradient(64deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 9px),
-    radial-gradient(1100px 520px at 88% -12%, rgba(255, 46, 77, 0.09), transparent 62%),
-    radial-gradient(900px 520px at 4% 108%, rgba(0, 224, 255, 0.07), transparent 60%);
+    repeating-linear-gradient(64deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 9px),
+    radial-gradient(900px 560px at 92% -8%, rgba(255, 46, 77, 0.2), transparent 62%),
+    radial-gradient(760px 520px at 2% 104%, rgba(0, 224, 255, 0.14), transparent 60%),
+    radial-gradient(680px 460px at 30% 38%, rgba(64, 92, 255, 0.1), transparent 65%);
   background-attachment: fixed;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
@@ -152,59 +196,153 @@ a { color: var(--accent-2); }
 
 /* ---------------------------------------------------------------- controls */
 
+/*
+ * Buttons are pills, in three weights. The default is tonal — a pane of glass
+ * with the label on it. `primary` is filled with the accent and is the one
+ * thing on a screen to press next. `ghost` is a text button that only shows its
+ * shape under the pointer. Every one of them gives a little under a press, the
+ * way a glass control does when you lean on it.
+ */
 button {
   font: inherit;
   font-weight: 600;
   color: inherit;
   cursor: pointer;
-  border: 1px solid var(--line-2);
-  background: var(--panel-2);
-  border-radius: var(--radius);
-  padding: 9px 15px;
-  transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s;
+  border: 1px solid var(--glass-edge);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: var(--glass-rim);
+  border-radius: var(--radius-full);
+  padding: 9px 17px;
+  transition:
+    background 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease),
+    opacity 0.16s var(--ease),
+    transform 0.12s var(--ease),
+    box-shadow 0.16s var(--ease);
 }
-button:hover:not(:disabled) { background: var(--panel-3); border-color: #45506e; }
+button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); border-color: var(--glass-edge-strong); }
+button:active:not(:disabled) { transform: scale(0.97); background: rgba(255, 255, 255, 0.13); }
 button:disabled { opacity: 0.38; cursor: not-allowed; }
-button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(180deg, #ff5670, var(--accent) 60%, #e8203f);
+  border-color: rgba(255, 140, 158, 0.55);
   color: var(--accent-ink);
   font-weight: 800;
   letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 8px 22px -10px rgba(255, 46, 77, 0.85);
 }
-button.primary:hover:not(:disabled) { background: #ff4a66; border-color: #ff4a66; }
+button.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ff6c82, #ff3d5a 60%, #f02646);
+  border-color: rgba(255, 160, 175, 0.7);
+}
+button.primary:active:not(:disabled) { background: linear-gradient(180deg, #f04a64, #e8203f); }
 
 button.cyan {
-  background: transparent;
-  border-color: var(--accent-2);
+  background: rgba(0, 224, 255, 0.08);
+  border-color: rgba(0, 224, 255, 0.45);
   color: var(--accent-2);
 }
-button.cyan:hover:not(:disabled) { background: var(--accent-2-dim); }
+button.cyan:hover:not(:disabled) { background: rgba(0, 224, 255, 0.16); border-color: var(--accent-2); }
 
-button.danger { color: var(--danger); border-color: #4b1d2a; background: transparent; }
-button.danger:hover:not(:disabled) { background: #2a121a; }
+button.danger { color: var(--danger); border-color: rgba(255, 84, 112, 0.3); background: rgba(255, 84, 112, 0.06); }
+button.danger:hover:not(:disabled) { background: rgba(255, 84, 112, 0.14); border-color: rgba(255, 84, 112, 0.5); }
 
-button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
-button.ghost:hover:not(:disabled) { background: var(--panel-2); color: var(--text); border-color: var(--line); }
+button.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); }
+button.ghost:hover:not(:disabled) { background: var(--state-hover); color: var(--text); border-color: transparent; }
+button.ghost:active:not(:disabled) { background: var(--state-press); }
 
-button.small { padding: 6px 11px; font-size: 12px; }
+button.small { padding: 6px 13px; font-size: 12px; }
 
 input[type='text'], input[type='email'], input[type='password'], input[type='number'], select {
   font: inherit;
   color: inherit;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 8px 11px;
+  background: rgba(5, 7, 13, 0.5);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  padding: 9px 12px;
   width: 100%;
+  transition: border-color 0.16s var(--ease), box-shadow 0.16s var(--ease), background 0.16s var(--ease);
 }
-input:focus, select:focus { outline: none; border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--accent-2-dim); }
+input:not([type='range']):hover, select:hover { border-color: var(--glass-edge-strong); }
+input:not([type='range']):focus, select:focus {
+  outline: none;
+  border-color: var(--accent-2);
+  background: rgba(5, 7, 13, 0.7);
+  box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.18);
+}
+select option { background: var(--panel); }
 
 /* Numeric axes stay left-to-right even in an RTL page: otherwise a slider from
    -10 to 0 puts its minimum on the right, and "-1" renders as "1-". */
 input[type='range'] { width: 100%; accent-color: var(--accent); direction: ltr; }
+
+/*
+ * The slider, drawn rather than left to the browser: a thick rounded track that
+ * fills with the accent up to the thumb, and a white pill of a thumb with a
+ * shadow under it. The fill comes from `--fill`, which the component sets as a
+ * percentage — Firefox draws it natively with `::-moz-range-progress`, Chromium
+ * and Safari have no such part. A slider that does not set `--fill` simply
+ * shows an empty track, which is still correct.
+ */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 24px;
+  margin: 0;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    to right,
+    var(--accent) 0 var(--fill, 0%),
+    rgba(255, 255, 255, 0.13) var(--fill, 0%) 100%
+  );
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 20px;
+  margin-top: -7px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: linear-gradient(180deg, #ffffff, #dfe5f2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  transition: transform 0.12s var(--ease);
+}
+input[type='range']:active::-webkit-slider-thumb { transform: scale(1.12); }
+input[type='range']:focus-visible { outline: none; }
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.45), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.13);
+}
+input[type='range']::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+input[type='range']::-moz-range-thumb {
+  width: 28px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: linear-gradient(180deg, #ffffff, #dfe5f2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+input[type='range']:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.45); }
 input[type='number'] { direction: ltr; text-align: end; }
 
 .mono {
@@ -228,18 +366,23 @@ input[type='number'] { direction: ltr; text-align: end; }
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* The floating navigation bar on a phone is placed against this box. */
+  position: relative;
 }
 
+/* A `backdrop-filter` makes an element the containing block for anything fixed
+   inside it. That is safe here only because the phone's bottom bar is not in
+   the header: on a narrow screen the nav is rendered after the content. */
 .topbar {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 11px 20px;
-  border-bottom: 1px solid var(--line);
-  /* Opaque, and deliberately unfiltered: a `backdrop-filter` here would make the
-     header the containing block for the nav, and the nav is `position: fixed` to
-     the bottom of the viewport on a phone. */
-  background: linear-gradient(180deg, #101320, #0a0c13);
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--glass-edge);
+  background: var(--glass-sheen), rgba(10, 12, 20, 0.62);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), 0 8px 24px -16px rgba(0, 0, 0, 0.8);
   flex: 0 0 auto;
   min-width: 0;
   position: relative;
@@ -281,53 +424,59 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 .topbar .spacer { flex: 1; }
 
-/* Primary navigation. A row of tabs on desktop; a bottom bar on a phone. */
-.nav { display: flex; gap: 2px; }
+/*
+ * Primary navigation. On a desktop it is a capsule of tabs in the header; on a
+ * phone a floating bar at the bottom. Either way the current tab is marked the
+ * Material way, with a filled indicator behind it rather than a line under it —
+ * a line is easy to miss at the bottom of a phone screen.
+ */
+.nav {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
 .nav button {
   border: none;
   background: transparent;
-  border-radius: 0;
-  padding: 8px 14px;
+  box-shadow: none;
+  border-radius: var(--radius-full);
+  padding: 7px 16px;
   color: var(--muted);
   font-weight: 700;
   font-size: 13px;
   position: relative;
 }
-.nav button::after {
-  content: '';
-  position: absolute;
-  inset-inline: 10px;
-  bottom: 2px;
-  height: 2px;
-  background: transparent;
-  transition: background 0.14s;
+.nav button:hover:not(:disabled) { background: var(--state-hover); color: var(--text); border-color: transparent; }
+.nav button.on,
+.nav button.on:hover:not(:disabled) {
+  color: var(--text);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 12px -6px rgba(0, 0, 0, 0.8);
 }
-.nav button:hover { background: transparent; color: var(--text); }
-.nav button.on { color: var(--text); }
-.nav button.on::after { background: var(--accent); }
 
 .content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px 20px 40px; }
 .wrap { max-width: 1280px; margin: 0 auto; }
 
 /* ------------------------------------------------------------------ panels */
 
+/*
+ * The card: a sheet of frosted glass. `notched` used to clip one corner off
+ * like a livery panel; the rounded sheet replaced it, and the class is kept so
+ * the markup does not have to change.
+ */
 .card {
-  background: linear-gradient(180deg, var(--panel), rgba(13, 16, 26, 0.92));
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px;
+  background: var(--glass-sheen), var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-rim), var(--elev-1);
+  padding: 18px;
   position: relative;
-}
-
-/* The house shape: one clipped corner, like a livery panel. */
-.card.notched {
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--notch)) 0,
-    100% var(--notch),
-    100% 100%,
-    0 100%
-  );
 }
 
 .card > .head {
@@ -353,22 +502,23 @@ input[type='number'] { direction: ltr; text-align: end; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 9px;
-  border-radius: 2px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
-  background: var(--panel-2);
-  border: 1px solid var(--line-2);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-edge);
   white-space: nowrap;
 }
-.pill.good { color: var(--good); border-color: #15452c; background: #082013; }
-.pill.warn { color: var(--warn); border-color: #4a3a11; background: #241c07; }
-.pill.hot { color: var(--accent); border-color: var(--accent-dim); background: #1e0810; }
+.pill.good { color: var(--good); border-color: rgba(61, 232, 122, 0.3); background: rgba(61, 232, 122, 0.1); }
+.pill.warn { color: var(--warn); border-color: rgba(255, 197, 61, 0.32); background: rgba(255, 197, 61, 0.1); }
+.pill.hot { color: var(--accent); border-color: rgba(255, 46, 77, 0.35); background: rgba(255, 46, 77, 0.1); }
 .pill.live {
   color: #fff;
   background: var(--accent);
   border-color: var(--accent);
+  box-shadow: 0 0 16px -2px rgba(255, 46, 77, 0.7);
 }
 .pill.live .blip {
   width: 6px;
@@ -379,10 +529,35 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 @keyframes blip { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
-.segmented { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--radius); overflow: hidden; }
-.segmented button { border: none; border-radius: 0; background: transparent; padding: 7px 13px; font-size: 13px; }
-.segmented button + button { border-inline-start: 1px solid var(--line-2); }
-.segmented button.on { background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+/* A segmented control, the iOS way: a sunken track, and the chosen segment is a
+   raised pane of glass sitting in it. Accent red stays reserved for the one
+   action to take next, so a choice of speed does not compete with "save". */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.segmented button {
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  box-shadow: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.segmented button:hover:not(:disabled) { background: var(--state-hover); color: var(--text); }
+.segmented button.on,
+.segmented button.on:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.09));
+  color: var(--text);
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 3px 10px -4px rgba(0, 0, 0, 0.8);
+}
 
 .stat { display: grid; gap: 1px; }
 .stat .k { font-size: 10px; color: var(--dim); font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
@@ -405,8 +580,9 @@ input[type='number'] { direction: ltr; text-align: end; }
 .canvas-host {
   position: relative;
   background: #05060a;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-1);
   overflow: hidden;
 }
 .canvas-host canvas { display: block; width: 100%; height: 100%; }
@@ -415,8 +591,9 @@ input[type='number'] { direction: ltr; text-align: end; }
   text-align: center;
   padding: 46px 20px;
   color: var(--muted);
-  border: 1px dashed var(--line-2);
-  border-radius: var(--radius);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .legend { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -428,15 +605,22 @@ input[type='number'] { direction: ltr; text-align: end; }
   inset-block-end: 22px;
   inset-inline-start: 50%;
   transform: translateX(50%);
-  background: var(--panel-2);
-  border: 1px solid var(--accent);
-  border-inline-start-width: 3px;
+  background: var(--glass-sheen), var(--glass-tint-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge-strong);
   color: var(--text);
-  padding: 10px 18px;
-  border-radius: var(--radius);
+  padding: 11px 20px;
+  border-radius: var(--radius-full);
   z-index: 60;
   font-weight: 600;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  max-width: calc(100vw - 32px);
+  box-shadow: var(--glass-rim), var(--elev-2);
+  animation: toast-in 0.24s var(--ease);
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(50%, 10px) scale(0.96); }
+  to { opacity: 1; transform: translate(50%, 0) scale(1); }
 }
 
 /* Checkered strip, for race-finished headers. */
@@ -508,10 +692,10 @@ input[type='number'] { direction: ltr; text-align: end; }
   white-space: nowrap;
 }
 .timing tr:last-child td { border-bottom: none; }
-.timing tr.me { background: rgba(255, 46, 77, 0.07); }
-.timing tr.sel { background: var(--panel-2); }
-.timing tr.clickable { cursor: pointer; }
-.timing tr.clickable:hover { background: var(--panel-2); }
+.timing tr.me { background: rgba(255, 46, 77, 0.09); }
+.timing tr.sel { background: rgba(255, 255, 255, 0.06); }
+.timing tr.clickable { cursor: pointer; transition: background 0.14s var(--ease); }
+.timing tr.clickable:hover { background: var(--state-hover); }
 /* Numeric columns hug the right edge, header included. `end` cannot do that
    job here: `.num` carries unicode-bidi: plaintext, so a Hebrew header
    resolves its own line to RTL and `end` flips it to the left, while the
@@ -529,8 +713,8 @@ input[type='number'] { direction: ltr; text-align: end; }
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-weight: 700;
   font-size: 13px;
-  background: var(--panel-2);
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 7px;
   border-inline-start: 3px solid var(--line-2);
 }
 .pos.p1 { background: #2a2410; border-inline-start-color: #ffd84d; color: #ffd84d; }
@@ -570,11 +754,13 @@ input[type='number'] { direction: ltr; text-align: end; }
 .tower {
   display: grid;
   gap: 2px;
-  background: rgba(7, 8, 13, 0.82);
-  border: 1px solid var(--line);
+  background: var(--glass-sheen), rgba(7, 9, 15, 0.66);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
   padding: 5px;
-  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--elev-1);
 }
 .tower .row-t {
   display: grid;
@@ -582,7 +768,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   align-items: center;
   gap: 7px;
   padding: 3px 5px;
-  border-radius: 2px;
+  border-radius: 7px;
   font-size: 12px;
   line-height: 1.25;
   transition: background 0.2s;
@@ -606,9 +792,12 @@ input[type='number'] { direction: ltr; text-align: end; }
   display: flex;
   gap: 10px;
   padding: 10px 14px;
-  background: rgba(5, 6, 10, 0.86);
-  border: 1px solid var(--line-2);
+  background: var(--glass-sheen), rgba(5, 6, 10, 0.7);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--elev-1);
 }
 .lights .col { display: grid; gap: 5px; }
 .lights .bulb {
@@ -646,9 +835,12 @@ input[type='number'] { direction: ltr; text-align: end; }
   display: grid;
   gap: 8px;
   padding: 18px;
-  background: linear-gradient(155deg, var(--panel) 0%, rgba(13, 16, 26, 0.9) 100%);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: var(--glass-sheen), var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-rim), var(--elev-1);
   position: relative;
   overflow: hidden;
 }
@@ -661,18 +853,22 @@ input[type='number'] { direction: ltr; text-align: end; }
   background: var(--accent);
   opacity: 0.8;
 }
-.game-card:hover { border-color: var(--line-2); background: var(--panel-2); }
+.game-card:hover { border-color: var(--glass-edge-strong); }
 
 /* Hero panel for the next race. */
 .hero {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-xl);
   background:
-    radial-gradient(600px 220px at 85% 0%, rgba(255, 46, 77, 0.16), transparent 70%),
-    linear-gradient(180deg, var(--panel-2), var(--panel));
-  padding: 20px;
+    radial-gradient(600px 240px at 85% 0%, rgba(255, 46, 77, 0.24), transparent 70%),
+    var(--glass-sheen),
+    var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--elev-2);
+  padding: 22px;
 }
 .hero::after {
   content: '';
@@ -697,7 +893,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   gap: 2px 10px;
   align-items: center;
   padding: 11px 0;
-  border-bottom: 1px solid rgba(35, 42, 61, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .reward-row:last-child { border-bottom: none; }
 .reward-row .name { font-size: 14px; font-weight: 600; }
@@ -709,14 +905,15 @@ input[type='number'] { direction: ltr; text-align: end; }
 .reward-row .level {
   min-width: 30px;
   padding: 1px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  border: 1px solid rgba(0, 224, 255, 0.3);
+  background: rgba(0, 224, 255, 0.08);
+  border-radius: var(--radius-full);
   font-size: 13px;
   text-align: center;
   color: var(--accent-2);
   font-variant-numeric: tabular-nums;
 }
-.reward-row .level.muted { color: var(--muted); }
+.reward-row .level.muted { color: var(--muted); border-color: var(--glass-edge); background: transparent; }
 
 /* The range input is forced LTR, so the ends row is too — otherwise the word
    for notch 1 would sit under notch 10. Each label stays RTL inside its own box
@@ -735,10 +932,11 @@ input[type='number'] { direction: ltr; text-align: end; }
 
 /* One model in a training session, on the setup screen. */
 .slot-card {
-  border: 1px solid var(--line);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
-  background: var(--panel-2);
-  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: var(--glass-rim);
+  padding: 14px;
   margin-bottom: 10px;
 }
 .slot-card:last-child { margin-bottom: 0; }
@@ -746,13 +944,13 @@ input[type='number'] { direction: ltr; text-align: end; }
 
 /* The running order of a race day: every session, when it goes on air. */
 .timetable {
-  border: 1px solid var(--line);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
-  background: var(--panel-2);
-  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 10px 14px;
   margin-bottom: 14px;
 }
-.tt-row { gap: 10px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(35, 42, 61, 0.5); }
+.tt-row { gap: 10px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
 .tt-row:last-of-type { border-bottom: none; }
 .tt-row.live { color: var(--accent-2); }
 
@@ -793,10 +991,13 @@ input[type='number'] { direction: ltr; text-align: end; }
  * that still has something to reveal, with no script.
  */
 .scroll-x {
-  background-color: var(--panel);
+  /* Solid, not glass: the covers below have to match what they cover exactly,
+     and a scrolling table is data, which stays on solid ground. */
+  border-radius: var(--radius);
+  background-color: var(--surface-solid);
   background-image:
-    linear-gradient(to right, var(--panel) 40%, rgba(16, 19, 32, 0)),
-    linear-gradient(to left, var(--panel) 40%, rgba(16, 19, 32, 0)),
+    linear-gradient(to right, var(--surface-solid) 40%, rgba(14, 17, 28, 0)),
+    linear-gradient(to left, var(--surface-solid) 40%, rgba(14, 17, 28, 0)),
     radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0)),
     radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
   background-position: left center, right center, left center, right center;
@@ -826,7 +1027,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   position: sticky;
   inset-inline-start: 0;
   z-index: 1;
-  background-color: var(--panel);
+  background-color: var(--surface-solid);
 }
 .scroll-x .timing.pin-2 th:first-child,
 .scroll-x .timing.pin-2 td:first-child {
@@ -842,10 +1043,10 @@ input[type='number'] { direction: ltr; text-align: end; }
 /* A row tint is painted on the row, which an opaque pinned cell would hide. */
 .scroll-x .timing.pin-1 tr.me > td:first-child,
 .scroll-x .timing.pin-2 tr.me > td:nth-child(-n + 2) {
-  background-image: linear-gradient(rgba(255, 46, 77, 0.07), rgba(255, 46, 77, 0.07));
+  background-image: linear-gradient(rgba(255, 46, 77, 0.09), rgba(255, 46, 77, 0.09));
 }
 .scroll-x .timing.pin-1 tr.sel > td:first-child,
-.scroll-x .timing.pin-2 tr.sel > td:nth-child(-n + 2) { background-color: var(--panel-2); }
+.scroll-x .timing.pin-2 tr.sel > td:nth-child(-n + 2) { background-color: #171b29; }
 
 /* The driver column is the one that must not be squeezed. Left to itself it is
    the only flexible column in the row, so it collapses to an ellipsis and the
@@ -861,18 +1062,26 @@ input[type='number'] { direction: ltr; text-align: end; }
 .model-list { display: grid; gap: 8px; }
 /* A car and, when it is open, its own settings panel directly underneath. */
 .model-slot { display: grid; gap: 8px; }
-.model-detail { border-color: var(--accent); }
+.model-detail { border-color: rgba(255, 46, 77, 0.45); }
 .model-card {
   display: grid;
   gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
+  padding: 14px 16px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-lg);
+  background: var(--glass-sheen), var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-rim), var(--elev-1);
   cursor: pointer;
+  transition: border-color 0.16s var(--ease), background 0.16s var(--ease), transform 0.16s var(--ease);
 }
-.model-card:hover { border-color: var(--line-2); background: var(--panel-2); }
-.model-card.sel { border-color: var(--accent); background: var(--panel-2); }
+.model-card:hover { border-color: var(--glass-edge-strong); background: var(--glass-sheen), rgba(24, 29, 46, 0.62); }
+.model-card.sel {
+  border-color: rgba(255, 46, 77, 0.55);
+  background: var(--glass-sheen), rgba(24, 29, 46, 0.66);
+  box-shadow: var(--glass-rim), 0 0 0 1px rgba(255, 46, 77, 0.25), var(--elev-1);
+}
 .model-card .stats {
   display: flex;
   flex-wrap: wrap;
@@ -913,6 +1122,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   .cards { grid-template-columns: 1fr; }
 
   .content { padding: 14px 12px 24px; }
+  .card { border-radius: 20px; }
   .topbar { padding: 9px 12px; gap: 10px; }
   /* The header has room for the wordmark and three small things, not for the
      tagline too; whatever does not fit is cut here rather than widening the page. */
@@ -931,24 +1141,39 @@ input[type='number'] { direction: ltr; text-align: end; }
      It is the last row of the app's column rather than pinned to the screen,
      so it always sits right above whatever the browser or the phone puts at
      the bottom — a toolbar, or navigation buttons — instead of behind it. */
+  /* Floating, the way a tab bar floats on a phone now: a capsule of glass a
+     few pixels off the edges, with the page scrolling underneath it. It is
+     placed against the app's own box and not against the screen, so it still
+     sits above a browser toolbar or the phone's navigation buttons rather than
+     behind them — the app's box already ends where they begin. */
   .nav.bottom {
-    flex: 0 0 auto;
+    position: absolute;
+    inset-inline: 10px;
+    bottom: 10px;
     z-index: 40;
-    background: rgba(10, 12, 19, 0.97);
-    border-top: 1px solid var(--line);
-    gap: 0;
+    gap: 2px;
+    padding: 5px;
+    border-radius: var(--radius-full);
+    background: var(--glass-sheen), rgba(14, 17, 28, 0.66);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge-strong);
+    box-shadow: var(--glass-rim), 0 18px 40px -12px rgba(0, 0, 0, 0.85);
   }
+  /* Room under the last thing on the page, so it can scroll clear of the bar. */
+  .content { padding-bottom: 96px; }
+  .toast { inset-block-end: 92px; }
   .nav button {
     flex: 1;
     display: grid;
     justify-items: center;
     gap: 2px;
-    padding: 8px 4px 9px;
+    padding: 7px 4px 6px;
     font-size: 10px;
     letter-spacing: 0;
   }
-  .nav button .glyph { font-size: 17px; line-height: 1; }
-  .nav button::after { inset-inline: 22%; bottom: auto; top: 0; }
+  .nav button .glyph { font-size: 18px; line-height: 1; transition: transform 0.2s var(--ease); }
+  .nav button.on .glyph { transform: scale(1.1); }
 }
 
 @media (min-width: 901px) {
@@ -997,9 +1222,10 @@ input[type='number'] { direction: ltr; text-align: end; }
 .touchpad .key {
   width: 70px;
   height: 62px;
-  border-radius: 8px;
-  border: 1px solid var(--line-2);
-  background: var(--panel-2);
+  border-radius: 20px;
+  border: 1px solid var(--glass-edge-strong);
+  background: var(--glass-sheen), rgba(24, 29, 46, 0.7);
+  box-shadow: var(--glass-rim), var(--elev-1);
   color: var(--text);
   font-size: 22px;
   font-weight: 700;
@@ -1011,7 +1237,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   transition: background 0.06s, transform 0.06s;
 }
 .touchpad .key .cap { font-size: 10px; font-weight: 500; color: var(--muted); margin-top: 3px; }
-.touchpad .key.on { background: var(--accent); color: var(--accent-ink); transform: scale(0.95); }
+.touchpad .key.on { background: var(--accent); color: var(--accent-ink); transform: scale(0.93); }
 .touchpad .key.on .cap { color: rgba(255, 245, 246, 0.8); }
 
 @media (max-width: 420px) {
@@ -1024,8 +1250,8 @@ input[type='number'] { direction: ltr; text-align: end; }
   gap: 14px;
   text-align: center;
   padding: 50px 20px;
-  border: 1px dashed var(--line-2);
-  border-radius: var(--radius);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg);
 }
 .rotate-gate .glyph { font-size: 46px; animation: rotate-hint 2.4s ease-in-out infinite; }
 @keyframes rotate-hint {
@@ -1088,7 +1314,7 @@ input[type='number'] { direction: ltr; text-align: end; }
      of track the driver does not get. */
   margin: 0;
 }
-.match-fill .match-stage .canvas-host { height: 100%; }
+.match-fill .match-stage .canvas-host { height: 100%; border-radius: 0; border-inline: none; border-bottom: none; box-shadow: none; }
 /* Portrait: the canvas sizes itself from its own aspect and the tower follows
    it down the page, so the screen is full of race instead of full of margin. */
 .match-fill .match-stage.stacked { flex: 0 0 auto; }
@@ -1099,7 +1325,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   overflow-y: auto;
   margin: 8px;
 }
-.match-fill .tower-below .tower { background: var(--panel); }
+.match-fill .tower-below .tower { background: var(--surface-solid); }
 .match-fill .tower-below .row-t { padding: 7px 8px; font-size: 13px; }
 .match-fill .tower-below .row-t .livery { height: 18px; }
 /*
@@ -1123,9 +1349,10 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 .match-fill .touchpad .group { pointer-events: auto; }
 .match-fill .touchpad .key {
-  background: rgba(16, 19, 32, 0.62);
-  border-color: rgba(120, 134, 170, 0.5);
-  backdrop-filter: blur(3px);
+  background: var(--glass-sheen), rgba(16, 19, 32, 0.4);
+  border-color: rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
 }
 .match-fill .touchpad .key.on {
   background: var(--accent);
@@ -1162,8 +1389,8 @@ input[type='number'] { direction: ltr; text-align: end; }
   flex: 0 0 auto;
   direction: ltr;
   padding: 6px 10px;
-  border-top: 1px solid var(--line);
-  background: var(--panel);
+  border-top: 1px solid var(--glass-edge);
+  background: var(--glass-sheen), var(--glass-tint-strong);
 }
 .scrub input[type='range'] { flex: 1 1 auto; min-width: 60px; }
 /* Fixed width: a clock that resizes as it counts drags the slider with it. */
@@ -1188,10 +1415,12 @@ input[type='number'] { direction: ltr; text-align: end; }
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(7, 8, 13, 0.88);
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius);
-  padding: 5px 11px;
+  background: rgba(7, 8, 13, 0.7);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-full);
+  padding: 5px 13px;
   font-size: 12px;
   pointer-events: none;
 }
@@ -1220,8 +1449,9 @@ input[type='number'] { direction: ltr; text-align: end; }
   place-items: center;
   align-content: center;
   gap: 12px;
-  background: rgba(7, 8, 13, 0.82);
-  backdrop-filter: blur(3px);
+  background: rgba(7, 8, 13, 0.6);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
   text-align: center;
   padding: 16px;
 }
@@ -1255,10 +1485,11 @@ button.provider {
   justify-content: center;
   gap: 9px;
   width: 100%;
-  background: var(--text);
-  border-color: var(--text);
+  background: linear-gradient(180deg, #ffffff, #e4e9f4);
+  border-color: #fff;
   color: #10131f;
   font-weight: 700;
+  box-shadow: 0 8px 22px -12px rgba(255, 255, 255, 0.5);
 }
 button.provider:hover:not(:disabled) { background: #fff; border-color: #fff; }
 button.provider svg { flex: 0 0 auto; }
@@ -1280,20 +1511,20 @@ button.wide { width: 100%; }
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--line);
+  background: var(--glass-edge);
 }
 
 .auth-note {
   margin-top: 12px;
-  padding: 9px 11px;
-  border: 1px solid var(--line-2);
+  padding: 10px 13px;
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
-  background: var(--panel-2);
+  background: rgba(255, 255, 255, 0.05);
   font-size: 12.5px;
   line-height: 1.6;
 }
-.auth-note.warn { border-color: #4a3a11; background: #241c07; color: var(--warn); }
-.auth-note.good { border-color: #15452c; background: #082013; color: var(--good); }
+.auth-note.warn { border-color: rgba(255, 197, 61, 0.32); background: rgba(255, 197, 61, 0.08); color: var(--warn); }
+.auth-note.good { border-color: rgba(61, 232, 122, 0.3); background: rgba(61, 232, 122, 0.08); color: var(--good); }
 
 .auth-foot {
   display: flex;
@@ -1302,7 +1533,7 @@ button.wide { width: 100%; }
   gap: 4px;
   margin-top: 18px;
   padding-top: 12px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--glass-edge);
 }
 .auth-foot button { padding: 4px 6px; }
 
@@ -1324,16 +1555,22 @@ button.wide { width: 100%; }
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(4, 5, 9, 0.72);
-  backdrop-filter: blur(4px);
-  animation: modal-in 0.14s ease-out;
+  background: rgba(4, 5, 9, 0.55);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+  animation: modal-in 0.18s var(--ease);
 }
 @keyframes modal-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/* The sheet rises a little and settles, rather than appearing in place. */
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .modal-backdrop { animation: none; }
+  .modal-backdrop, .modal { animation: none; }
 }
 
 .modal {
@@ -1343,7 +1580,12 @@ button.wide { width: 100%; }
   max-height: calc(100dvh - 36px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  background: var(--glass-sheen), var(--glass-tint-strong);
+  border-color: var(--glass-edge-strong);
+  box-shadow: var(--glass-rim), var(--elev-2);
+  animation: sheet-in 0.24s var(--ease);
 }
 .modal .modal-body { overflow-y: auto; min-height: 0; line-height: 1.65; }
 .modal .modal-body p { margin: 0 0 12px; }
@@ -1353,7 +1595,7 @@ button.wide { width: 100%; }
   gap: 8px;
   padding-top: 12px;
   margin-top: 4px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--glass-edge);
 }
 .modal .modal-foot button { flex: 1 1 auto; }
 
@@ -1389,7 +1631,7 @@ button.wide { width: 100%; }
   gap: 4px;
   margin-top: 28px;
   padding-top: 14px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--glass-edge);
 }
 .site-foot .grow { flex: 1; }
 .site-foot button { padding: 4px 6px; }
@@ -1429,7 +1671,7 @@ button.wide { width: 100%; }
   content: '';
   position: absolute;
   inset: -3px;
-  border-radius: 10px;
+  border-radius: var(--radius-full);
   pointer-events: none;
   box-shadow: 0 0 0 2px var(--accent-dim);
   animation: coach-pulse 2s ease-in-out infinite;
@@ -1441,8 +1683,8 @@ button.wide { width: 100%; }
   max-width: min(280px, calc(100vw - 20px));
   background: #fff;
   color: #10131c;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: var(--radius);
+  padding: 11px 14px;
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.55;
@@ -1468,6 +1710,7 @@ button.wide { width: 100%; }
 
 /* The name field is a flex item in its row, and the anchor takes its place. */
 .coach-anchor.field-anchor { flex: 1 1 220px; }
+.coach-anchor.field-anchor.lit::after { border-radius: var(--radius); }
 .coach-anchor.field-anchor > .field { flex: 1; }
 
 @keyframes coach-in {
@@ -1519,4 +1762,28 @@ button.wide { width: 100%; }
 @media (max-width: 760px) {
   .start-bar-actions { margin-inline-start: 0; width: 100%; }
   .start-bar-actions > *:last-child { margin-inline-start: auto; }
+}
+
+/* ------------------------------------------------------- glass fallbacks */
+
+/*
+ * Glass without the blur is a dark tint over whatever happens to be behind it,
+ * which is fine over the background and unreadable over a table scrolling past
+ * the bottom bar. So where the blur is not available, or somebody has asked
+ * their system for less transparency, every glass surface turns solid.
+ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-tint: rgba(17, 21, 35, 0.94);
+    --glass-tint-strong: rgba(14, 17, 29, 0.97);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-tint: #121626;
+    --glass-tint-strong: #0f1220;
+  }
+  .topbar { background: #0c0f19; }
+  .nav.bottom { background: #10131f; }
+  .modal-backdrop { background: rgba(4, 5, 9, 0.85); }
 }

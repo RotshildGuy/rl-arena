@@ -546,6 +546,7 @@ function BroadcastStage({
             max={durationMs}
             step={100}
             value={Math.min(headMs, durationMs)}
+            style={{ ['--fill' as string]: `${durationMs > 0 ? (Math.min(headMs, durationMs) / durationMs) * 100 : 0}%` }}
             aria-label="מיקום בצפייה החוזרת"
             onChange={(e) => seek(Number(e.target.value))}
           />

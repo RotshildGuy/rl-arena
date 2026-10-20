@@ -55,6 +55,8 @@ export function RewardEditor({ spec, value, onChange, live }: Props) {
               max={REWARD_LEVELS}
               step={1}
               value={level}
+              // How far the track is filled with the accent, up to the thumb.
+              style={{ ['--fill' as string]: `${((level - 1) / (REWARD_LEVELS - 1)) * 100}%` }}
               // A slider drag leaves a focused number field focused, and the
               // phone then drags the view back to it on every touch.
               onPointerDown={dismissKeyboard}
