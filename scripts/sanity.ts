@@ -10,14 +10,14 @@ import { encodeWeights, decodeWeights } from '../src/core/nn/serialize';
 import { DqnAgent } from '../src/core/rl/dqn';
 import { mulberry32 } from '../src/core/rng';
 import { TRACK_DEFS, buildTrack, segmentsIntersect } from '../src/core/games/racing/tracks';
-import { defaultRewards } from '../src/core/games/types';
+import { defaultRewards, levelOf, matchingPreset, presetRewards } from '../src/core/games/types';
 import { GaTrainer, GaLearner } from '../src/core/rl/ga';
 import { TrainingSession } from '../src/core/rl/session';
 import { getGame } from '../src/core/games/registry';
 import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../src/core/games/racing/env';
 import { bestBraking, drive, flatOutLoses } from './drivers';
 import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
-import { RACING_SPEC, OBS_SIZE } from '../src/core/games/racing/rewards';
+import { RACING_SPEC, OBS_SIZE, RACING_PRESETS } from '../src/core/games/racing/rewards';
 import { planSessions, GRID_SIZE, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, nameKey, normalizeName, NAME_MAX } from '../src/core/champ/names';
@@ -1403,6 +1403,37 @@ function targetTest(): void {
   check('no Grand Prix on this circuit, no target', trainingTarget(cards, new Map(), trackForRound(3), 2, now) === null);
 }
 
+// ---------------------------------------------------------------- sliders
+function sliderTest(): void {
+  console.log(CHAPTER + 'Sliders and styles');
+  // Right always means "more of this": a bigger bonus, a harsher penalty, or —
+  // for contact, the one channel that crosses zero — more willingness to touch.
+  const backwards = RACING_SPEC.rewardChannels.filter((c) => {
+    const penalty = c.levels.every((v) => v <= 0) && c.key !== 'carHit';
+    const strength = c.levels.map((v) => (penalty ? -v : v));
+    return strength.some((v, i) => i > 0 && v < strength[i - 1]);
+  });
+  check('every slider grows to the right', backwards.length === 0, backwards.map((c) => c.key).join(', ') || 'all ten');
+  // The flip is display only: a fresh model starts on the same weights as before.
+  const d = defaultRewards(RACING_SPEC);
+  check('the default weights did not move',
+    d.wallHit === -3 && d.reverse === -0.3 && d.idle === -0.15 && d.timeStep === -0.005 && d.carHit === -0.5,
+    JSON.stringify({ wallHit: d.wallHit, reverse: d.reverse, idle: d.idle, timeStep: d.timeStep }));
+  const wall = RACING_SPEC.rewardChannels.find((c) => c.key === 'wallHit')!;
+  check('a saved weight still opens on the matching notch', levelOf(wall, -6) === 10 && levelOf(wall, 0) === 1);
+
+  const balanced = RACING_PRESETS.find((p) => p.id === 'balanced')!;
+  check('balanced is the defaults', matchingPreset(RACING_SPEC, d)?.id === 'balanced' &&
+    JSON.stringify(presetRewards(RACING_SPEC, balanced)) === JSON.stringify(d));
+  const careful = presetRewards(RACING_SPEC, RACING_PRESETS.find((p) => p.id === 'careful')!);
+  const aggressive = presetRewards(RACING_SPEC, RACING_PRESETS.find((p) => p.id === 'aggressive')!);
+  check('careful punishes the wall harder and pays less for speed', careful.wallHit < d.wallHit && careful.speed < d.speed);
+  check('aggressive pays more for speed and overtakes', aggressive.speed > d.speed && aggressive.overtake > d.overtake);
+  check('no style touches what teaches a car to follow the road',
+    [careful, aggressive].every((t) => t.checkpoint === d.checkpoint && t.lap === d.lap && t.finish === d.finish));
+  check('a table tuned by hand is no preset', matchingPreset(RACING_SPEC, { ...d, lap: 30 }) === null);
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1426,5 +1457,6 @@ metricsTest();
 calendarTest();
 recapTest();
 targetTest();
+sliderTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

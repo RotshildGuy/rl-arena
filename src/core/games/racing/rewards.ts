@@ -1,4 +1,4 @@
-import type { EnvSpec, RewardChannelDef } from '../types';
+import type { EnvSpec, RewardChannelDef, RewardPreset } from '../types';
 
 /** Sensor rays fanned across the front of the car. */
 export const SENSOR_COUNT = 9;
@@ -18,8 +18,14 @@ export const ACTION_LABELS = [
 /**
  * Every channel is a ten-notch slider. The numbers below are the weights the
  * environment actually adds up; the user only ever sees the notch and the two
- * words at its ends. Notch 1 is always the cautious, conservative end and notch
- * 10 the extreme one, so the whole table reads in one direction.
+ * words at its ends.
+ *
+ * Every slider asks one question — how much does this matter to you — and 10 is
+ * always "a lot". For a bonus that means a bigger bonus; for a penalty it means
+ * a *harsher* penalty, so those channels list their weights from 0 down. Moving
+ * any slider right always means "more of this", which is what anybody expects
+ * without reading the labels. (Saved models store weights, not notches, and
+ * `levelOf` maps a weight back to its notch, so the order is display only.)
  *
  * `defaultLevel` is chosen so a fresh model starts on exactly the weights that
  * were the defaults before the sliders existed — the balance that is known to
@@ -64,15 +70,15 @@ export const RACING_REWARDS: RewardChannelDef[] = [
   },
   {
     key: 'wallHit',
-    label: 'פגיעה במעקה',
-    hint: 'קנס על כל נגיעה בגדר (ברגע המגע, לא לאורך כל השפשוף)',
-    levels: [-6, -4, -3, -2, -1.5, -1, -0.6, -0.3, -0.1, 0],
-    // Notch 3, not the old 6. Since the tyres got a limit (physics 2) a crash
-    // costs real time, and a default that charged -1 for one taught models to
-    // corner on the wall; at -3 they learn to brake instead.
-    defaultLevel: 3,
-    lowLabel: 'זהיר',
-    highLabel: 'פזיז',
+    label: 'שמירה מהמעקה',
+    hint: 'כמה קנס על כל נגיעה בגדר (ברגע המגע, לא לאורך כל השפשוף)',
+    levels: [0, -0.1, -0.3, -0.6, -1, -1.5, -2, -3, -4, -6],
+    // -3, a harsher default than the -1 the table started with. Since the tyres
+    // got a limit (physics 2) a crash costs real time, and a model charged -1
+    // for one learned to corner on the wall; at -3 it learns to brake instead.
+    defaultLevel: 8,
+    lowLabel: 'פזיז',
+    highLabel: 'זהיר',
   },
   {
     // The only channel that crosses zero. At the top notches contact with another
@@ -87,30 +93,30 @@ export const RACING_REWARDS: RewardChannelDef[] = [
   },
   {
     key: 'reverse',
-    label: 'נסיעה נגד הכיוון',
-    hint: 'קנס בכל צעד שבו הרכב נע נגד כיוון המסלול',
-    levels: [-3, -2, -1.2, -0.8, -0.5, -0.3, -0.2, -0.1, -0.05, 0],
-    defaultLevel: 6,
-    lowLabel: 'רק קדימה',
-    highLabel: 'כיוון זה עניין של פרשנות',
+    label: 'נסיעה בכיוון הנכון',
+    hint: 'כמה קנס בכל צעד שבו הרכב נע נגד כיוון המסלול',
+    levels: [0, -0.05, -0.1, -0.2, -0.3, -0.5, -0.8, -1.2, -2, -3],
+    defaultLevel: 5,
+    lowLabel: 'כיוון זה עניין של פרשנות',
+    highLabel: 'רק קדימה',
   },
   {
     key: 'idle',
-    label: 'עמידה במקום',
-    hint: 'קנס בכל צעד שבו הרכב כמעט עוצר',
-    levels: [-2, -1.2, -0.8, -0.5, -0.3, -0.15, -0.1, -0.05, -0.02, 0],
-    defaultLevel: 6,
-    lowLabel: 'חייב לזוז',
-    highLabel: 'סבלני',
+    label: 'לא לעמוד במקום',
+    hint: 'כמה קנס בכל צעד שבו הרכב כמעט עוצר',
+    levels: [0, -0.02, -0.05, -0.1, -0.15, -0.3, -0.5, -0.8, -1.2, -2],
+    defaultLevel: 5,
+    lowLabel: 'סבלני',
+    highLabel: 'חייב לזוז',
   },
   {
     key: 'timeStep',
     label: 'לחץ זמן',
     hint: 'קנס קטן בכל צעד, ללא תנאי — דוחף לסיים מהר',
-    levels: [-0.05, -0.03, -0.02, -0.015, -0.01, -0.005, -0.003, -0.002, -0.001, 0],
-    defaultLevel: 6,
-    lowLabel: 'רודף את השעון',
-    highLabel: 'יש זמן',
+    levels: [0, -0.001, -0.002, -0.003, -0.005, -0.01, -0.015, -0.02, -0.03, -0.05],
+    defaultLevel: 5,
+    lowLabel: 'יש זמן',
+    highLabel: 'רודף את השעון',
   },
   {
     key: 'overtake',
@@ -123,6 +129,35 @@ export const RACING_REWARDS: RewardChannelDef[] = [
   },
 ];
 
+/**
+ * Three styles over the same table, for the first model of someone who does not
+ * want to think about ten sliders yet. Balanced is the defaults themselves; the
+ * other two move only the channels that decide character — speed, the wall,
+ * contact, overtaking and the clock — and leave the ones that teach a car to
+ * follow the road alone, because a style should change how it drives, not
+ * whether it learns to drive at all.
+ */
+export const RACING_PRESETS: RewardPreset[] = [
+  {
+    id: 'careful',
+    label: 'זהיר',
+    hint: 'בולם מוקדם, לא נוגע בקיר ולא ביריבים. איטי יותר, אבל כמעט תמיד מסיים',
+    levels: { speed: 4, wallHit: 10, carHit: 2, overtake: 3, timeStep: 4 },
+  },
+  {
+    id: 'balanced',
+    label: 'מאוזן',
+    hint: 'ברירת המחדל — האיזון שידוע שמלמד נהג סביר',
+    levels: {},
+  },
+  {
+    id: 'aggressive',
+    label: 'אגרסיבי',
+    hint: 'מהיר, עוקף ולא מפחד ממגע. מהיר יותר כשזה עובד, ונגמר בקיר כשלא',
+    levels: { speed: 8, wallHit: 6, carHit: 7, overtake: 8, timeStep: 7 },
+  },
+];
+
 export const RACING_SPEC: EnvSpec = {
   id: 'racing',
   name: 'מירוץ מכוניות',
@@ -131,4 +166,5 @@ export const RACING_SPEC: EnvSpec = {
   actions: ACTION_LABELS,
   scoreLabel: 'הקפות',
   rewardChannels: RACING_REWARDS,
+  presets: RACING_PRESETS,
 };
