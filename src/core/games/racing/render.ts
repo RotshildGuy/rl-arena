@@ -503,13 +503,15 @@ function drawCar(
   primary: string,
   look: CarLook | undefined,
   pxPerUnit: number,
+  /** How dark the shadow under the car is; softer where there is no asphalt behind it. */
+  shadow = 0.38,
 ): void {
   const secondary = look?.secondary ?? darker(primary);
 
   // Shadow, offset as if lit from above and a little to one side.
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+  ctx.fillStyle = `rgba(0, 0, 0, ${shadow})`;
   ctx.beginPath();
-  ctx.ellipse(-len * 0.04, wid * 0.14, len * 0.54, wid * 0.52, 0, 0, Math.PI * 2);
+  ctx.ellipse(-len * 0.04, wid * 0.14 * (shadow / 0.38), len * 0.52, wid * 0.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Tyres.
@@ -572,10 +574,11 @@ function drawCar(
   // The number, on the engine cover, once the car is big enough to read it.
   if (look?.number !== undefined && wid * pxPerUnit >= 16) {
     ctx.save();
-    ctx.translate(-len * 0.3, 0);
+    ctx.translate(-len * 0.31, 0);
     ctx.rotate(Math.PI / 2);
     ctx.fillStyle = '#ffffff';
-    ctx.font = `800 ${wid * 0.34}px system-ui, sans-serif`;
+    // Two digits get a smaller face, or they run into the helmet.
+    ctx.font = `800 ${wid * (look.number > 9 ? 0.27 : 0.34)}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(look.number), 0, 0);
@@ -695,15 +698,24 @@ export function renderRacing(ctx: CanvasRenderingContext2D, snap: RacingSnapshot
  * One car, large, for the shop's preview: the same drawing the track uses, so
  * what is bought is exactly what races.
  */
-export function drawCarPreview(ctx: CanvasRenderingContext2D, color: string, look: CarLook | undefined): void {
+export function drawCarPreview(
+  ctx: CanvasRenderingContext2D,
+  color: string,
+  look: CarLook | undefined,
+  /** The asphalt behind the car, or null for none (a podium step shows through). */
+  background: string | null = '#2b303d',
+): void {
   const { width: w, height: h } = ctx.canvas;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#2b303d';
-  ctx.fillRect(0, 0, w, h);
+  ctx.clearRect(0, 0, w, h);
+  if (background) {
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, w, h);
+  }
   const len = Math.min(h * 0.85, w * 1.3);
   ctx.save();
   ctx.translate(w / 2, h / 2);
   ctx.rotate(-Math.PI / 2);
-  drawCar(ctx, len, len * 0.59, color, look, 99);
+  drawCar(ctx, len, len * 0.59, color, look, 99, background ? 0.38 : 0.14);
   ctx.restore();
 }

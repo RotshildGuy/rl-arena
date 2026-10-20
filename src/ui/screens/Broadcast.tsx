@@ -16,6 +16,7 @@ import { lapTime, raceTime, timeText, untilText } from '../format';
 import { useIsPortrait, useWakeLock } from '../device';
 import { track } from '../../storage/metrics';
 import { useTeamPaint } from '../teamLooks';
+import { Podium } from '../components/Podium';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -487,6 +488,21 @@ function BroadcastStage({
             <div className="muted small">
               {window_?.session.name} · {card.name} · זמן מרוץ {raceTime(snap.cars[snap.order[0]]?.totalMs ?? snap.raceMs)}
             </div>
+            <Podium
+              compact
+              places={snap.order.slice(0, 3).map((car, i) => {
+                const c = snap.cars[car];
+                const t = towerCars[car];
+                return {
+                  position: i + 1,
+                  driver: t?.name ?? '-',
+                  team: entryById.get(grid[car] ?? '')?.team ?? '',
+                  color: t?.color ?? '#888',
+                  look: t?.look,
+                  detail: !c?.finished ? 'פרש' : i === 0 ? raceTime(c.totalMs) : `+${((c.totalMs! - (snap.cars[snap.order[0]]?.totalMs ?? 0)) / 1000).toFixed(1)}`,
+                };
+              })}
+            />
             {/* The flag has fallen but the slot has not run out. Rather than a
                 clock ticking up over a finished race, say when the next one
                 starts - and let the viewer read this one's result meanwhile. */}

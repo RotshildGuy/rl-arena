@@ -3,6 +3,9 @@ import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { DriverCell } from '../components/Livery';
 import { findCopies } from '../../core/champ/copies';
+import { Podium } from '../components/Podium';
+import { useTeamPaint } from '../teamLooks';
+import { teamLook } from '../../core/champ/livery';
 import { PositionChart, type PositionLine } from '../components/PositionChart';
 import { shadeFor, teamColor } from '../../core/champ/livery';
 import { lapsFor } from '../../core/champ/format';
@@ -134,6 +137,7 @@ function useCopyNote(card: RaceCard): (entryId: string) => string | undefined {
 function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
   const copyNote = useCopyNote(card);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
+  const paint = useTeamPaint(card.entries.map((e) => e.uid));
   const windows = useMemo(() => sessionWindows(card), [card]);
   const [sessionId, setSessionId] = useState(result.sessions[result.sessions.length - 1]?.sessionId ?? '');
   const session = result.sessions.find((s) => s.sessionId === sessionId) ?? result.sessions[0];
@@ -153,6 +157,20 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
   if (!session) return null;
 
   const winner = session.classification[0];
+  // The podium of the session on screen - the final by default, a heat when
+  // one is picked - so a session still to come is never given away.
+  const podium = session.classification.slice(0, 3).map((f) => {
+    const e = entries.get(f.entryId);
+    const bought = e ? paint.get(e.uid) : undefined;
+    return {
+      position: f.position,
+      driver: e?.driver ?? '-',
+      team: e?.team ?? '-',
+      color: bought?.color ?? colorOf.get(f.entryId) ?? '#888',
+      look: { ...teamLook(e?.team ?? '', e?.driver ?? ''), ...bought?.look },
+      detail: f.status === 'dnf' ? 'פרש' : f.position === 1 ? raceTime(f.totalMs) : f.gapMs !== null ? gapTime(f.gapMs) : undefined,
+    };
+  });
   const mostOvertakes = [...session.classification].sort((a, b) => b.overtakes - a.overtakes)[0];
   const mostLed = [...session.classification].sort((a, b) => b.lapsLed - a.lapsLed)[0];
   const fastestTop = [...session.classification].sort((a, b) => b.topSpeed - a.topSpeed)[0];
@@ -169,6 +187,13 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
 
   return (
     <>
+      <div className="card notched" style={{ marginBottom: 14 }}>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>
+          הפודיום{result.sessions.length > 1 ? ` · ${plan?.name ?? ''}` : ''}
+        </div>
+        <Podium places={podium} />
+      </div>
+
       <div className="cols-4" style={{ marginBottom: 14 }}>
         <StatCard
           label="מנצח"
