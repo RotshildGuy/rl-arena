@@ -1880,3 +1880,63 @@ button.wide { width: 100%; }
   .nav.bottom { background: var(--surface-solid); }
   .modal-backdrop { background: rgba(4, 5, 9, 0.85); }
 }
+
+/* ------------------------------------------------------------------ podium
+   Second, first, third, left to right whatever the page direction - that is
+   how a podium stands. The steps take the podium colours the position tiles
+   use, and the car on each is drawn by the track renderer. */
+.podium {
+  direction: ltr;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+.podium-spot {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  direction: rtl;
+}
+.podium-car { width: 64px; height: 108px; display: block; margin-bottom: 6px; }
+.podium-spot.p1 .podium-car { width: 76px; height: 128px; }
+.podium-name {
+  /* A Latin name in a Hebrew page is truncated at its own end, not its start. */
+  unicode-bidi: plaintext;
+  font-weight: 800;
+  font-size: 15px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.podium-team { unicode-bidi: plaintext; font-size: 12px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-detail { font-size: 12px; color: var(--dim); margin-top: 2px; }
+.podium-step {
+  width: 100%;
+  margin-top: 8px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  display: grid;
+  place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
+  font-size: 26px;
+  border: 1px solid var(--glass-edge);
+  border-bottom: none;
+  box-shadow: var(--glass-rim);
+}
+.podium-spot.p1 .podium-step { height: 84px; background: var(--p1-bg); color: var(--p1); }
+.podium-spot.p2 .podium-step { height: 60px; background: var(--p2-bg); color: var(--p2); }
+.podium-spot.p3 .podium-step { height: 44px; background: var(--p3-bg); color: var(--p3); }
+.podium.compact .podium-car { width: 48px; height: 80px; }
+.podium.compact .podium-spot.p1 .podium-car { width: 56px; height: 94px; }
+.podium.compact .podium-spot.p1 .podium-step { height: 56px; }
+.podium.compact .podium-spot.p2 .podium-step { height: 40px; }
+.podium.compact .podium-spot.p3 .podium-step { height: 28px; }
+.podium.compact .podium-step { font-size: 20px; }
