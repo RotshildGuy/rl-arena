@@ -625,6 +625,36 @@ match /metrics/{day}/events/{id} {
 
 עד שהכלל מתפרסם, Firestore דוחה את הכתיבות והאפליקציה ממשיכה כרגיל - האירוע פשוט לא נספר.
 
+### התראות והתקנה
+
+האתר ניתן להתקנה (`public/manifest.webmanifest`, אייקונים מ-`public/icon.svg` דרך
+`node scripts/og/icons.cjs`), ויש לו service worker קטן (`public/sw.js`) שלא שומר שום דבר במטמון:
+התפקידים שלו הם לאפשר התקנה ולהציג התראות.
+
+ליד "הוסף ליומן" יש **🔔 התראה לפני המרוץ** (`ui/push.ts`): בקשת הרשאה, אסימון של Firebase Cloud
+Messaging, ושמירה ב-`pushTokens/{token}` עם ה-uid. השליחה עצמה היא שתי פונקציות מתוזמנות
+ב-`functions/index.js`: ב-19:45 שעון ישראל "המרוץ מתחיל בעוד רבע שעה" לכל מי שהפעיל, וב-20:45
+התוצאה של הרכב הטוב ביותר של כל אחד, אם התוצאה כבר פורסמה (מישהו צריך לפתוח את האתר כדי שהמרוץ
+יורץ). אסימון שכבר לא קיים נמחק. לוח הזמנים של השרת הוא העתק קטן ב-`functions/race.js`,
+ו-`npm run sanity` בודק שהוא מסכים עם האפליקציה.
+
+- **אנדרואיד ומחשב:** עובד בלי התקנה.
+- **אייפון:** רק אחרי "הוספה למסך הבית", ולכן הכפתור פותח שם הסבר איך.
+- **מה צריך כדי שזה יעבוד:** `VITE_FIREBASE_VAPID_KEY` (מפתח Web Push מהקונסולה ← Project settings ←
+  Cloud Messaging) כמשתנה ב-GitHub, תוכנית Blaze, ו-`firebase deploy --only functions`. בלי המפתח
+  הכפתור פשוט לא מופיע.
+
+הכלל, בתוך `match /databases/{database}/documents`:
+
+```
+match /pushTokens/{token} {
+  allow create, update: if request.auth != null
+    && request.resource.data.uid == request.auth.uid
+    && request.resource.data.token == token;
+  allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+}
+```
+
 ### פניות: באגים ורעיונות
 
 בתחתית כל עמוד יש "באג או רעיון?", שפותח טופס (`ui/screens/Feedback.tsx`). פנייה נשמרת ב-
