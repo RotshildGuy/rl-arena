@@ -9,7 +9,7 @@ import type { CarLook } from '../games/racing/render';
  * best and slower on every timing screen, and a car painted in them would
  * read as a lap time.
  */
-export type ItemKind = 'color' | 'pattern' | 'number' | 'helmet' | 'smoke';
+export type ItemKind = 'color' | 'secondary' | 'pattern' | 'number' | 'helmet' | 'smoke';
 
 export interface ShopItem {
   id: string;
@@ -21,6 +21,14 @@ export interface ShopItem {
 }
 
 const color = (id: string, label: string, value: string, price = 120): ShopItem => ({ id, kind: 'color', label, price, value });
+/** The second colour: the stripe, the rear half of a two-tone, and the wings. */
+const second = (id: string, label: string, value: string, price = 60): ShopItem => ({
+  id,
+  kind: 'secondary',
+  label,
+  price,
+  value,
+});
 
 export const SHOP_ITEMS: ShopItem[] = [
   color('color-scarlet', 'ארגמן', '#ff2e4d'),
@@ -33,6 +41,15 @@ export const SHOP_ITEMS: ShopItem[] = [
   color('color-silver', 'כסף', '#c8d0de', 160),
   color('color-graphite', 'גרפיט', '#3a404f', 160),
   color('color-white', 'לבן', '#f4f6fb', 160),
+  second('second-white', 'לבן', '#f4f6fb'),
+  second('second-black', 'שחור', '#14161d'),
+  second('second-scarlet', 'ארגמן', '#ff2e4d'),
+  second('second-orange', 'כתום', '#ff7a1a'),
+  second('second-sky', 'תכלת', '#38bdf8'),
+  second('second-navy', 'כחול לילה', '#2346c8'),
+  second('second-teal', 'טורקיז', '#14b8a6'),
+  second('second-pink', 'ורוד', '#ff5fa2'),
+  second('second-silver', 'כסף', '#c8d0de'),
   { id: 'pattern-stripe', kind: 'pattern', label: 'פס מרכזי', price: 80, value: 'stripe' },
   { id: 'pattern-twotone', kind: 'pattern', label: 'שני גוונים', price: 80, value: 'twotone' },
   { id: 'pattern-solid', kind: 'pattern', label: 'חלק', price: 0, value: 'solid' },
@@ -50,6 +67,7 @@ export const ITEM_BY_ID = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
 /** What a team has on, as stored: one item id per kind, and the number if bought. */
 export interface Equipped {
   color?: string;
+  secondary?: string;
   pattern?: string;
   helmet?: string;
   smoke?: string;
@@ -79,27 +97,36 @@ export function validLook(doc: ShopDoc | null | undefined, earned: number): { lo
   if (!doc) return null;
   const owned = new Set(doc.purchases);
   if (spent(doc.purchases) > earned) return null;
-  const item = (id: string | undefined, kind: ItemKind) => {
-    if (!id) return undefined;
+  const e = doc.equipped;
+  for (const kind of ['color', 'secondary', 'pattern', 'helmet', 'smoke'] as const) {
+    const id = e[kind];
+    if (!id) continue;
     const it = ITEM_BY_ID.get(id);
-    if (!it || it.kind !== kind) return undefined;
-    if (it.price > 0 && !owned.has(id)) return 'bad' as const;
-    return it;
+    if (it && it.kind === kind && it.price > 0 && !owned.has(id)) return null;
+  }
+  if (e.number !== undefined && !owned.has('number')) return null;
+  return paintOf(e);
+}
+
+/**
+ * What a set of equipped items looks like, without asking whether it was paid
+ * for: the shop's try-on uses this directly, `validLook` only after checking.
+ */
+export function paintOf(e: Equipped): { look: CarLook; color?: string } {
+  const pick = (id: string | undefined, kind: ItemKind) => {
+    const it = id ? ITEM_BY_ID.get(id) : undefined;
+    return it && it.kind === kind ? it : undefined;
   };
-  const picks = [
-    item(doc.equipped.color, 'color'),
-    item(doc.equipped.pattern, 'pattern'),
-    item(doc.equipped.helmet, 'helmet'),
-    item(doc.equipped.smoke, 'smoke'),
-  ];
-  if (picks.includes('bad')) return null;
-  const [c, pattern, helmet, smoke] = picks as Array<ShopItem | undefined>;
-  const numberOk = doc.equipped.number === undefined || owned.has('number');
-  if (!numberOk) return null;
-  const n = doc.equipped.number;
+  const c = pick(e.color, 'color');
+  const secondary = pick(e.secondary, 'secondary');
+  const pattern = pick(e.pattern, 'pattern');
+  const helmet = pick(e.helmet, 'helmet');
+  const smoke = pick(e.smoke, 'smoke');
+  const n = e.number;
   return {
     color: c?.value,
     look: {
+      ...(secondary ? { secondary: secondary.value } : {}),
       ...(pattern ? { pattern: pattern.value as CarLook['pattern'] } : {}),
       ...(helmet ? { helmet: helmet.value } : {}),
       ...(smoke ? { smoke: smoke.value } : {}),

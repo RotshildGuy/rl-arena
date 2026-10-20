@@ -514,8 +514,10 @@ function drawCar(
   ctx.ellipse(-len * 0.04, wid * 0.14 * (shadow / 0.38), len * 0.52, wid * 0.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Tyres.
+  // Tyres, with a light rim so they stand out against dark asphalt.
   ctx.fillStyle = '#0d0f14';
+  ctx.strokeStyle = 'rgba(200, 208, 222, 0.75)';
+  ctx.lineWidth = Math.max(wid * 0.035, 1.2 / pxPerUnit);
   const tw = len * 0.2;
   const th = wid * 0.26;
   for (const x of [len * 0.28, -len * 0.3]) {
@@ -523,6 +525,7 @@ function drawCar(
       ctx.beginPath();
       ctx.roundRect(x - tw / 2, y, tw, th, th * 0.35);
       ctx.fill();
+      ctx.stroke();
     }
   }
 
@@ -576,11 +579,17 @@ function drawCar(
     ctx.save();
     ctx.translate(-len * 0.31, 0);
     ctx.rotate(Math.PI / 2);
-    ctx.fillStyle = '#ffffff';
     // Two digits get a smaller face, or they run into the helmet.
-    ctx.font = `800 ${wid * (look.number > 9 ? 0.27 : 0.34)}px system-ui, sans-serif`;
+    const size = wid * (look.number > 9 ? 0.27 : 0.34);
+    ctx.font = `800 ${size}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    // A dark outline first: white on a white or pale body would vanish.
+    ctx.strokeStyle = 'rgba(5, 6, 10, 0.9)';
+    ctx.lineWidth = size * 0.2;
+    ctx.lineJoin = 'round';
+    ctx.strokeText(String(look.number), 0, 0);
+    ctx.fillStyle = '#ffffff';
     ctx.fillText(String(look.number), 0, 0);
     ctx.restore();
   }
