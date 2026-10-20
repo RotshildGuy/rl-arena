@@ -49,6 +49,8 @@ import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
 import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
 import { carRecaps } from '../src/core/champ/recap';
+import { hallOfFame, seasonCards, seasonComplete } from '../src/core/champ/seasons';
+import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound, displaySeason } from '../src/core/champ/schedule';
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
 import { readFileSync } from 'node:fs';
@@ -1490,6 +1492,54 @@ function houseTest(): void {
   }
 }
 
+// ---------------------------------------------------------------- seasons
+function seasonTest(): void {
+  console.log(CHAPTER + 'Seasons');
+  // Season 1 is untouchable: its ids are its Firestore paths, its seeds its results.
+  const oldSeed = (round: number) => {
+    let h = 2166136261 ^ round;
+    for (const ch of 'S1') h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+    return (h >>> 0) % 1_000_000_007;
+  };
+  let legacy = true;
+  for (let r = 1; r <= 41; r++) {
+    if (raceIdForRound(r) !== `S1-R${String(r).padStart(3, '0')}` || seedForRound(r) !== oldSeed(r)) legacy = false;
+  }
+  check('rounds 1–41 keep their season-1 ids and seeds', legacy);
+  check('round 42 opens season 2', raceIdForRound(42) === 'S2-R042' && seasonForRound(42) === 'S2');
+  check('eight rounds a season', seasonNumber(49) === 2 && seasonNumber(50) === 3 &&
+    seasonRange(3).first === 50 && seasonRange(3).last === 57);
+  check('every round belongs to exactly one season', [1, 2, 3, 4, 5].every((n) =>
+    seasonRange(n + 1).first === seasonRange(n).last + 1));
+  check('the final table stays up the day after a final',
+    displaySeason(startsAtForRound(50) - BROADCAST_OPENS_MS - 1) === 2 && displaySeason(startsAtForRound(50) - BROADCAST_OPENS_MS) === 3);
+
+  // Season 2 raced in full; a raced in season 1 too, and wins every S2 round.
+  const ids = ['a', 'b0'];
+  const cards = [40, ...Array.from({ length: 8 }, (_, i) => 42 + i), 50].map((r) => fakeCard(r, ids));
+  const results = new Map<string, RaceResult>();
+  for (const c of cards) {
+    const order = c.round === 40 || c.round === 50 ? ['b0', 'a'] : ['a', 'b0'];
+    results.set(c.id, fakeResult(c.id, order.map((id, i) => fakePlace(id, i + 1))));
+  }
+  const s3 = buildStandings({ cards: seasonCards(cards, 3), results });
+  check('a new season starts from zero', s3.drivers.find((d) => d.entryId === 'a')?.points === POINTS[1] &&
+    s3.drivers[0].entryId === 'b0');
+  const fame = hallOfFame(cards, results, startsAtForRound(51));
+  const s2 = fame.find((h) => h.season === 2);
+  check('the season-2 champion is the one who won it', s2?.driver?.entryId === 'a' && s2.driver.points === 8 * POINTS[0] &&
+    s2.races === 8, JSON.stringify(s2 && { d: s2.driver?.entryId, p: s2.driver?.points, r: s2.races }));
+  check('and the teams\' title goes with it', s2?.team?.team === 'Alpha');
+  check('an unfinished season crowns nobody', !fame.some((h) => h.season === 3));
+  const pending = new Map(results);
+  pending.delete(cards.find((c) => c.round === 49)!.id);
+  check('nor does one whose final is not settled', !seasonComplete(2, cards, pending, startsAtForRound(49) + 1000));
+  const noFinal = cards.filter((c) => c.round !== 49);
+  check('a final that never ran ends the season a few hours on',
+    !seasonComplete(2, noFinal, results, startsAtForRound(49) + 1000) &&
+      seasonComplete(2, noFinal, results, startsAtForRound(49) + 4 * 3_600_000));
+}
+
 console.log('RL core sanity checks');
 gradientCheck();
 xorTest();
@@ -1515,5 +1565,6 @@ recapTest();
 targetTest();
 sliderTest();
 houseTest();
+seasonTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

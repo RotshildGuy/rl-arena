@@ -1,5 +1,5 @@
 import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
-import { SEASON_ID } from '../core/champ/schedule';
+import { seasonOfRaceId } from '../core/champ/schedule';
 import { firebaseConfigured } from './firebase';
 import { cloudDisabled, setCloudError, setCloudOk } from './cloudStatus';
 
@@ -247,7 +247,7 @@ class FirestoreArena implements ArenaStore {
 
   async getCard(raceId: string): Promise<RaceCard | null> {
     const { doc, getDoc, db } = await this.fs();
-    const snap = await getDoc(doc(db, 'seasons', SEASON_ID, 'races', raceId));
+    const snap = await getDoc(doc(db, 'seasons', seasonOfRaceId(raceId), 'races', raceId));
     return snap.exists() ? (snap.data() as RaceCard) : null;
   }
 
@@ -267,14 +267,14 @@ class FirestoreArena implements ArenaStore {
       let batch = writeBatch(db);
       let n = 0;
       for (const [entryId, weightsB64] of cars) {
-        batch.set(doc(db, 'seasons', SEASON_ID, 'races', card.id, 'cars', entryId), { entryId, weightsB64 });
+        batch.set(doc(db, 'seasons', seasonOfRaceId(card.id), 'races', card.id, 'cars', entryId), { entryId, weightsB64 });
         if (++n % 20 === 0) {
           await batch.commit();
           batch = writeBatch(db);
         }
       }
       if (n % 20 !== 0) await batch.commit();
-      await setDoc(doc(db, 'seasons', SEASON_ID, 'races', card.id), card);
+      await setDoc(doc(db, 'seasons', seasonOfRaceId(card.id), 'races', card.id), card);
       setCloudOk();
       return card;
     } catch (err) {
@@ -286,7 +286,7 @@ class FirestoreArena implements ArenaStore {
 
   async loadRaceWeights(raceId: string): Promise<Map<string, string>> {
     const { getDocs, collection, db } = await this.fs();
-    const snap = await getDocs(collection(db, 'seasons', SEASON_ID, 'races', raceId, 'cars'));
+    const snap = await getDocs(collection(db, 'seasons', seasonOfRaceId(raceId), 'races', raceId, 'cars'));
     const out = new Map<string, string>();
     snap.forEach((d) => {
       const data = d.data() as { entryId: string; weightsB64: string };
@@ -297,7 +297,7 @@ class FirestoreArena implements ArenaStore {
 
   async getResult(raceId: string): Promise<RaceResult | null> {
     const { doc, getDoc, db } = await this.fs();
-    const snap = await getDoc(doc(db, 'seasons', SEASON_ID, 'races', raceId, 'result', 'final'));
+    const snap = await getDoc(doc(db, 'seasons', seasonOfRaceId(raceId), 'races', raceId, 'result', 'final'));
     return snap.exists() ? (snap.data() as RaceResult) : null;
   }
 
@@ -306,7 +306,7 @@ class FirestoreArena implements ArenaStore {
     if (existing) return existing;
     const { doc, setDoc, db } = await this.fs();
     try {
-      await setDoc(doc(db, 'seasons', SEASON_ID, 'races', result.raceId, 'result', 'final'), result);
+      await setDoc(doc(db, 'seasons', seasonOfRaceId(result.raceId), 'races', result.raceId, 'result', 'final'), result);
       setCloudOk();
       return result;
     } catch (err) {
