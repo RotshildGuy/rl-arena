@@ -52,7 +52,7 @@ import { carRecaps } from '../src/core/champ/recap';
 import { diagnoseCar, diagnoseDay } from '../src/core/champ/diagnose';
 import { buildRaceCard } from '../src/core/champ/card';
 import { runRaceDay } from '../src/core/champ/sim';
-import { hallOfFame, seasonCards, seasonComplete } from '../src/core/champ/seasons';
+import { hallOfFame, rookieUids, seasonCards, seasonComplete } from '../src/core/champ/seasons';
 import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound, displaySeason } from '../src/core/champ/schedule';
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
@@ -1529,6 +1529,14 @@ function seasonTest(): void {
     results.set(c.id, fakeResult(c.id, order.map((id, i) => fakePlace(id, i + 1))));
   }
   const s3 = buildStandings({ cards: seasonCards(cards, 3), results });
+  const veteran = { ...fakeCard(30, ['v']), id: 'R30x' };
+  veteran.entries = veteran.entries.map((e) => ({ ...e, uid: 'old-team' }));
+  const newcomer = fakeCard(45, ['n']);
+  newcomer.entries = newcomer.entries.map((e) => ({ ...e, uid: 'new-team' }));
+  const later = fakeCard(46, ['v2']);
+  later.entries = later.entries.map((e) => ({ ...e, uid: 'old-team' }));
+  const rook = rookieUids([veteran, newcomer, later], 2);
+  check('a rookie is a team whose first race is this season', rook.has('new-team') && !rook.has('old-team'));
   check('a new season starts from zero', s3.drivers.find((d) => d.entryId === 'a')?.points === POINTS[1] &&
     s3.drivers[0].entryId === 'b0');
   const fame = hallOfFame(cards, results, startsAtForRound(51));

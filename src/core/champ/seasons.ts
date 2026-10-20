@@ -63,3 +63,21 @@ export function hallOfFame(cards: RaceCard[], settled: Map<string, RaceResult>, 
   }
   return out;
 }
+
+/**
+ * Teams in their first season: accounts whose first race of all is in season
+ * `n`. Their own table is somewhere a newcomer can win something this week,
+ * whoever has been piling up points since September. House cars are not
+ * rookies; they are furniture.
+ */
+export function rookieUids(cards: RaceCard[], n: number): Set<string> {
+  const first = new Map<string, number>();
+  for (const c of cards) {
+    for (const e of c.entries) {
+      if (e.uid === 'house') continue;
+      first.set(e.uid, Math.min(first.get(e.uid) ?? Infinity, c.round));
+    }
+  }
+  const { first: from, last } = seasonRange(n);
+  return new Set([...first].filter(([, r]) => r >= from && r <= last).map(([uid]) => uid));
+}

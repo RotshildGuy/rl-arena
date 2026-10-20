@@ -11,7 +11,7 @@ import { dateText, lapTime, posClass, raceTime } from '../format';
 import { trackRecords, nextRoundOnTrack, type RecordHolder } from '../../core/champ/records';
 import { RACE_LAPS } from '../../core/champ/format';
 import { currentRound, displaySeason, seasonNumber, seasonRange, startsAtForRound } from '../../core/champ/schedule';
-import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
+import { hallOfFame, rookieUids, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { leagueView } from '../../core/champ/league';
 import { LeaguePanel, useLeagues } from '../components/Leagues';
 import type { RaceCard, RaceResult } from '../../core/champ/types';
@@ -21,6 +21,9 @@ type Tab = 'drivers' | 'teams' | 'results' | 'records' | 'fame';
 export function Standings() {
   const { openRace, leagueId, setLeague } = useApp();
   const { leagues, reload: reloadLeagues } = useLeagues();
+  /** The rookies' table is a league of its own, chosen from the same picker. */
+  const ROOKIES = '__rookies';
+  const rookies = leagueId === ROOKIES;
   const league = leagues.find((l) => l.id === leagueId) ?? null;
   const { state, progress } = useChampionship();
   const now = useNow(5000);
@@ -41,9 +44,10 @@ export function Standings() {
     if (!state) return null;
     const cards = seasonCards(state.cards, season);
     const settled = settledResults(state.cards, state.results, now);
+    if (rookies) return leagueView(cards, settled, rookieUids(state.cards, season));
     return league ? leagueView(cards, settled, league.members) : { cards, results: settled };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, season, league]);
+  }, [state, season, league, rookies]);
   const standings = useMemo(() => (view ? buildStandings(view) : null), [view]);
 
   // Only race days that are actually over belong in a championship table.
@@ -56,10 +60,10 @@ export function Standings() {
   );
   const raced = useMemo(() => {
     const inSeason = seasonCards(allRaced, season);
-    if (!view || !league) return inSeason;
+    if (!view || (!league && !rookies)) return inSeason;
     const kept = new Set(view.cards.map((c) => c.id));
     return inSeason.filter((c) => kept.has(c.id));
-  }, [allRaced, season, view, league]);
+  }, [allRaced, season, view, league, rookies]);
 
   const fame = useMemo(
     () => (state ? hallOfFame(state.cards, settledResults(state.cards, state.results, now), now) : []),
@@ -73,7 +77,7 @@ export function Standings() {
     return <div className="empty">{progress ?? 'טוען את האליפות…'}</div>;
   }
 
-  if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !league && leagues.length === 0) {
+  if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !leagueId && leagues.length === 0) {
     return (
       <div className="empty">
         <h2 style={{ marginBottom: 6 }}>אין עדיין טבלה</h2>
@@ -90,10 +94,10 @@ export function Standings() {
             עונה {season}
             {season === current ? ' · נוכחית' : ''} · סבבים {seasonRange(season).first}–{seasonRange(season).last}
           </div>
-          <h1 className="display">{league ? league.name : 'טבלאות האליפות'}</h1>
+          <h1 className="display">{rookies ? 'טבלת הטירונים' : league ? league.name : 'טבלאות האליפות'}</h1>
         </div>
         <div className="actions">
-          {leagues.length > 0 && tab !== 'fame' && tab !== 'records' && (
+          {tab !== 'fame' && tab !== 'records' && (
             <select
               value={leagueId ?? ''}
               onChange={(e) => setLeague(e.target.value || null)}
@@ -101,6 +105,7 @@ export function Standings() {
               style={{ width: 'auto' }}
             >
               <option value="">כל המתחרים</option>
+              <option value={ROOKIES}>טירונים - העונה הראשונה שלהם</option>
               {leagues.map((l) => (
                 <option key={l.id} value={l.id}>
                   ליגה: {l.name}
