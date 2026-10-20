@@ -73,7 +73,7 @@ export function RewardEditor({ spec, value, onChange, live }: Props) {
             {current ? current.hint : 'סגנון משלכם - כוונון ידני במחוונים.'}
           </p>
           <button className="ghost small" onClick={() => setAdvanced((a) => !a)} aria-expanded={advanced}>
-            {advanced ? '▾' : '▸'} מתקדם · עשרה מחוונים
+            {advanced ? '▾' : '▸'} מתקדם · כוונון ידני בעשרה מחוונים (סליידרים)
           </button>
         </>
       )}

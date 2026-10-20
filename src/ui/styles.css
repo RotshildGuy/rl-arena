@@ -583,7 +583,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 .row.wrap { flex-wrap: wrap; }
 .muted { color: var(--muted); }
 .dim { color: var(--dim); }
-.small { font-size: 12px; }
+.small { font-size: 13px; }
 .tiny { font-size: 12px; }
 
 .field { display: grid; gap: 5px; margin-bottom: 12px; }
@@ -2137,4 +2137,9 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
 .train-timing { display: grid; gap: 5px; justify-items: end; }
 @media (max-width: 600px) {
   .train-timing { position: static; display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; justify-content: flex-start; }
+}
+@media (max-width: 900px) {
+  /* Phone reading sizes: helper text and the tab labels were near 11px. */
+  .nav.bottom button { font-size: 12.5px; }
+  .tiny { font-size: 12.5px; }
 }

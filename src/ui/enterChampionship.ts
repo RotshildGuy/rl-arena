@@ -34,7 +34,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   const team = normalizeName(getCompetitor());
   const driver = normalizeName(model.name);
   if (!team) throw new EntryError('צריך להגדיר שם מתחרה לפני רישום לאליפות');
-  if (model.gameId !== 'racing') throw new EntryError('האליפות מתקיימת במירוץ מכוניות בלבד');
+  if (model.gameId !== 'racing') throw new EntryError('האליפות מתקיימת במרוץ מכוניות בלבד');
 
   // Both names go onto a public leaderboard, so they are checked here rather
   // than at the keyboard: a model can be renamed at any time, and this is the

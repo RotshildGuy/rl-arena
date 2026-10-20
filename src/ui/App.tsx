@@ -94,6 +94,7 @@ function Arena() {
     window.scrollTo(0, 0);
   }, [screen, viewRaceId, infoTab]);
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
+  const auth = useSyncExternalStore(subscribeAuth, getAuthView);
   const competitor = useApp((s) => s.competitor);
   const coach = useCoachStep();
 
@@ -209,7 +210,18 @@ function Arena() {
             <bdi dir="auto" className="pill-name">{competitor}</bdi>
           </span>
         )}
-        <CloudBadge state={cloud.state} message={cloud.message} />
+        {/* A guest is told they are a guest. A green "connected" next to an
+            anonymous identity read as "signed in, my progress is safe". */}
+        {auth.anonymous && cloud.state === 'ok' ? (
+          <span
+            className="pill small"
+            title="אתם משחקים כאורחים: ההתקדמות שמורה, אבל רק בדפדפן הזה. כדי לשמור אותה גם במכשיר אחר, לחצו על שמירת החשבון."
+          >
+            👤 אורח
+          </span>
+        ) : (
+          <CloudBadge state={cloud.state} message={cloud.message} />
+        )}
       </header>
 
       <main ref={contentRef} className="content" style={bare ? { padding: 0, overflow: 'hidden' } : undefined}>

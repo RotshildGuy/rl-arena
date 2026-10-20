@@ -307,9 +307,11 @@ export const useApp = create<AppState>((set, get) => ({
 
   showToast: (msg) => {
     set({ toast: msg });
+    // Long enough to read a sentence: the short ones were gone before a slow
+    // reader got to the end, and the confirmation was missed altogether.
     setTimeout(() => {
       if (get().toast === msg) set({ toast: null });
-    }, 2600);
+    }, Math.max(3500, msg.length * 70));
   },
 
   newDraft: () => set({ draft: freshDraft(get().gameId) }),

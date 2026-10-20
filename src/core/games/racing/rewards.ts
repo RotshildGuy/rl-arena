@@ -160,7 +160,7 @@ export const RACING_PRESETS: RewardPreset[] = [
 
 export const RACING_SPEC: EnvSpec = {
   id: 'racing',
-  name: 'מירוץ מכוניות',
+  name: 'מרוץ מכוניות',
   obsSize: OBS_SIZE,
   obsVersion: OBS_VERSION,
   actions: ACTION_LABELS,

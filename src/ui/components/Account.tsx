@@ -329,7 +329,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
           </p>
           <div className="row wrap">
             <button className="danger" disabled={busy !== null} onClick={() => void leave()}>
-              {busy === 'out' ? 'יוצא…' : linked ? 'כן, התנתק' : 'כן, צא בכל זאת'}
+              {busy === 'out' ? 'יוצאים…' : 'כן, לצאת'}
             </button>
             <button className="ghost" disabled={busy !== null} onClick={() => setLeaving(false)}>
               ביטול
@@ -338,7 +338,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
         </>
       ) : (
         <button className="ghost small" onClick={() => setLeaving(true)}>
-          התנתקות מהחשבון
+          יציאה מהחשבון
         </button>
       )}
     </Modal>

@@ -395,8 +395,8 @@ function BroadcastStage({
   return (
     <div className="match-fill">
       <div className="match-bar">
-        <button className="ghost small" onClick={onHome}>
-          אליפות →
+        <button className="small" onClick={onHome}>
+          → חזרה לאליפות
         </button>
         <strong style={{ fontSize: 13 }}>{card.name}</strong>
         {isLive ? (

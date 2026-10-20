@@ -549,7 +549,7 @@ export function TrainDashboard() {
           <div className="card notched">
             <div className="cols-3">
               <Stat k={algo.episodesLabel} v={(slotLive?.live.episode ?? 0).toLocaleString('he-IL')} />
-              <Stat k={game.spec.scoreLabel} v={history.length ? history[history.length - 1].score.toFixed(1) : '-'} />
+              <Stat k={`${game.spec.scoreLabel} בניסיון האחרון`} v={history.length ? history[history.length - 1].score.toFixed(1) : '-'} />
               <Stat k="זמן אימון" v={durationText((boot.current[slotIndex]?.baseTrainedMs ?? 0) + trainer.elapsedMs())} />
             </div>
           </div>

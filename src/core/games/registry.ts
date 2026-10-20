@@ -70,7 +70,7 @@ export interface GameModule {
 
 const racing: GameModule = {
   spec: RACING_SPEC,
-  blurb: 'מירוץ 2D על ארבע מפות. הרכב "רואה" דרך תשעה חיישני מרחק ובוחר גז, בלם והיגוי.',
+  blurb: 'מרוץ 2D על ארבע מפות. הרכב "רואה" דרך תשעה חיישני מרחק ובוחר גז, בלם והיגוי.',
   defaultConfig: () => ({ ...DEFAULT_RACING_CONFIG }),
   options: [
     {

@@ -342,8 +342,12 @@ function SlotCard({
       </div>
       )}
 
-      <div className="field" style={{ marginBottom: 0 }}>
-        <label>איך הוא לומד {locked ? '(נעול - נקבע בעת יצירת המודל)' : ''}</label>
+      {/* Folded: the default suits the device, and two method names were
+          the first words a newcomer did not understand. */}
+      <details className="field" style={{ marginBottom: 0 }}>
+        <summary className="small muted" style={{ cursor: 'pointer' }}>
+          שיטת הלמידה: <b>{ALGORITHMS[slot.algorithm].name}</b> {locked ? '(נקבעה כשהמודל נוצר)' : '- אפשר להשאיר כך'}
+        </summary>
         <div className="segmented" style={{ width: '100%' }}>
           {(Object.keys(ALGORITHMS) as AlgorithmId[]).map((id) => (
             <button
@@ -358,7 +362,7 @@ function SlotCard({
           ))}
         </div>
         <div className="small muted">{ALGORITHMS[slot.algorithm].blurb}</div>
-      </div>
+      </details>
     </div>
   );
 }
@@ -454,7 +458,7 @@ function TimeLimit() {
       </div>
       <span className="muted small">
         {isMobileClass
-          ? 'האימון רץ רק כשהמסך דולק והלשונית פתוחה. אימון קצר שנגמר בשמירה עדיף על ארוך שנעצר בכיס.'
+          ? 'האימון רץ רק כשהמסך דולק והלשונית פתוחה. אם המסך נכבה האימון נעצר, אז עדיף אימון קצר שנגמר בשמירה.'
           : 'האימון רץ רק כשהלשונית פתוחה. כשהזמן נגמר המודל נשמר, ואפשר להמשיך משם.'}
       </span>
     </div>
