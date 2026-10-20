@@ -8,7 +8,7 @@ import { StartLights } from '../components/StartLights';
 import { Policy } from '../../core/rl/policy';
 import { defaultRewards, type Env } from '../../core/games/types';
 import { TouchPad } from '../components/TouchPad';
-import { goFullscreenLandscape, isTouchDevice, useIsPortrait } from '../device';
+import { canLockLandscape, goFullscreenLandscape, isTouchDevice, useIsPortrait } from '../device';
 import { loadOpponent } from '../opponents';
 import { lapTime, posClass, raceTime } from '../format';
 import type { RacingSnapshot } from '../../core/games/racing/env';
@@ -59,7 +59,18 @@ export function RaceScreen() {
   // Playing is landscape-only: the tracks are 1000x700 and the controls need a row of their own.
   const portrait = useIsPortrait();
   const mustRotate = isTouchDevice && portrait;
+  const [rotateNote, setRotateNote] = useState<string | null>(null);
+  const rotateForMe = async () => {
+    const ok = await goFullscreenLandscape(document.documentElement);
+    if (!ok) setRotateNote('הדפדפן הזה לא מאפשר לסובב אוטומטית - סובבו את הטלפון ביד.');
+  };
   const compact = isTouchDevice && !portrait;
+  // The clock only runs on the canvas, which is not drawn while the phone is
+  // upright - so the lights start counting from the moment it is turned, rather
+  // than having "run out" while nobody could see them.
+  useEffect(() => {
+    if (!mustRotate && phaseRef.current === 'countdown') startedAtRef.current = performance.now();
+  }, [mustRotate]);
   const stageRef = useRef<HTMLDivElement>(null);
 
   /** Action index used by finished agents - the middle of the action list is a no-op in both games. */
@@ -76,7 +87,7 @@ export function RaceScreen() {
     void (async () => {
       try {
         const policies: (Policy | null)[] = [null]; // car 0 is the player
-        const names = ['אתה'];
+        const names = ['אתם'];
         const teams = [useApp.getState().competitor || 'הקבוצה שלי'];
         const colors = [PLAYER_COLOR];
 
@@ -371,6 +382,34 @@ export function RaceScreen() {
     );
   }
 
+  // A phone held upright: nothing of the race fits, so the whole page is the
+  // request to turn it. The race screen has no page gutter of its own (it is
+  // edge to edge in landscape), so this one brings its own padding - without
+  // it the heading and the buttons ran off the side of the screen.
+  if (mustRotate) {
+    return (
+      <div className="rotate-page" ref={stageRef}>
+        <div className="rotate-gate">
+          <div className="glyph" aria-hidden="true">📱</div>
+          <h2>סובבו את הטלפון לרוחב</h2>
+          <p className="muted" style={{ margin: 0, maxWidth: 300 }}>
+            ה{game.matchNoun} משוחק לרוחב - כך המסלול נכנס למסך ויש מקום לפקדים. ה{game.matchNoun} יתחיל
+            מעצמו ברגע שהמסך יסתובב.
+          </p>
+          {canLockLandscape() && (
+            <button className="primary" onClick={() => void rotateForMe()}>
+              סובבו בשבילי (מסך מלא)
+            </button>
+          )}
+          {rotateNote && <p className="small muted" style={{ margin: 0 }}>{rotateNote}</p>}
+          <button className="ghost" onClick={() => go('raceSetup')}>
+            חזרה לבחירת יריבים
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="toolbar">
@@ -396,25 +435,9 @@ export function RaceScreen() {
 
       <div className="split-wide">
         <div style={{ position: 'relative' }} ref={stageRef}>
-          {mustRotate ? (
-            <div className="rotate-gate">
-              <div className="glyph">📱</div>
-              <h2>סובב את המכשיר</h2>
-              <p className="muted" style={{ margin: 0, maxWidth: 300 }}>
-                {game.matchNoun} משוחק לרוחב - כך המסלול נכנס למסך ויש מקום לפקדים.
-              </p>
-              <button
-                className="primary"
-                onClick={() => stageRef.current && void goFullscreenLandscape(stageRef.current)}
-              >
-                מסך מלא
-              </button>
-            </div>
-          ) : (
-            <Canvas aspect={16 / 10} draw={drawFrame} />
-          )}
-          {!mustRotate && countdownOverlay}
-          {!mustRotate && phase === 'racing' && snap?.raceMs !== undefined && (
+          <Canvas aspect={16 / 10} draw={drawFrame} />
+          {countdownOverlay}
+          {phase === 'racing' && snap?.raceMs !== undefined && (
             <div className="stage-overlay-end">
               <span className="pill mono">{raceTime(snap.raceMs)}</span>
             </div>

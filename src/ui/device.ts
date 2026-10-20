@@ -86,16 +86,35 @@ export function useWakeLock(active: boolean): void {
   }, [active]);
 }
 
-/** Request fullscreen and, where supported (Android Chrome), lock to landscape. */
-export async function goFullscreenLandscape(el: HTMLElement): Promise<void> {
+type LockableOrientation = ScreenOrientation & { lock?(o: 'landscape'): Promise<void> };
+
+/**
+ * Whether this browser can turn the screen by itself: it needs both fullscreen
+ * and an orientation lock, which in practice means Android Chrome. An iPhone
+ * has neither, and offering a button there that does nothing is how
+ * "fullscreen" got reported as broken.
+ */
+export function canLockLandscape(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    !!document.fullscreenEnabled &&
+    typeof (screen.orientation as LockableOrientation | undefined)?.lock === 'function'
+  );
+}
+
+/**
+ * Go fullscreen and lock to landscape. Resolves false when the lock did not
+ * take, having left fullscreen again - fullscreen on its own, still upright,
+ * changes nothing anybody can see.
+ */
+export async function goFullscreenLandscape(el: HTMLElement): Promise<boolean> {
   try {
     if (!document.fullscreenElement) await el.requestFullscreen();
-    const orientation = screen.orientation as ScreenOrientation & {
-      lock?(o: 'landscape'): Promise<void>;
-    };
-    await orientation.lock?.('landscape');
+    await (screen.orientation as LockableOrientation).lock?.('landscape');
+    return true;
   } catch {
-    // iOS Safari supports neither reliably; the rotate prompt is the fallback.
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    return false;
   }
 }
 

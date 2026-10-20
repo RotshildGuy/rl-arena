@@ -254,6 +254,7 @@ export function Garage() {
         <div className="title">
           <div className="eyebrow">המוסך</div>
           <h1 className="display">המודלים שלי</h1>
+          <div className="muted small">כל מודל הוא נהג ממוחשב שאימנתם. כאן מאמנים, משפרים ורושמים לאליפות.</div>
         </div>
         <div className="actions">
           {/* Distinct from the footer's "איך זה עובד", which opens the rules of
@@ -263,7 +264,7 @@ export function Garage() {
           </button>
           <button onClick={() => fileInput.current?.click()}>ייבוא מקובץ</button>
           <CoachAnchor
-            on={coach === 'create'}
+            step={coach === 'create' ? coach : null}
             text="כאן נולד מודל חדש. בוחרים מסלול, מכוונים עשרה מחווני אופי נהיגה - או משאירים כמו שהם - והרכב יוצא לנסות בעצמו. הוא מתחיל בלי לדעת כלום ולומד מהניסיונות."
           >
             <button className="primary" onClick={startNew}>
@@ -426,7 +427,7 @@ export function Garage() {
                   <div className="acts">
                     {gameId === 'racing' && (
                       <CoachAnchor
-                        on={coach === 'enter' && m.id === firstUnregistered}
+                        step={coach === 'enter' && m.id === firstUnregistered ? coach : null}
                         text="בלי רישום המודל לא משתתף במרוצים. לחצו רשום לאליפות והוא יעלה לגריד של הגרנד פרי הבא."
                       >
                       <button

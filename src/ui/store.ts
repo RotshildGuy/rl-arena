@@ -107,6 +107,13 @@ interface AppState {
   infoTab: InfoTab;
 
   go(screen: Screen): void;
+  /**
+   * A screen that must not be left silently - training, with progress nobody
+   * saved - registers this. It is asked before every navigation and returns
+   * false to keep the screen where it is (and ask the person itself).
+   */
+  leaveGuard: ((to: Screen) => boolean) | null;
+  setLeaveGuard(guard: ((to: Screen) => boolean) | null): void;
   /** The screen the feedback form was opened from: it goes with the report. */
   feedbackFrom: Screen;
   openFeedback(): void;
@@ -220,6 +227,11 @@ function withSeats(config: Record<string, unknown>, slots: number): Record<strin
   return nCars >= slots ? config : { ...config, nCars: slots };
 }
 
+function mayLeave(state: AppState, to: Screen): boolean {
+  if (to === state.screen || !state.leaveGuard) return true;
+  return state.leaveGuard(to);
+}
+
 export const useApp = create<AppState>((set, get) => ({
   screen: 'championship',
   gameId: GAME_IDS[0],
@@ -231,17 +243,31 @@ export const useApp = create<AppState>((set, get) => ({
   draft: freshDraft(GAME_IDS[0]),
   race: { config: getGame(GAME_IDS[0]).defaultConfig(), opponents: [] },
 
-  go: (screen) => set({ screen }),
+  go: (screen) => {
+    if (!mayLeave(get(), screen)) return;
+    set({ screen });
+  },
+  leaveGuard: null,
+  setLeaveGuard: (leaveGuard) => set({ leaveGuard }),
   feedbackFrom: 'championship',
   leagueId: null,
   setLeague: (leagueId) => set({ leagueId }),
   watchFirst: false,
   setWatchFirst: (watchFirst) => set({ watchFirst }),
-  openFeedback: () => set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' })),
+  openFeedback: () => {
+    if (!mayLeave(get(), 'feedback')) return;
+    set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' }));
+  },
 
-  openRace: (viewRaceId, screen) => set({ viewRaceId, screen }),
+  openRace: (viewRaceId, screen) => {
+    if (!mayLeave(get(), screen)) return;
+    set({ viewRaceId, screen });
+  },
 
-  openInfo: (infoTab) => set({ infoTab, screen: 'info' }),
+  openInfo: (infoTab) => {
+    if (!mayLeave(get(), 'info')) return;
+    set({ infoTab, screen: 'info' });
+  },
 
   setCompetitor: (name) => {
     persistCompetitor(name);

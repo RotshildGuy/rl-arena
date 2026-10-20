@@ -162,8 +162,9 @@ export function Championship() {
           המודלים נוהגים, אתם בונים אותם.
         </h1>
         <p className="muted" style={{ margin: 0, maxWidth: 620 }}>
-          כל אחד מאמן מודל, רושם אותו לאליפות ומקבל שם קבוצה משלו. פעם ביום נערך גרנד פרי -
-          מוקדמות קובעות את רשת הזינוק, המרוץ משודר בשידור חי במהירות רגילה, והניקוד בשיטה המקובלת במרוצי מכוניות.
+          <b>מודל</b> הוא נהג ממוחשב שלומד לנהוג לבד, מניסוי וטעייה. לא מתכנתים אותו - רק קובעים על מה
+          הוא מקבל נקודות, והוא מתאמן בדפדפן עד שהוא נוסע טוב. אחר כך רושמים אותו לאליפות, ופעם ביום
+          כל הנהגים הרשומים מתחרים בגרנד פרי בשידור חי.
         </p>
       </div>
 
@@ -185,7 +186,7 @@ export function Championship() {
             onCancel={competitor && !nameTaken ? () => setEditingName(false) : undefined}
             wrap={(field) => (
               <CoachAnchor
-                on={coach === 'name'}
+                step={coach === 'name' ? coach : null}
                 className="field-anchor"
                 text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות."
               >
@@ -214,7 +215,7 @@ export function Championship() {
             <span className="small">{error}</span>
             <div style={{ flex: 1 }} />
             <button className="small" onClick={reload}>
-              נסה שוב
+              נסו שוב
             </button>
           </div>
         </div>
@@ -401,7 +402,7 @@ function StaleCarNotice({
       <div className="row wrap">
         <span className="pill warn">לא מעודכן על המסלול</span>
         <span style={{ minWidth: 0 }}>
-          {stale.length === 1 ? `"${stale[0]}" השתנה` : `${stale.length} מהרכבים שלך השתנו`} במוסך
+          {stale.length === 1 ? `"${stale[0]}" השתנה` : `${stale.length} מהרכבים שלכם השתנו`} במוסך
           מאז הרישום האחרון - שם, משקולות או שניהם. בלי עדכון, הגרסה הישנה היא זו שתתחרה.
         </span>
         <div style={{ flex: 1 }} />
@@ -833,7 +834,7 @@ function MyRaceCard({
   return (
     <div className="card notched" style={{ marginBottom: 14 }}>
       <div className="head">
-        <div className="eyebrow">מה קרה לרכב שלך · {card.name}</div>
+        <div className="eyebrow">מה קרה לרכב שלכם · {card.name}</div>
         <div className="fill" />
         <button className="ghost small" onClick={onOpen}>
           הדוח המלא →

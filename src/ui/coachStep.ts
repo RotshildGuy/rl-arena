@@ -59,6 +59,10 @@ export function coachStepFor({ screen, competitor, models, registered }: CoachSt
 
   if (screen === 'training') return 'save';
   if (screen === 'trainSetup') return 'setup';
-  if (models === 0) return screen === 'library' ? 'create' : 'garage';
-  return screen === 'library' ? 'enter' : 'unregistered';
+  if (screen === 'library') return models === 0 ? 'create' : 'enter';
+  // The nudge towards the garage tab is said on the home screen only. Following
+  // somebody into the tables, the shop or a game of their own with it is what
+  // turned a guide into a nag.
+  if (screen !== 'championship') return null;
+  return models === 0 ? 'garage' : 'unregistered';
 }

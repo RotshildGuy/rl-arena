@@ -85,3 +85,15 @@ export function lapClass(ms: number | null, sessionBest: number | null, personal
   if (personalBest !== null && ms <= personalBest + 0.001) return 't-green';
   return 't-yellow';
 }
+
+/**
+ * A simulator speed as a number with a unit people know. The physics speaks in
+ * pixels per step, which means nothing on a results table; the car's top speed
+ * is drawn as 320 km/h, the figure a real single-seater tops out near.
+ */
+export function speedText(simSpeed: number): string {
+  return `${Math.round((simSpeed / SIM_MAX_SPEED) * 320)} קמ״ש`;
+}
+
+/** `MAX_SPEED` in the racing environment. */
+const SIM_MAX_SPEED = 7;

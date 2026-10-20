@@ -109,7 +109,7 @@ export class DqnLearner implements Learner {
   }
 
   progressNote(episodeSteps: number): string {
-    return `צעד ${episodeSteps} באפיזודה`;
+    return `צעד ${episodeSteps} בניסיון`;
   }
 }
 

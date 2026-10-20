@@ -16,7 +16,7 @@ import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { diagnoseDay } from '../../core/champ/diagnose';
 import { AdviceLine } from '../components/AdviceLine';
 import type { ArenaEntry, Finish, RaceCard, RaceResult, SessionResult } from '../../core/champ/types';
-import { dateTimeText, gapTime, lapClass, lapTime, posClass, raceTime, untilText } from '../format';
+import { dateTimeText, gapTime, lapClass, lapTime, posClass, raceTime, speedText, untilText } from '../format';
 
 export function RaceReport() {
   const { viewRaceId, go, openRace } = useApp();
@@ -111,6 +111,20 @@ export function RaceReport() {
               לשידור
             </button>
           </div>
+        </div>
+      )}
+
+      {!state.entries.some((e) => e.uid === state.uid && !e.retired) && (
+        <div className="card notched try-banner" style={{ marginBottom: 14 }}>
+          <div style={{ display: 'grid', gap: 2, flex: '1 1 220px' }}>
+            <b>רוצים לנסות בעצמכם?</b>
+            <span className="small muted">
+              מאמנים נהג בדפדפן, בוחרים איך הוא ינהג, ורושמים אותו למרוץ של מחר. בלי תכנות.
+            </span>
+          </div>
+          <button className="primary" onClick={() => go('library')}>
+            🔧 לבנות נהג משלי
+          </button>
         </div>
       )}
 
@@ -294,7 +308,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                     <td className={`mono num ${lapClass(f.bestLapMs, sessionBest, f.bestLapMs)}`}>
                       {lapTime(f.bestLapMs)}
                     </td>
-                    <td className="mono num muted">{f.topSpeed.toFixed(1)}</td>
+                    <td className="mono num muted">{speedText(f.topSpeed)}</td>
                     <td className="mono num">{f.overtakes || '-'}</td>
                     <td className="mono num muted">{f.wallHits + f.carHits || '-'}</td>
                     <td className="mono num muted">{f.lapsLed || '-'}</td>
@@ -336,7 +350,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
             <div className="eyebrow">כותרות</div>
           </div>
           <Headline label="הוביל הכי הרבה הקפות" who={entries.get(mostLed?.entryId ?? '')} value={`${mostLed?.lapsLed ?? 0} הקפות`} />
-          <Headline label="מהירות שיא" who={entries.get(fastestTop?.entryId ?? '')} value={(fastestTop?.topSpeed ?? 0).toFixed(1)} />
+          <Headline label="מהירות שיא" who={entries.get(fastestTop?.entryId ?? '')} value={speedText(fastestTop?.topSpeed ?? 0)} />
           <Headline
             label="הכי נקי"
             who={entries.get(
@@ -523,7 +537,7 @@ function Qualifying({ card }: { card: RaceCard }) {
                       {lapTime(q.sectorsMs[s])}
                     </td>
                   ))}
-                  <td className="mono num muted">{q.topSpeed.toFixed(1)}</td>
+                  <td className="mono num muted">{speedText(q.topSpeed)}</td>
                 </tr>
               );
             })}

@@ -101,7 +101,7 @@ export function TrainSetup() {
             ביטול
           </button>
           <CoachAnchor
-            on={coach === 'setup'}
+            step={coach === 'setup' ? coach : null}
             text="אפשר להשאיר הכל כמו שהוא לאימון ראשון. לחצו התחל אימון והרכב יתחיל לנסוע ולהשתפר מול העיניים שלכם."
           >
             <button className="primary" onClick={start}>
@@ -129,7 +129,9 @@ export function TrainSetup() {
                   key={i}
                   index={i}
                   slot={s}
-                  saved={saved}
+                  // A model already on this grid cannot be picked twice: both
+                  // seats would save over the same model, the last one winning.
+                  saved={saved.filter((m) => m.id === s.modelId || !slots.some((o) => o.modelId === m.id))}
                   removable={slots.length > 1}
                   placeholder={suggestFor(i)}
                   onPatch={(p) => patchSlot(i, p)}
@@ -220,7 +222,15 @@ export function TrainSetup() {
                 ))}
               </div>
             )}
+            {multi && (
+              <div className="small" style={{ marginBottom: 8 }}>
+                המחוונים של <b>{slot.name.trim() || suggestFor(slotIndex)}</b> בלבד
+              </div>
+            )}
+            {/* Keyed by slot: each model gets its own editor, so nothing the
+                last one had open or folded carries over to the next. */}
             <RewardEditor
+              key={slotIndex}
               spec={game.spec}
               value={slot.rewards}
               onChange={(rewards) => patchSlot(slotIndex, { rewards })}
@@ -368,19 +378,26 @@ function Estimate() {
   return (
     <div className="estimate">
       <div className="eyebrow">כמה זמן זה ייקח</div>
-      {measuring && <span className="muted small">מודד את המכשיר…</span>}
-      {!measuring && result && (
+      {/* The same two lines whether measured yet or not: swapping a short
+          "measuring" note for a big number and a sentence moved the start
+          button out from under a finger that was on its way to it. */}
+      {(measuring || result) && (
         <>
-          <strong
-            className="mono"
-            style={{ fontSize: 24, color: 'var(--accent-2)' }}
-            title={`נמדד על המכשיר הזה: ${Math.round(result.rate).toLocaleString('he-IL')} ${result.rateLabel}`}
-          >
-            {formatEstimate(result.seconds)}
-          </strong>
+          {measuring ? (
+            <span className="skel" style={{ width: 120, height: 30, display: 'inline-block' }} aria-label="מודד את המכשיר" />
+          ) : (
+            <strong
+              className="mono"
+              style={{ fontSize: 24, lineHeight: '30px', color: 'var(--accent-2)' }}
+              title={`נמדד על המכשיר הזה: ${Math.round(result!.rate).toLocaleString('he-IL')} ${result!.rateLabel}`}
+            >
+              {formatEstimate(result!.seconds)}
+            </strong>
+          )}
           <span className="muted small">
             {slots > 1 ? `עד ש-${slots} המודלים נוסעים טוב, במצב טורבו` : 'עד שהמודל נוסע טוב, במצב טורבו'}
-            {' · '}נמדד על המכשיר הזה, ולכן בקירוב
+            {' · '}
+            {measuring ? 'מודדים את המכשיר…' : 'נמדד על המכשיר הזה, ולכן בקירוב'}
           </span>
         </>
       )}

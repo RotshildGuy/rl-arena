@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
-import { useApp } from '../store';
+import { useApp, type Screen } from '../store';
+import { Modal } from '../components/Modal';
 import { useTrainer } from '../useTrainer';
 import { Canvas } from '../components/Canvas';
 import { LineChart } from '../components/LineChart';
@@ -21,6 +22,9 @@ import { track } from '../../storage/metrics';
 import { useChampionship } from '../useChampionship';
 import { trainingTarget, type TrainingTarget } from '../../core/champ/records';
 
+/** Finish and go, a checkpoint from the button, or one taken because the page was hidden. */
+type SaveMode = 'leave' | 'checkpoint' | 'quiet';
+
 const SPEEDS: Array<{ id: SpeedMode; label: string; hint: string }> = [
   { id: 'watch', label: '×1', hint: 'זמן אמת - לראות מה המודל עושה' },
   { id: 'fast', label: '×4', hint: 'מואץ פי ארבעה, עדיין מצויר' },
@@ -38,7 +42,7 @@ interface SlotBoot {
 }
 
 export function TrainDashboard() {
-  const { gameId, draft, patchSlot, go, showToast } = useApp();
+  const { gameId, draft, patchSlot, showToast } = useApp();
   const coach = useCoachStep();
   const game = getGame(gameId);
   const trainer = useTrainer();
@@ -46,6 +50,10 @@ export function TrainDashboard() {
 
   const [booting, setBooting] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  /** History length at the last save, per model: anything past it is unsaved. */
+  const savedLen = useRef<number[]>([]);
+  const dirtyRef = useRef(false);
   const [tab, setTab] = useState(0);
   const boot = useRef<SlotBoot[]>([]);
   const started = useRef(false);
@@ -96,6 +104,7 @@ export function TrainDashboard() {
         }
 
         state.resumeLength = history.length;
+        savedLen.current.push(history.length);
         boot.current.push(state);
         inits.push(init);
         histories.push(history);
@@ -149,7 +158,7 @@ export function TrainDashboard() {
   const limitMs = (draft.timeLimitMin ?? 0) * 60_000;
   const limitHit = useRef(false);
   // The latest `save`, so the timer saves today's history and not the first render's.
-  const saveRef = useRef<(thenLeave: boolean) => Promise<void>>(async () => {});
+  const saveRef = useRef<(mode: SaveMode) => Promise<void>>(async () => {});
   const [, tick] = useState(0);
   useEffect(() => {
     if (!limitMs) return;
@@ -158,14 +167,17 @@ export function TrainDashboard() {
       if (limitHit.current || status !== 'running' || trainer.elapsedMs() < limitMs) return;
       limitHit.current = true;
       trainer.pause();
-      void saveRef.current(false).then(() => showToast(`${draft.timeLimitMin} דקות הסתיימו - המודל נשמר. אפשר להמשיך או לסיים.`));
+      void saveRef.current('checkpoint').then(() => showToast(`${draft.timeLimitMin} דקות הסתיימו - המודל נשמר. אפשר להמשיך או לסיים.`));
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [limitMs, status]);
   const remainingMs = limitMs ? Math.max(0, limitMs - trainer.elapsedMs()) : null;
 
-  const save = async (thenLeave: boolean) => {
+  const save = async (mode: SaveMode) => {
+    const thenLeave = mode === 'leave';
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const payload = await trainer.requestWeights();
@@ -197,20 +209,72 @@ export function TrainDashboard() {
         state.savedId = rec.id;
         state.createdAt = rec.createdAt;
         state.records = rec.training.records ?? {};
+        savedLen.current[i] = live[i]?.history.length ?? 0;
         patchSlot(i, { modelId: rec.id, restart: false });
         saved.push(rec.name);
       }
+      dirtyRef.current = false;
       track('save');
-      showToast(thenLeave ? `נשמר: ${saved.join(' · ')}` : `נקודת שמירה נוצרה ל-${saved.length} מודלים`);
-      if (thenLeave) go('library');
+      showToast(
+        thenLeave
+          ? `נשמר: ${saved.join(' · ')}`
+          : mode === 'quiet'
+            ? 'האימון נשמר אוטומטית'
+            : `נקודת שמירה נוצרה ל-${saved.length} מודלים`,
+      );
+      if (thenLeave) leaveNow(leaveTo ?? 'library');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'השמירה נכשלה');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   saveRef.current = save;
+
+  /**
+   * Leaving with progress nobody saved.
+   *
+   * Training lives in a worker that dies with this screen, so a tap on another
+   * tab used to throw the run away without a word. Now every way out asks
+   * first - save and go, go anyway, or stay - and a page that is hidden (the
+   * phone locked, another app opened, another browser tab) saves by itself,
+   * because a hidden page is one the browser may kill without asking anybody.
+   */
+  const dirty = !booting && live.some((sl, i) => sl.history.length > (savedLen.current[i] ?? 0));
+  dirtyRef.current = dirty;
+  const [leaveTo, setLeaveTo] = useState<Screen | null>(null);
+  const setLeaveGuard = useApp((st) => st.setLeaveGuard);
+  const leaveNow = (to: Screen) => {
+    setLeaveGuard(null);
+    setLeaveTo(null);
+    useApp.getState().go(to);
+  };
+  useEffect(() => {
+    setLeaveGuard((to) => {
+      if (!dirtyRef.current) return true;
+      setLeaveTo(to);
+      return false;
+    });
+    return () => setLeaveGuard(null);
+  }, [setLeaveGuard]);
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden' && dirtyRef.current) void saveRef.current('quiet');
+    };
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, []);
 
   /** Colour every car by the model driving it, so interference is visible. */
   const carColors = useMemo(() => {
@@ -305,19 +369,43 @@ export function TrainDashboard() {
           <button onClick={() => (running ? trainer.pause() : trainer.play())} disabled={booting || status === 'error'}>
             {running ? '⏸ השהה' : '▶ המשך'}
           </button>
-          <button onClick={() => save(false)} disabled={saving || booting}>
+          <button onClick={() => save('checkpoint')} disabled={saving || booting}>
             נקודת שמירה
           </button>
           <CoachAnchor
-            on={coach === 'save'}
+            step={coach === 'save' ? coach : null}
             text="הרכב לומד תוך כדי נסיעה - אפשר לצפות, להזיז מחוונים ולתת לו זמן. כשאתם מרוצים מהנהג, לחצו סיים ושמור."
           >
-            <button className="primary" onClick={() => save(true)} disabled={saving || booting}>
+            <button className="primary" onClick={() => save('leave')} disabled={saving || booting}>
               {saving ? 'שומר…' : 'סיים ושמור'}
             </button>
           </CoachAnchor>
         </div>
       </div>
+
+      {leaveTo && (
+        <Modal
+          eyebrow="האימון עדיין רץ"
+          title="לשמור לפני שיוצאים?"
+          onClose={() => setLeaveTo(null)}
+          footer={
+            <>
+              <button className="ghost" onClick={() => setLeaveTo(null)}>
+                להמשיך לאמן
+              </button>
+              <button onClick={() => leaveNow(leaveTo)}>לצאת בלי לשמור</button>
+              <button className="primary" disabled={saving} onClick={() => void save('leave')}>
+                {saving ? 'שומר…' : 'לשמור ולצאת'}
+              </button>
+            </>
+          }
+        >
+          <p className="small" style={{ margin: 0 }}>
+            האימון רץ רק כשהמסך הזה פתוח. יציאה עוצרת אותו, ומה שהמודל למד מאז השמירה האחרונה יאבד אם לא
+            תשמרו.
+          </p>
+        </Modal>
+      )}
 
       <div className="split-main">
         <div className="grid">
@@ -420,7 +508,13 @@ export function TrainDashboard() {
           </div>
 
           <div className="card notched">
+            {multi && (
+              <div className="small" style={{ marginBottom: 8 }}>
+                המחוונים של <b>{slot.name || `מודל ${slotIndex + 1}`}</b> בלבד - שינוי כאן לא נוגע במודלים האחרים
+              </div>
+            )}
             <RewardEditor
+              key={slotIndex}
               spec={game.spec}
               value={slot.rewards}
               live
@@ -482,7 +576,7 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
 
   return (
     <div className="stage-overlay-end" style={{ display: 'grid', gap: 5, justifyItems: 'end' }}>
-      <div className="pill mono" title="זמן האפיזודה">
+      <div className="pill mono" title="זמן הניסיון הנוכחי">
         {raceTime(snap.raceMs)}
       </div>
       <div className="pill" title="ההקפה שהמוביל נוסע עכשיו">
@@ -491,7 +585,7 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
       </div>
       {snap.fastestLap && (
         <div className="pill" style={{ borderColor: 'var(--purple)', color: 'var(--purple)' }}>
-          מהירה באפיזודה · <span className="mono">{lapTime(snap.fastestLap.ms)}</span>
+          מהירה בניסיון · <span className="mono">{lapTime(snap.fastestLap.ms)}</span>
         </div>
       )}
     </div>
@@ -519,7 +613,7 @@ function TargetLine({ target, lap }: { target: TrainingTarget; lap: number | nul
       <div>
         {label}: <span className="mono" style={{ color: 'var(--purple)' }}>{lapTime(target.ms)}</span>
         <span className="dim"> · {target.driver}</span>
-        {' · '}אתה: <span className="mono">{lapTime(lap)}</span>
+        {' · '}שלכם: <span className="mono">{lapTime(lap)}</span>
         {gap !== null && (
           <>
             {' · '}

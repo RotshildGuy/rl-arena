@@ -84,6 +84,9 @@ function BroadcastStage({
   onHome(): void;
 }) {
   const { state } = useChampionship();
+  const goTo = useApp((st) => st.go);
+  /** Somebody with no car of their own: the end of a race is the moment to offer them one. */
+  const spectator = state ? !state.entries.some((e) => e.uid === state.uid && !e.retired) : false;
   const windows = useMemo(() => sessionWindows(card), [card]);
   const live = liveSession(card, now);
   const isLive = live !== null;
@@ -507,7 +510,7 @@ function BroadcastStage({
                   team: entryById.get(grid[car] ?? '')?.team ?? '',
                   color: t?.color ?? '#888',
                   look: t?.look,
-                  detail: !c?.finished ? 'פרש' : i === 0 ? raceTime(c.totalMs) : `+${((c.totalMs! - (snap.cars[snap.order[0]]?.totalMs ?? 0)) / 1000).toFixed(1)}`,
+                  detail: !c?.finished ? 'פרש' : i === 0 ? raceTime(c.totalMs) : `+${((c.totalMs! - (snap.cars[snap.order[0]]?.totalMs ?? 0)) / 1000).toFixed(1)} שנ׳`,
                 };
               })}
             />
@@ -521,8 +524,22 @@ function BroadcastStage({
               </div>
             )}
             {isLive && !nextSession && <div className="pill good">היום הסתיים - התוצאות פתוחות</div>}
+            {/* Watching was the first thing they did, and a table of numbers
+                was the next - which is where a curious visitor left. So the
+                end of the race asks the obvious question instead. */}
+            {spectator && (
+              <div className="try-cta">
+                <b>רוצים שגם לכם יהיה רכב על הגריד?</b>
+                <span className="small muted">
+                  בוחרים איך הרכב ינהג, והוא לומד לבד מול העיניים. שתי דקות, בלי תכנות.
+                </span>
+                <button className="primary" onClick={() => goTo('library')}>
+                  🔧 לבנות נהג משלי
+                </button>
+              </div>
+            )}
             <div className="row">
-              <button className="primary" onClick={onExit}>
+              <button className={spectator ? '' : 'primary'} onClick={onExit}>
                 {isLive && nextSession ? `תוצאות ${window_?.session.name ?? ''}` : 'לדוח המרוץ'}
               </button>
               {/* A live broadcast cannot be rewound: everyone is watching the
@@ -535,7 +552,7 @@ function BroadcastStage({
                     seek(0);
                   }}
                 >
-                  צפה שוב
+                  צפייה חוזרת
                 </button>
               )}
               {isLive && <button onClick={onHome}>חזרה לאליפות</button>}

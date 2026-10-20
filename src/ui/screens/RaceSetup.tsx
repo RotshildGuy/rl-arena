@@ -72,7 +72,7 @@ export function RaceSetup() {
     <>
       <div className="page-head">
         <div className="eyebrow">מחוץ לאליפות</div>
-        <h1 className="display">אתה מול המודלים</h1>
+        <h1 className="display">אתם מול המודלים</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 640 }}>
           {game.seatHint} - {isTouchDevice ? game.touchHint : game.controlsHint}. תוצאות כאן אינן משפיעות
           על טבלת האליפות; זה מגרש אימונים.
@@ -85,8 +85,8 @@ export function RaceSetup() {
           <GameOptions options={configOptions} value={race.config} onChange={(config) => patchRace({ config })} />
           <div className="small muted">
             {maxOpponents === 1
-              ? 'משחק אחד מול אחד: אתה מול מודל אחד.'
-              : 'מספר המשתתפים נקבע לפי מספר היריבים שבחרת: ' + (race.opponents.length + 1) + '.'}
+              ? 'משחק אחד מול אחד: אתם מול מודל אחד.'
+              : 'מספר המשתתפים נקבע לפי מספר היריבים שבחרתם: ' + (race.opponents.length + 1) + '.'}
           </div>
         </div>
 
@@ -126,7 +126,7 @@ export function RaceSetup() {
                   on={race.opponents.includes(m.id)}
                   driver={m.name}
                   team={m.owner || team || 'ללא שם'}
-                  note={`${m.training.episodes.toLocaleString('he-IL')} אפיזודות · שיא ${m.training.bestScore.toFixed(2)} ${game.spec.scoreLabel}`}
+                  note={`${m.training.episodes.toLocaleString('he-IL')} ניסיונות אימון · שיא ${m.training.bestScore.toFixed(2)} ${game.spec.scoreLabel}`}
                   right={m.training.bestLapMs ? lapTime(m.training.bestLapMs) : ''}
                   onToggle={toggle}
                 />
@@ -147,7 +147,7 @@ export function RaceSetup() {
                   driver={e.driver}
                   team={e.team}
                   tag={e.tag}
-                  note={`${e.episodes.toLocaleString('he-IL')} אפיזודות`}
+                  note={`${e.episodes.toLocaleString('he-IL')} ניסיונות אימון`}
                   right={formGuide.has(e.id) ? lapTime(formGuide.get(e.id)!) : ''}
                   onToggle={toggle}
                 />
@@ -158,6 +158,11 @@ export function RaceSetup() {
       </div>
 
       <div className="row wrap" style={{ marginTop: 18, justifyContent: 'flex-end' }}>
+        {race.opponents.length === 0 && (
+          <span className="small muted" role="status" style={{ marginInlineEnd: 'auto' }}>
+            בחרו לפחות יריב אחד ברשימה כדי לזנק.
+          </span>
+        )}
         <button className="ghost" onClick={() => go('library')}>
           למוסך
         </button>
@@ -204,7 +209,8 @@ function OpponentRow({
         type="checkbox"
         checked={on}
         onChange={() => onToggle(id)}
-        style={{ width: 'auto', accentColor: 'var(--accent)' }}
+        aria-label={`${driver} · ${team}`}
+        style={{ width: 22, height: 22, flex: '0 0 auto', margin: 0, accentColor: 'var(--accent)' }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
         <DriverCell driver={driver} team={team} tag={tag} note={note} />

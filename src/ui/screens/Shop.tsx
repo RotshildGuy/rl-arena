@@ -138,7 +138,7 @@ export function Shop() {
         </div>
         <div className="actions">
           <span className="pill" style={{ fontSize: 15 }}>
-            🪙 <span className="mono" style={{ fontWeight: 800 }}>{balance}</span> מטבעות
+            <Coin /> <span className="mono" style={{ fontWeight: 800 }}>{balance}</span> מטבעות
           </span>
         </div>
       </div>
@@ -157,7 +157,13 @@ export function Shop() {
                 ביטול
               </button>
               <button className="primary small" disabled={busy || cost > balance} onClick={buyAll}>
-                {cost > balance ? `חסרים ${cost - balance} מטבעות` : `קנייה · 🪙${cost}`}
+                {cost > balance ? (
+                  `חסרים ${cost - balance} מטבעות`
+                ) : (
+                  <>
+                    קנייה · <Coin /> {cost}
+                  </>
+                )}
               </button>
             </div>
           ) : (
@@ -217,7 +223,7 @@ export function Shop() {
               busy={busy}
               onTry={(n) => setTrial({ ...trial, number: n })}
               onSave={(n) =>
-                void persist({ ...doc, equipped: { ...doc.equipped, number: n } }, n ? `מספר ${n} על הרכב` : 'בלי מספר משלך')
+                void persist({ ...doc, equipped: { ...doc.equipped, number: n } }, n ? `מספר ${n} על הרכב` : 'בלי מספר משלכם')
               }
             />
           </div>
@@ -302,7 +308,15 @@ function Swatch({
       ) : (
         <span className="swatch-dot" style={{ background: item.value }} />
       )}
-      <span className="swatch-price">{owned ? (on ? '✓' : '') : `🪙${item.price}`}</span>
+      <span className="swatch-price">
+        {owned ? (
+          on ? '✓' : ''
+        ) : (
+          <>
+            <Coin /> {item.price}
+          </>
+        )}
+      </span>
     </button>
   );
 }
@@ -381,8 +395,16 @@ function NumberPicker({
         )}
       </div>
       <div className="small muted" style={{ marginTop: 6 }}>
-        {owned ? 'המספר על כיסוי המנוע.' : `הקלידו מספר כדי לראות אותו על הרכב. מספר לבחירה עולה 🪙${price}.`}
+        {owned ? 'המספר על כיסוי המנוע.' : `הקלידו מספר כדי לראות אותו על הרכב. מספר לבחירה עולה ${price} מטבעות.`}
       </div>
     </>
   );
+}
+
+/**
+ * A coin, drawn rather than typed: the coin emoji is recent enough that plenty
+ * of phones and Windows machines still show it as an empty box.
+ */
+function Coin() {
+  return <span className="coin" aria-hidden="true" />;
 }

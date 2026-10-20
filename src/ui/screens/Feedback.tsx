@@ -253,7 +253,7 @@ function AdminActions({ item, onChanged }: { item: Item; onChanged(): void }) {
       />
       {reply.trim() !== (item.reply ?? '') && (
         <button className="small" onClick={() => set(item.status)}>
-          שמור תשובה
+          שמירת תשובה
         </button>
       )}
       {item.status !== 'done' && (

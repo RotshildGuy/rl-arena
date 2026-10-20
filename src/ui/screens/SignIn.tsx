@@ -8,9 +8,9 @@ import { GoogleMark } from '../components/GoogleMark';
  *
  * Three ways in, and they are not equal: Google and a password are accounts
  * that survive this browser, and the anonymous one is an identity that lives in
- * it. All three are one tap, and the anonymous one is deliberately still here -
- * it is what makes "try it now" possible - with the trade said plainly under
- * it, and an offer to link an account later from inside the app.
+ * it. The anonymous one leads - it is what makes "try it now" possible, and a
+ * first visitor is far likelier to be trying than returning - with the trade
+ * said plainly under it, and an offer to link an account later from inside.
  *
  * Nobody who already signed in on this device ever sees this screen: Firebase
  * keeps the session, so the gate only stands in front of a genuinely new visit.
@@ -42,6 +42,8 @@ export function SignIn() {
    * rather than leave somebody at a door that will not open, offer them that.
    */
   const [stuck, setStuck] = useState(false);
+  /** The account options fold away; somebody holding an inherited identity may well have one. */
+  const [showAccounts, setShowAccounts] = useState(inherited);
 
   const attempt = async (what: Exclude<Busy, null>, fn: () => Promise<unknown>) => {
     setBusy(what);
@@ -99,90 +101,116 @@ export function SignIn() {
         </h1>
         <p className="muted small" style={{ margin: '0 0 18px' }}>
           מאמנים מודל בדפדפן, רושמים אותו לאליפות, ופעם ביום כל המודלים הרשומים מתחרים ביניהם.
-          בחרו איך לשמור את המודלים והנקודות שלכם.
+          אין צורך לדעת תכנות - בוחרים איך הרכב ינהג, והוא לומד לבד.
         </p>
 
-        {!inherited && (
-          <>
-            {/* Watching first: the race is what sells the idea, and a sign-in
-                form is a poor first thing to show anybody. One tap enters
-                without an account and opens the broadcast; an account can be
-                linked later, from inside, keeping everything. */}
-            <button
-              className="wide cyan"
-              disabled={busy !== null}
-              onClick={() =>
-                void attempt('anon', async () => {
-                  useApp.getState().setWatchFirst(true);
-                  await signIn.anonymous();
-                })
-              }
-            >
-              👀 קודם לצפות במרוץ האחרון
-            </button>
-            <p className="tiny dim" style={{ margin: '6px 0 14px' }}>
-              בלי חשבון ובלי פרטים. אם תרצו לאמן מודל אחר כך, אפשר לקשר חשבון בכל רגע.
-            </p>
-          </>
-        )}
-
-        <button className="provider" disabled={busy !== null} onClick={() => void attempt('google', signIn.google)}>
-          <GoogleMark />
-          {busy === 'google' ? 'מתחבר…' : 'המשך עם Google'}
+        {/* Playing first. Most people arrive to try the thing, not to open an
+            account, so the one big button is the way in with nothing to fill;
+            watching a race is the gentler second door, and the accounts fold
+            away under "I have an account" for whoever is coming back. The
+            anonymous identity can be linked to Google or an e-mail later, from
+            inside, keeping everything. */}
+        <button
+          className="primary wide big"
+          disabled={busy !== null}
+          onClick={() => void attempt('anon', signIn.anonymous)}
+        >
+          {busy === 'anon' ? 'נכנס…' : inherited ? 'המשך בלי חשבון' : '🏁 שחקו עכשיו - בלי חשבון'}
         </button>
+        {!inherited && (
+          <button
+            className="wide"
+            style={{ marginTop: 8 }}
+            disabled={busy !== null}
+            onClick={() =>
+              void attempt('anon', async () => {
+                useApp.getState().setWatchFirst(true);
+                await signIn.anonymous();
+              })
+            }
+          >
+            👀 קודם לצפות במרוץ האחרון
+          </button>
+        )}
+        <p className="small muted" style={{ margin: '8px 0 0' }}>
+          {inherited ? (
+            <>
+              בדפדפן הזה כבר יושבת זהות אנונימית, והכפתור הזה ממשיך <b>איתה</b> - עם המודלים,
+              הרכבים והנקודות שצברה. אם יש לכם חשבון, התחברו אליו למטה במקום.
+            </>
+          ) : (
+            <>
+              בלי הרשמה ובלי פרטים. ההתקדמות נשמרת בדפדפן הזה, ואפשר לחבר אותה ל-Google או למייל
+              מתי שרוצים בלי לאבד כלום.
+            </>
+          )}
+        </p>
 
         <div className="auth-or">
           <span>או</span>
         </div>
 
-        <form onSubmit={submitEmail}>
-          <div className="field">
-            <label htmlFor="auth-email">מייל</label>
-            <input
-              id="auth-email"
-              type="email"
-              autoComplete="email"
-              dir="ltr"
-              value={email}
-              placeholder="you@example.com"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="auth-password">סיסמה</label>
-            <input
-              id="auth-password"
-              type="password"
-              autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-              dir="ltr"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <button className="primary wide" type="submit" disabled={busy !== null}>
-            {busy === 'email' ? 'רגע…' : mode === 'in' ? 'התחברות' : 'יצירת חשבון'}
+        {!showAccounts ? (
+          <button className="ghost wide" disabled={busy !== null} onClick={() => setShowAccounts(true)}>
+            יש לי חשבון - התחברות עם Google או מייל
           </button>
-        </form>
-
-        <div className="row small" style={{ marginTop: 8 }}>
-          <button
-            className="ghost small"
-            disabled={busy !== null}
-            onClick={() => {
-              setMode(mode === 'in' ? 'up' : 'in');
-              setError(null);
-              setNote(null);
-            }}
-          >
-            {mode === 'in' ? 'אין לי חשבון - הרשמה' : 'יש לי כבר חשבון'}
-          </button>
-          <div style={{ flex: 1 }} />
-          {mode === 'in' && (
-            <button className="ghost small" disabled={busy !== null} onClick={forgot}>
-              {busy === 'reset' ? 'שולח…' : 'שכחתי סיסמה'}
+        ) : (
+          <>
+            <button className="provider" disabled={busy !== null} onClick={() => void attempt('google', signIn.google)}>
+              <GoogleMark />
+              {busy === 'google' ? 'מתחבר…' : 'המשך עם Google'}
             </button>
-          )}
-        </div>
+
+            <form onSubmit={submitEmail} style={{ marginTop: 12 }}>
+              <div className="field">
+                <label htmlFor="auth-email">מייל</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  dir="ltr"
+                  value={email}
+                  placeholder="you@example.com"
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="auth-password">סיסמה</label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+                  dir="ltr"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <button className="wide" type="submit" disabled={busy !== null}>
+                {busy === 'email' ? 'רגע…' : mode === 'in' ? 'התחברות' : 'יצירת חשבון'}
+              </button>
+            </form>
+
+            <div className="row small" style={{ marginTop: 8 }}>
+              <button
+                className="ghost small"
+                disabled={busy !== null}
+                onClick={() => {
+                  setMode(mode === 'in' ? 'up' : 'in');
+                  setError(null);
+                  setNote(null);
+                }}
+              >
+                {mode === 'in' ? 'אין לי חשבון - הרשמה' : 'יש לי כבר חשבון'}
+              </button>
+              <div style={{ flex: 1 }} />
+              {mode === 'in' && (
+                <button className="ghost small" disabled={busy !== null} onClick={forgot}>
+                  {busy === 'reset' ? 'שולח…' : 'שכחתי סיסמה'}
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
         {error && (
           <div className="auth-note warn" role="alert">
@@ -190,29 +218,6 @@ export function SignIn() {
           </div>
         )}
         {note && <div className="auth-note good">{note}</div>}
-
-        <div className="auth-or">
-          <span>או</span>
-        </div>
-
-        <button className="wide" disabled={busy !== null} onClick={() => void attempt('anon', signIn.anonymous)}>
-          {busy === 'anon' ? 'נכנס…' : inherited ? 'המשך בלי חשבון' : 'כניסה מהירה בלי חשבון'}
-        </button>
-        <p className="tiny dim" style={{ margin: '8px 0 0' }}>
-          {inherited ? (
-            <>
-              בדפדפן הזה כבר יושבת זהות אנונימית, והכפתור הזה ממשיך <b>איתה</b> - עם המודלים,
-              הרכבים והנקודות שצברה. היא חיה בדפדפן הזה בלבד, וניקוי נתוני הדפדפן מוחק אותה.
-              אם יש לכם חשבון, התחברו אליו למעלה במקום.
-            </>
-          ) : (
-            <>
-              בלי חשבון אין מה למלא ואף פרט לא נשמר - אבל הזהות חיה בדפדפן הזה בלבד, וניקוי
-              נתוני הדפדפן מוחק אותה. אפשר לקשר אליה Google או מייל מאוחר יותר, בלי לאבד מודלים
-              או נקודות.
-            </>
-          )}
-        </p>
 
         {stuck && (
           <div className="auth-note" style={{ marginTop: 14 }}>

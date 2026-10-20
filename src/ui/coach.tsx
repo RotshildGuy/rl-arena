@@ -36,6 +36,47 @@ function getVersion(): number {
 }
 
 /**
+ * Bubbles somebody closed.
+ *
+ * The guide follows the account's state and remembers nothing - except this.
+ * A bubble that cannot be closed covers whatever happens to be under it, and
+ * reviewers found one sitting on the race's start button; so every bubble has
+ * a close, and closing it is remembered on this device. "Skip the guide" turns
+ * the whole thing off. Signing out wipes both, with everything else local.
+ */
+const DISMISSED_KEY = 'rl-arena.coach.dismissed';
+const OFF = 'all';
+
+function readDismissed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+const dismissed = readDismissed();
+
+function dismiss(what: string): void {
+  dismissed.add(what);
+  try {
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissed]));
+  } catch {
+    // Closed for this visit only.
+  }
+  modelsChanged();
+}
+
+export function dismissCoach(step: Exclude<CoachStep, null>): void {
+  dismiss(step);
+}
+
+export function skipCoach(): void {
+  dismiss(OFF);
+}
+
+/**
  * Which bubble, if any, belongs on the screen right now.
  *
  * The decision itself is in `coachStep.ts`; this is the part that has to watch
@@ -63,7 +104,9 @@ export function useCoachStep(): CoachStep {
   }, [gameId, libraryVersion, screen]);
 
   const registered = state ? state.entries.some((e) => e.uid === state.uid && !e.retired) : false;
-  return coachStepFor({ screen, competitor, models, registered });
+  const step = coachStepFor({ screen, competitor, models, registered });
+  if (step === null || dismissed.has(OFF) || dismissed.has(step)) return null;
+  return step;
 }
 
 /** Room left around a bubble: away from the control, and away from the edges. */
@@ -84,7 +127,7 @@ const MAX_WIDTH = 280;
  * what the clamping below is for: the bubble is kept inside the viewport, and
  * the arrow slides along it to go on pointing at the right place.
  */
-function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
+function CoachBubble({ anchor, text, step }: { anchor: HTMLElement; text: string; step: Exclude<CoachStep, null> }) {
   const [bubble, setBubble] = useState<HTMLDivElement | null>(null);
   const [, bump] = useState(0);
 
@@ -123,6 +166,15 @@ function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
       cancelAnimationFrame(id);
     };
   }, [anchor]);
+
+  // Escape closes it, unless a dialog is open - that Escape is the dialog's.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) dismissCoach(step);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step]);
 
   // The visible area, which is not `innerWidth`: that counts the scrollbar,
   // and on an RTL page the scrollbar is on the left.
@@ -198,7 +250,13 @@ function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
 
   return createPortal(
     <div ref={setBubble} className={`coach ${below ? 'below' : 'above'}`} style={style} role="status" aria-live="polite">
-      {text}
+      <button className="coach-x" onClick={() => dismissCoach(step)} aria-label="סגירת ההסבר">
+        ✕
+      </button>
+      <div className="coach-text">{text}</div>
+      <button className="coach-skip" onClick={skipCoach}>
+        דלגו על ההדרכה
+      </button>
     </div>,
     document.body,
   );
@@ -206,21 +264,22 @@ function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
 
 /** Wraps the control a bubble points at, lights it up, and carries the bubble. */
 export function CoachAnchor({
-  on,
+  step,
   text,
   className = '',
   children,
 }: {
-  on: boolean;
+  /** The step this bubble belongs to, or null when it is not this one's turn. */
+  step: CoachStep;
   text: string;
   className?: string;
   children: React.ReactNode;
 }) {
   const [el, setEl] = useState<HTMLSpanElement | null>(null);
   return (
-    <span ref={setEl} className={`coach-anchor ${on ? 'lit' : ''} ${className}`.trim()}>
+    <span ref={setEl} className={`coach-anchor ${step ? 'lit' : ''} ${className}`.trim()}>
       {children}
-      {on && el && <CoachBubble anchor={el} text={text} />}
+      {step && el && <CoachBubble anchor={el} text={text} step={step} />}
     </span>
   );
 }

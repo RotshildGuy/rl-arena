@@ -70,7 +70,7 @@ export function RewardEditor({ spec, value, onChange, live }: Props) {
             ))}
           </div>
           <p className="muted small" style={{ margin: '0 0 8px' }}>
-            {current ? current.hint : 'סגנון משלך - כוונן ידנית במחוונים.'}
+            {current ? current.hint : 'סגנון משלכם - כוונון ידני במחוונים.'}
           </p>
           <button className="ghost small" onClick={() => setAdvanced((a) => !a)} aria-expanded={advanced}>
             {advanced ? '▾' : '▸'} מתקדם · עשרה מחוונים
@@ -79,7 +79,7 @@ export function RewardEditor({ spec, value, onChange, live }: Props) {
       )}
       {advanced && (
         <p className="muted small" style={{ margin: '8px 0' }}>
-          כל מחוון שואל כמה זה חשוב לך: ימינה זה תמיד "יותר מזה". אין כאן תשובה נכונה אחת.
+          כל מחוון שואל כמה זה חשוב לכם: ימינה זה תמיד "יותר מזה". אין כאן תשובה נכונה אחת.
         </p>
       )}
       {advanced && spec.rewardChannels.map((c) => {

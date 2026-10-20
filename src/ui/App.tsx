@@ -38,7 +38,7 @@ const TABS: Tab[] = [
   { id: 'standings', label: 'טבלאות', glyph: '📊' },
   { id: 'library', label: 'המוסך', glyph: '🔧', also: ['trainSetup', 'training'] },
   { id: 'raceSetup', label: 'לשחק', glyph: '🎮', also: ['race'] },
-  { id: 'shop', label: 'חנות', glyph: '🪙' },
+  { id: 'shop', label: 'חנות', glyph: '🛒' },
 ];
 
 /**
@@ -152,7 +152,7 @@ function Arena() {
   // lands behind a bottom browser toolbar or the phone's navigation buttons.
   const narrow = useIsNarrow();
   const nav = (
-    <nav className={narrow ? 'nav bottom' : 'nav'}>
+    <nav className={narrow ? 'nav bottom' : 'nav'} aria-label="ניווט ראשי">
       {TABS.map((t) => {
         // The garage is the only tab the guide ever points at, and it does
         // so for two different reasons: nothing built yet, or something
@@ -161,7 +161,7 @@ function Arena() {
         return (
           <CoachAnchor
             key={t.id}
-            on={nudge}
+            step={nudge ? coach : null}
             text={
               coach === 'garage'
                 ? 'עכשיו למוסך - שם מאמנים את המודל שינהג בשבילכם.'
@@ -170,9 +170,11 @@ function Arena() {
           >
             <button
               className={screen === t.id || t.also?.includes(screen) ? 'on' : ''}
+              aria-label={t.label}
+              aria-current={screen === t.id || t.also?.includes(screen) ? 'page' : undefined}
               onClick={() => go(t.id)}
             >
-              <span className="glyph">{t.glyph}</span>
+              <span className="glyph" aria-hidden="true">{t.glyph}</span>
               <span>{t.label}</span>
             </button>
           </CoachAnchor>
@@ -200,7 +202,7 @@ function Arena() {
         <ThemeButton />
         <AccountButton />
         {competitor && (
-          <span className="pill" title="שם המתחרה שלך - הקבוצה שהמודלים שלך מתחרים בשמה">
+          <span className="pill" title="שם המתחרה שלכם - הקבוצה שהמודלים שלכם מתחרים בשמה">
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
             {competitor}
           </span>

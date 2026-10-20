@@ -124,7 +124,7 @@ const racing: GameModule = {
   controlsHint: 'חיצים או WASD · ↑ גז · ↓ בלם',
   touchHint: 'גז ובלם משמאל · היגוי מימין',
   matchNoun: 'מרוץ',
-  seatHint: 'אתה נוהג ברכב הראשון',
+  seatHint: 'אתם נוהגים ברכב הראשון',
   // The genetic driver needs about a quarter longer since the tyres got a limit
   // (physics 2): braking for corners is one more thing to stumble on.
   effort: { dqnGradSteps: 65_000, gaEnvSteps: 1_500_000 },

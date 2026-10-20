@@ -1284,7 +1284,11 @@ function coachTest(): void {
   check('setting a run up, it is the button that starts it', at({ ...named, models: 0, screen: 'trainSetup' }) === 'setup');
   check('while it trains, it is finish and save', at({ ...named, models: 0, screen: 'training' }) === 'save');
   check('a saved model in the garage gets the register button', at({ ...named, models: 1, screen: 'library' }) === 'enter');
-  check('and from anywhere else, the garage tab again', at({ ...named, models: 1 }) === 'unregistered');
+  check('and from the home screen, the garage tab again', at({ ...named, models: 1 }) === 'unregistered');
+  check(
+    'but it does not follow anybody into the tables or the shop',
+    at({ ...named, models: 1, screen: 'standings' }) === null && at({ ...named, models: 0, screen: 'shop' }) === null,
+  );
 
   // Nothing is said while the library is still being read: a bubble that
   // guesses wrong and then swaps itself out reads as a glitch.

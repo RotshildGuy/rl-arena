@@ -41,8 +41,11 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmInfo> = {
     technical: 'אלגוריתם גנטי',
     blurb:
       'קבוצה שלמה של נהגים מתחרה, הטובים שורדים ויוצרים גרסאות מוטציה של עצמם. צריך הרבה יותר נסיעות, אבל כל נסיעה זולה - מומלץ בנייד.',
-    episodeLabel: 'דור',
-    episodesLabel: 'דורות',
+    // The same word as the other method on purpose: reviewers met "episodes",
+    // "attempts" and "generations" on one screen and took them for three
+    // things. Under the hood one entry here is a generation.
+    episodeLabel: 'ניסיון',
+    episodesLabel: 'ניסיונות',
     exploreLabel: 'עוצמת מוטציה',
   },
 };

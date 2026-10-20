@@ -1,5 +1,6 @@
 import { firebaseConfigured } from '../storage/firebase';
 import { disableCloud, setCloudError } from '../storage/cloudStatus';
+import { forgetThisBrowser } from './forgetLocal';
 
 /**
  * The account, as the interface needs to know it.
@@ -292,8 +293,23 @@ export function resetPassword(email: string): Promise<void> {
  * a new one is added; a reload cannot.
  */
 export async function signOutNow(): Promise<void> {
+  // While still signed in: the device's push token is filed under this
+  // account, and the next person here should not get its race results.
+  await stopPushQuietly();
   await run((s) => s.signOutUser());
+  await forgetThisBrowser();
   location.reload();
+}
+
+/** Turn notifications off if they were on, giving up after a couple of seconds. */
+async function stopPushQuietly(): Promise<void> {
+  try {
+    const push = await import('./push');
+    if (push.pushState() !== 'on') return;
+    await Promise.race([push.disablePush(), new Promise((r) => setTimeout(r, 2500))]);
+  } catch {
+    // Signing out matters more than a notification switch.
+  }
 }
 
 /**
@@ -314,6 +330,9 @@ export async function switchAccount(to: 'google' | { email: string; password: st
     if (to === 'google') await s.signInGoogle();
     else await s.signInPassword(to.email.trim(), to.password);
   });
+  // The account arriving brings its own name and models from the cloud; what
+  // this browser held belonged to the identity that was just left behind.
+  await forgetThisBrowser();
   location.reload();
 }
 
