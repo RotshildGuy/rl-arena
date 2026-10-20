@@ -1940,3 +1940,37 @@ button.wide { width: 100%; }
 .podium.compact .podium-spot.p2 .podium-step { height: 40px; }
 .podium.compact .podium-spot.p3 .podium-step { height: 28px; }
 .podium.compact .podium-step { font-size: 20px; }
+
+/* -------------------------------------------------------------------- shop
+   The car preview comes first and stays in view while the swatches scroll
+   under it, because every tap changes it. Side by side on a wide screen. */
+.shop-layout { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: start; }
+.shop-preview { position: sticky; top: 12px; z-index: 2; }
+.shop-canvas { width: 100%; height: 260px; border-radius: var(--radius); display: block; }
+@media (max-width: 860px) {
+  .shop-layout { grid-template-columns: minmax(0, 1fr); }
+  .shop-preview { top: 6px; padding: 10px; }
+  .shop-canvas { height: 170px; }
+}
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px;
+  min-width: 56px;
+  border-radius: var(--radius);
+  background: rgba(var(--hi), 0.04);
+}
+.swatch.on { border-color: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-2); }
+.swatch.trying { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.swatch-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--hi), 0.25);
+  display: block;
+}
+.swatch-dot.smoke { border-style: dashed; background-color: #2b303d; }
+.swatch-car { width: 40px; height: 64px; display: block; }
+.swatch-price { font-size: 11px; color: var(--muted); min-height: 14px; font-family: 'JetBrains Mono', monospace; }

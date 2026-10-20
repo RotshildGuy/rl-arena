@@ -1674,6 +1674,10 @@ function coinsTest(): void {
   check('a bought colour is worn', validLook(honest, color.price)?.color === color.value);
   check('a colour bought with coins the team does not have is ignored', validLook(honest, color.price - 1) === null);
   check('and so is one worn without being bought', validLook({ purchases: [], equipped: { color: 'color-navy' }, updatedAt: 0 }, 1000) === null);
+  const two = { purchases: ['color-navy', 'second-white', 'pattern-stripe'], equipped: { color: 'color-navy', secondary: 'second-white', pattern: 'pattern-stripe' }, updatedAt: 0 };
+  const stripe = validLook(two, 1000);
+  check('a second colour goes on the stripe', stripe?.look.secondary === ITEM_BY_ID.get('second-white')!.value && stripe.look.pattern === 'stripe');
+  check('and must be bought like the first', validLook({ ...two, purchases: ['color-navy', 'pattern-stripe'] }, 1000) === null);
   check('buying twice costs once', spent(['color-navy', 'color-navy']) === color.price);
   check('no timing colour is for sale', [...ITEM_BY_ID.values()].filter((i) => i.kind === 'color')
     .every((i) => !['#c77dff', '#3de87a', '#ffd84d'].includes(i.value.toLowerCase())));
