@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { useApp, type Screen } from './store';
 import { getCloudStatus, subscribeCloudStatus } from '../storage';
 import { getAuthView, subscribeAuth } from './auth';
@@ -82,6 +82,17 @@ function Arena() {
   const go = useApp((s) => s.go);
   const openInfo = useApp((s) => s.openInfo);
   const openFeedback = useApp((s) => s.openFeedback);
+
+  // Every screen opens at its top. The page itself never scrolls - `.content`
+  // does - and it would otherwise keep the scroll of the screen before, so a
+  // race report opened from far down the championship screen started halfway.
+  const contentRef = useRef<HTMLElement>(null);
+  const viewRaceId = useApp((s) => s.viewRaceId);
+  const infoTab = useApp((s) => s.infoTab);
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, left: 0 });
+    window.scrollTo(0, 0);
+  }, [screen, viewRaceId, infoTab]);
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
   const competitor = useApp((s) => s.competitor);
   const coach = useCoachStep();
@@ -197,7 +208,7 @@ function Arena() {
         <CloudBadge state={cloud.state} message={cloud.message} />
       </header>
 
-      <main className="content" style={bare ? { padding: 0, overflow: 'hidden' } : undefined}>
+      <main ref={contentRef} className="content" style={bare ? { padding: 0, overflow: 'hidden' } : undefined}>
         <div className="wrap" style={bare ? { maxWidth: 'none', height: '100%' } : undefined}>
           {screen === 'championship' && <Championship />}
           {screen === 'standings' && <Standings />}
