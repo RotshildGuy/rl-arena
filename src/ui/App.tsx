@@ -17,6 +17,7 @@ import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
+import { ThemeButton } from './components/ThemeButton';
 import { CoachAnchor, useCoachStep } from './coach';
 import { useIsNarrow } from './device';
 import { track } from '../storage/metrics';
@@ -159,6 +160,7 @@ function Arena() {
         <button className="ghost small info-link" onClick={() => openInfo('how')} title="הוראות, תנאי שימוש ופרטיות">
           מידע
         </button>
+        <ThemeButton />
         <AccountButton />
         {competitor && (
           <span className="pill" title="שם המתחרה שלך — הקבוצה שהמודלים שלך מתחרים בשמה">

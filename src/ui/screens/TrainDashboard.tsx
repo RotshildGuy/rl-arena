@@ -312,14 +312,14 @@ export function TrainDashboard() {
             <div className="small muted" style={{ marginBottom: 4 }}>
               נקודות ל{algo.episodeLabel} — כמה הוא צובר לפי המחוונים שלו
             </div>
-            <LineChart height={140} series={[{ label: 'reward', color: '#00e0ff', values: charts.rewards }]} />
+            <LineChart height={140} series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]} />
 
             {hasLaps && (
               <>
                 <div className="small muted" style={{ marginTop: 10 }}>
                   ההקפה המהירה שלו ל{algo.episodeLabel} (שניות) — זה מה שהאליפות מודדת
                 </div>
-                <LineChart height={110} series={[{ label: 'lap', color: '#c77dff', values: charts.laps }]} />
+                <LineChart height={110} series={[{ label: 'lap', color: '--purple', values: charts.laps }]} />
               </>
             )}
           </div>

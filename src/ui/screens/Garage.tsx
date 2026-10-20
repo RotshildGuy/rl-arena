@@ -532,7 +532,7 @@ export function Garage() {
                     <h3 style={{ margin: '14px 0 6px' }}>עקומת הלמידה</h3>
                     <LineChart
                       height={110}
-                      series={[{ label: 'reward', color: '#00e0ff', values: m.training.history.map((p) => p.reward) }]}
+                      series={[{ label: 'reward', color: '--accent-2', values: m.training.history.map((p) => p.reward) }]}
                     />
 
                     <h3 style={{ margin: '14px 0 6px' }}>המחוונים שעיצבו אותו</h3>

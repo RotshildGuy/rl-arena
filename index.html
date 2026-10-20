@@ -13,6 +13,16 @@
     <meta name="description" content="אליפות יומית של מודלים ללמידת חיזוק. אמנו מודל, רשמו אותו, וצפו בו מתחרה." />
     <meta name="robots" content="index, follow" />
     <title>RL Arena — אליפות מודלים</title>
+    <!-- Light or dark before the first paint, so a light-mode phone never sees
+         the dark page flash while the bundle loads. Mirrors ui/theme.ts. -->
+    <script>
+      (function () {
+        var pref = null;
+        try { pref = localStorage.getItem('rl-arena-theme'); } catch (e) {}
+        var dark = pref === 'dark' || (pref !== 'light' && !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
