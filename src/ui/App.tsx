@@ -240,13 +240,42 @@ function Arena() {
  * appear and seeing a sign-in screen flash past first - which would read as
  * having been logged out.
  */
+/**
+ * The first moment, while the account is restored: the app's frame with soft
+ * shapes where the content will be. The same markup is in index.html, so the
+ * hand-over from the page to React does not move anything.
+ */
 function Splash() {
   return (
-    <div className="signin">
-      <div className="brand" style={{ opacity: 0.6 }}>
-        <span className="mark">RL</span>
-        <span>ARENA</span>
+    <div className="skel-app" aria-busy aria-label="טוען">
+      <div className="skel-top">
+        <span className="brand"><span className="mark">RL</span> <span>ARENA</span></span>
+        <span className="skel pill wide-only" style={{ width: '300px', height: '34px' }}></span>
+        <span className="grow"></span>
+        <span className="skel pill" style={{ width: '34px', height: '30px' }}></span>
+        <span className="skel pill" style={{ width: '84px', height: '30px' }}></span>
       </div>
+      <div className="skel-body">
+        <span className="skel" style={{ width: '130px', height: '12px' }}></span>
+        <span className="skel" style={{ width: 'min(420px, 80%)', height: '30px' }}></span>
+        <span className="skel" style={{ width: 'min(560px, 95%)', height: '14px' }}></span>
+        <div className="skel-cols">
+          <div className="skel-card" style={{ minHeight: '280px' }}>
+            <span className="skel" style={{ width: '40%', height: '12px' }}></span>
+            <span className="skel" style={{ width: '70%', height: '34px' }}></span>
+            <span className="skel" style={{ width: '55%', height: '52px' }}></span>
+            <span className="skel" style={{ width: '100%', height: '64px' }}></span>
+            <span className="skel pill" style={{ width: '160px', height: '38px' }}></span>
+          </div>
+          <div className="skel-card" style={{ minHeight: '200px' }}>
+            <span className="skel" style={{ width: '35%', height: '12px' }}></span>
+            <span className="skel" style={{ width: '100%', height: '40px' }}></span>
+            <span className="skel" style={{ width: '100%', height: '40px' }}></span>
+            <span className="skel" style={{ width: '100%', height: '40px' }}></span>
+          </div>
+        </div>
+      </div>
+      <div className="skel-nav" />
     </div>
   );
 }
