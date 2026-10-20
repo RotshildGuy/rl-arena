@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PageSkeleton } from '../components/PageSkeleton';
+import { ScrollX } from '../components/ScrollX';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { DriverCell } from '../components/Livery';
@@ -235,7 +236,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
       )}
 
       <div className="card notched" style={{ padding: 0, overflow: 'hidden', marginBottom: 14 }}>
-        <div className="scroll-x">
+        <ScrollX>
           <table className="timing pin-2">
             <thead>
               <tr>
@@ -313,7 +314,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollX>
       </div>
 
       <div className="small muted" style={{ margin: '-6px 0 14px' }}>
@@ -427,7 +428,7 @@ function LapTimes({
           <span className="t-yellow">■ איטית יותר</span>
         </div>
       </div>
-      <div className="scroll-x">
+      <ScrollX>
         <table className="timing pin-1">
           <thead>
             <tr>
@@ -465,7 +466,7 @@ function LapTimes({
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollX>
     </div>
   );
 }
@@ -488,7 +489,7 @@ function Qualifying({ card }: { card: RaceCard }) {
           כל מודל רץ לבד על מסלול ריק, שלוש הקפות. ההקפה המהירה ביותר קובעת את עמדת הזינוק.
         </div>
       </div>
-      <div className="scroll-x">
+      <ScrollX>
         <table className="timing pin-2">
           <thead>
             <tr>
@@ -528,7 +529,7 @@ function Qualifying({ card }: { card: RaceCard }) {
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollX>
     </div>
   );
 }

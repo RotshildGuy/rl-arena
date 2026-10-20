@@ -1,6 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useApp } from '../store';
-import { CONTACT_EMAIL } from '../contact';
 import { getArena } from '../../storage/arena';
 import { deleteMyData } from '../deleteMyData';
 import { getAuthView, isLinked, providerLabel, subscribeAuth } from '../auth';
@@ -27,9 +26,6 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'privacy', label: 'פרטיות' },
   { id: 'notices', label: 'קרדיטים' },
 ];
-
-/** Where privacy and takedown requests go. */
-const CONTACT = CONTACT_EMAIL;
 
 export function Info() {
   const { go, infoTab, openInfo } = useApp();
@@ -241,6 +237,7 @@ function Terms() {
 }
 
 function Privacy() {
+  const { openFeedback } = useApp();
   return (
     <>
       <h2>מדיניות פרטיות</h2>
@@ -369,15 +366,14 @@ function Privacy() {
         היא מחזיקה רק את המזהה האקראי ותאריכים, ואחרי המחיקה המזהה הזה כבר לא מקושר לשום דבר.
       </p>
 
-      {CONTACT ? (
-        <p>
-          לשאלות: <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
-        </p>
-      ) : (
-        <p className="muted">
-          לשאלות בנוגע לפרטיות ניתן לפנות למפעיל האתר.
-        </p>
-      )}
+      {/* Privacy and takedown requests go through the same box as everything
+          else, so the operator's own address never has to be on the page. */}
+      <p>
+        לשאלות ובקשות - דרך טופס הפניות, שנמצא גם בתחתית כל עמוד. רק מפעיל האתר רואה את הפניות.
+      </p>
+      <button className="ghost" onClick={openFeedback}>
+        לטופס הפניות
+      </button>
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PageSkeleton } from '../components/PageSkeleton';
+import { ScrollX } from '../components/ScrollX';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { buildStandings, POINTS, FASTEST_LAP_BONUS } from '../../core/champ/points';
@@ -160,7 +161,7 @@ export function Standings() {
 
       {tab === 'drivers' && standings.drivers.length > 0 && (
         <div className="card notched" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="scroll-x">
+          <ScrollX>
             <table className="timing pin-2">
               <thead>
                 <tr>
@@ -197,7 +198,7 @@ export function Standings() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
         </div>
       )}
 
@@ -250,7 +251,7 @@ export function Standings() {
               עוד לא הסתיים אף גרנד פרי.
             </div>
           ) : (
-            <div className="scroll-x">
+            <ScrollX>
               <table className="timing pin-1">
                 <thead>
                   <tr>
@@ -301,7 +302,7 @@ export function Standings() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollX>
           )}
         </div>
       )}

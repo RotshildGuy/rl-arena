@@ -14,7 +14,6 @@ import {
   type FeedbackStatus,
 } from '../../core/feedback';
 import { allFeedback, feedbackOnline, markFeedback, myFeedback, sendFeedback } from '../../storage/feedback';
-import { CONTACT_EMAIL } from '../contact';
 import { dateTimeText } from '../format';
 
 /**
@@ -71,13 +70,11 @@ export function Feedback() {
       showToast(online ? 'הפנייה נשלחה. תודה!' : 'הפנייה נשמרה בדפדפן הזה');
       reload();
     } catch {
-      setError('השליחה נכשלה. נסו שוב, או כתבו במייל.');
+      setError('השליחה נכשלה. נסו שוב בעוד רגע.');
     } finally {
       setBusy(false);
     }
   };
-
-  const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`RL Arena - ${KIND_LABEL[kind]}`)}&body=${encodeURIComponent(text)}`;
 
   return (
     <>
@@ -153,13 +150,10 @@ export function Feedback() {
             <button className="primary" onClick={() => void submit()} disabled={busy}>
               {busy ? 'שולח…' : 'שליחה'}
             </button>
-            <a className="small" href={mailto}>
-              או במייל
-            </a>
           </div>
           {!online && (
             <div className="small muted" style={{ marginTop: 8 }}>
-              האתר רץ בלי ענן, אז הפנייה תישמר רק בדפדפן הזה. כדי שתגיע אלינו, שלחו אותה במייל.
+              האתר רץ בלי ענן, אז הפנייה תישמר רק בדפדפן הזה ולא תגיע אלינו.
             </div>
           )}
         </div>
@@ -210,18 +204,23 @@ function FeedbackRow({ item, admin }: { item: Item; admin?: boolean }) {
   );
 }
 
-/** For operators: everything that came in, with a status and an optional answer. */
+/**
+ * For operators: everything that came in, with an optional answer and a
+ * "handled" mark. There is no "read" step - a message is open until it is
+ * handled. Older messages marked "seen" count as open.
+ */
+type Filter = 'open' | 'done' | 'all';
+
 function AdminList({ items, onChanged }: { items: Item[]; onChanged(): void }) {
-  const [filter, setFilter] = useState<FeedbackStatus | 'all'>('new');
-  const shown = items.filter((f) => filter === 'all' || f.status === filter);
+  const [filter, setFilter] = useState<Filter>('open');
+  const shown = items.filter((f) => filter === 'all' || (filter === 'done') === (f.status === 'done'));
   return (
     <div className="card notched">
       <div className="head">
         <div className="eyebrow">כל הפניות (מפעילים)</div>
         <div className="fill" />
-        <select value={filter} onChange={(e) => setFilter(e.target.value as FeedbackStatus | 'all')} style={{ width: 'auto' }}>
-          <option value="new">חדשות</option>
-          <option value="seen">נקראו</option>
+        <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} style={{ width: 'auto' }}>
+          <option value="open">פתוחות</option>
           <option value="done">טופלו</option>
           <option value="all">הכל</option>
         </select>
@@ -252,12 +251,16 @@ function AdminActions({ item, onChanged }: { item: Item; onChanged(): void }) {
         onChange={(e) => setReply(e.target.value)}
         style={{ flex: '1 1 200px' }}
       />
-      <button className="small" onClick={() => set('seen')}>
-        נקראה
-      </button>
-      <button className="small" onClick={() => set('done')}>
-        טופלה
-      </button>
+      {reply.trim() !== (item.reply ?? '') && (
+        <button className="small" onClick={() => set(item.status)}>
+          שמור תשובה
+        </button>
+      )}
+      {item.status !== 'done' && (
+        <button className="small" onClick={() => set('done')}>
+          טופלה
+        </button>
+      )}
     </div>
   );
 }

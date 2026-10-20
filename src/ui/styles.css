@@ -1068,6 +1068,9 @@ input[type='number'] { direction: ltr; text-align: end; }
    classification with unreadable columns is not a classification. */
 .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .scroll-x > table.timing { min-width: 620px; }
+/* The mirror bar `ScrollX` draws above a wide table on a computer, so the
+   table can be slid across without scrolling down to its own scrollbar. */
+.scroll-x-top { overflow-x: auto; overflow-y: hidden; margin-bottom: 4px; }
 
 /*
  * Scroll shadows. A classification that runs off the edge of a phone with no
