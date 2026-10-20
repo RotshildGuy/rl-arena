@@ -1,3 +1,4 @@
+import type { CarLook } from '../../core/games/racing/render';
 import type { RacingSnapshot } from '../../core/games/racing/env';
 import { lapTime, shortGap } from '../format';
 
@@ -7,6 +8,8 @@ export interface TowerCar {
   name: string;
   tag: string;
   color: string;
+  /** How the car is painted on track; the tower itself shows only the colour. */
+  look?: CarLook;
   mine: boolean;
 }
 

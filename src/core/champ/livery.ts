@@ -1,3 +1,5 @@
+import type { CarLook } from '../games/racing/render';
+
 /**
  * Team liveries.
  *
@@ -57,4 +59,20 @@ export function shadeFor(color: string, index: number): string {
       .map((c) => mix(c).toString(16).padStart(2, '0'))
       .join('')
   );
+}
+
+/**
+ * A team's paint beyond its colour, derived from names like the colour is:
+ * a pattern from the team, a number from the driver. Two teams that happen to
+ * share a hue still look different on track, and nothing has to be stored.
+ * A look bought in the shop (`core/champ/coins.ts`) takes its place.
+ */
+export function teamLook(team: string, driver: string): CarLook {
+  const h = hash(team.trim() || 'team');
+  const patterns: CarLook['pattern'][] = ['solid', 'stripe', 'twotone'];
+  return {
+    pattern: patterns[(h >>> 8) % patterns.length],
+    secondary: (h >>> 12) % 2 ? '#f4f6fb' : '#14161d',
+    number: (hash(`${team}\u0000${driver}`) % 99) + 1,
+  };
 }

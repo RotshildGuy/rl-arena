@@ -9,7 +9,7 @@ import { getArena } from '../../storage/arena';
 import { SessionSim, policiesFor } from '../../core/champ/sim';
 import { lapsFor } from '../../core/champ/format';
 import { dayState, dayStatus, liveSession, sessionWindows } from '../../core/champ/timing';
-import { shadeFor, teamColor } from '../../core/champ/livery';
+import { shadeFor, teamColor, teamLook } from '../../core/champ/livery';
 import { STEP_MS, type RacingSnapshot } from '../../core/games/racing/env';
 import type { RaceCard } from '../../core/champ/types';
 import { lapTime, raceTime, timeText, untilText } from '../format';
@@ -157,6 +157,7 @@ function BroadcastStage({
         name: e?.driver ?? '-',
         tag: e?.tag ?? '???',
         color: shadeFor(teamColor(team), n),
+        look: teamLook(team, e?.driver ?? ''),
         mine: myIds.has(id),
       };
     });
@@ -164,6 +165,7 @@ function BroadcastStage({
 
   const colors = towerCars.map((c) => c.color);
   const labels = towerCars.map((c) => c.tag);
+  const looks = towerCars.map((c) => c.look);
 
   /**
    * A fresh simulation of the selected session.
@@ -311,6 +313,7 @@ function BroadcastStage({
     renderGame('racing', ctx, snap, {
       labels,
       colors,
+      looks,
       dimDone: true,
       // Bottom: the lap counter and race clock own the top-left of a broadcast.
       minimap: camera === 'follow' ? 'bottom' : undefined,
