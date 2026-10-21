@@ -2148,3 +2148,44 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   .tiny { font-size: 12.5px; }
 }
 button.last-race-link { margin-bottom: 14px; justify-content: center; gap: 8px; }
+
+/* The chosen segment's pane slides to the one just picked (slidingTabs.ts
+   measures the chosen button into these variables). The pane is drawn once,
+   behind the buttons, and the chosen button itself goes clear. Absolutely
+   placed inside the group, it scrolls along with a set wider than the screen. */
+.segmented,
+.nav { position: relative; }
+.segmented > *,
+.nav > * { position: relative; z-index: 1; }
+.segmented[data-slide]::before,
+.nav[data-slide]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--slide-w);
+  height: var(--slide-h);
+  transform: translate(var(--slide-x), var(--slide-y));
+  border-radius: var(--radius-full);
+  background: var(--raise);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 3px 10px -4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+.segmented[data-slide='move']::before,
+.nav[data-slide='move']::before {
+  transition:
+    transform 0.32s cubic-bezier(0.3, 1.25, 0.4, 1),
+    width 0.32s cubic-bezier(0.3, 1.25, 0.4, 1),
+    height 0.32s cubic-bezier(0.3, 1.25, 0.4, 1);
+}
+.segmented[data-slide] button.on,
+.segmented[data-slide] button.on:hover:not(:disabled),
+.nav[data-slide] button.on,
+.nav[data-slide] button.on:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .segmented[data-slide='move']::before,
+  .nav[data-slide='move']::before { transition: none; }
+}
