@@ -913,7 +913,11 @@ input[type='number'] { direction: ltr; text-align: end; }
   font-weight: 700;
   font-size: 40px;
   letter-spacing: -0.04em;
-  direction: ltr;
+  /* Words while the race is hours away ("7 שע׳ 46 דק׳"), a clock in the last
+     hour. Right-to-left, so the words read in order; `plaintext` takes the
+     direction from the text itself, so the clock still runs left to right. */
+  direction: rtl;
+  unicode-bidi: plaintext;
   font-variant-numeric: tabular-nums;
 }
 
