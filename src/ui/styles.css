@@ -497,6 +497,9 @@ input[type='number'] { direction: ltr; text-align: end; }
 }
 
 .brand {
+  /* The wordmark is Latin, so it reads left to right even inside the RTL page:
+     without this the flex items run right to left and it shows "ARENA RL". */
+  direction: ltr;
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -1578,7 +1581,7 @@ input[type='number'] { direction: ltr; text-align: end; }
 /* `margin: auto` and not `align-items: center`: a card taller than a short
    phone must scroll from its top, and a centred flex item clips it instead. */
 .signin-card { width: min(420px, 100%); margin: auto; }
-.signin-card .brand { display: flex; align-items: baseline; gap: 7px; }
+.signin-card .brand { display: flex; align-items: baseline; gap: 7px; justify-content: flex-end; }
 
 /* A provider button carries a logo, so it centres its own row rather than
    inheriting the text alignment of the column it sits in. */
