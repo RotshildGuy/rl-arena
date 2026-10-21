@@ -65,7 +65,9 @@ async function saveToken(token: string): Promise<void> {
   ]);
   const { db } = ensureApp();
   const user = await currentUser();
-  await setDoc(doc(db, 'pushTokens', token), { uid: user.uid, token, createdAt: Date.now() });
+  // seenAt: the last load that wrote it (see refreshPush). createdAt: when the account was made.
+  const createdAt = Date.parse(user.metadata.creationTime ?? '') || null;
+  await setDoc(doc(db, 'pushTokens', token), { uid: user.uid, token, createdAt, seenAt: Date.now() });
   try {
     localStorage.setItem(FLAG, token);
   } catch {
