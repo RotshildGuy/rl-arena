@@ -814,6 +814,11 @@ preview משלו ב-Firebase Hosting, דרך `.github/workflows/preview.yml`. ה
 (אותה התחברות, אותה אליפות), רק עם הקוד של הענף. אם ההתחברות עם Google נכשלת בכתובת
 ה-preview, צריך להוסיף את הדומיין שלה ל-Authentication ← Settings ← Authorized domains.
 
+**התראת בדיקה.** בלשונית Actions ← Test push ← Run workflow, עם שם קבוצה: נשלחת התראה רק
+למכשירים של הקבוצה הזו, באותה עדיפות כמו התראות המרוץ (`functions/testPush.js`). הסימון "Only
+count the devices" רק סופר את המכשירים ולא שולח. זה משתמש ב-`FIREBASE_SERVICE_ACCOUNT`, ולכן
+החשבון צריך הרשאת קריאה ל-Firestore ושליחה ב-Cloud Messaging, לא רק Hosting.
+
 מה צריך להגדיר בריפו פעם אחת, ב-Settings ← Secrets and variables ← Actions:
 
 | | איפה | מה |

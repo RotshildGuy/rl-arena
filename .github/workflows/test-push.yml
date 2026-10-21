@@ -1,0 +1,41 @@
+# Send a test notification to one team's devices, on demand from the Actions
+# tab - to see that pushes arrive, and how fast, without waiting for a race.
+name: Test push
+
+on:
+  workflow_dispatch:
+    inputs:
+      team:
+        description: Team name whose devices get the test
+        required: true
+      dry:
+        description: Only count the devices, send nothing
+        type: boolean
+        default: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - run: npm ci
+        working-directory: functions
+
+      - name: Send
+        working-directory: functions
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || 'reinforcement-learning-ed0ed' }}
+          TEAM: ${{ inputs.team }}
+          DRY: ${{ inputs.dry && '--dry' || '' }}
+        run: |
+          key="$RUNNER_TEMP/sa.json"
+          printf '%s' "$SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" node testPush.js "$TEAM" $DRY
