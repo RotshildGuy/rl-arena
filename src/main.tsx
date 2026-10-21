@@ -4,8 +4,10 @@ import { startAuth } from './ui/auth';
 import './ui/styles.css';
 import { initTheme } from './ui/theme';
 import { refreshPush, registerServiceWorker } from './ui/push';
+import { startSlidingTabs } from './ui/slidingTabs';
 
 initTheme();
+startSlidingTabs();
 registerServiceWorker();
 
 // Before the first render: the session Firebase already has is what decides
