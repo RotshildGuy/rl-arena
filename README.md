@@ -805,6 +805,12 @@ match /feedback/{id} {
 workflow רץ גם ידנית מלשונית Actions (`workflow_dispatch`), והוא מריץ `typecheck` ו-`sanity`
 לפני שהוא מפרסם משהו.
 
+**תצוגה מקדימה לפני מיזוג.** דחיפה לכל ענף אחר (לא `main`) בונה אותו ומפרסמת אותו לערוץ
+preview משלו ב-Firebase Hosting, דרך `.github/workflows/preview.yml`. הכתובת מופיעה בסיכום של
+הריצה בלשונית Actions ונמחקת אחרי 7 ימים. האתר החי לא משתנה. זו אותה אפליקציה על אותו פרויקט
+(אותה התחברות, אותה אליפות), רק עם הקוד של הענף. אם ההתחברות עם Google נכשלת בכתובת
+ה-preview, צריך להוסיף את הדומיין שלה ל-Authentication ← Settings ← Authorized domains.
+
 מה צריך להגדיר בריפו פעם אחת, ב-Settings ← Secrets and variables ← Actions:
 
 | | איפה | מה |
