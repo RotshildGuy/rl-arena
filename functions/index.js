@@ -28,7 +28,10 @@ const { feedbackChange } = require('./feedback');
 
 initializeApp();
 const db = getFirestore();
-const SITE = 'https://reinforcement-learning-ed0ed.web.app/';
+// A path, not an address: the site is served at two addresses, and the
+// service worker opens it on the one where that device turned reminders on,
+// where its sign-in lives.
+const SITE = '/';
 const REGION = 'me-west1';
 
 async function allTokens() {
@@ -58,7 +61,6 @@ function message(token, title, body, tag, url = SITE) {
     token,
     notification: { title, body },
     data: { url, tag },
-    webpush: { fcmOptions: { link: url } },
   };
 }
 
