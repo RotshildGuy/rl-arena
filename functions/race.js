@@ -4,9 +4,8 @@
  * functions are deployed on their own and cannot import the app's TypeScript.
  * `npm run sanity` checks the two agree for years ahead - change both or neither.
  */
-const SEASON_START_UTC = Date.UTC(2026, 8, 14);
+const SEASON_START_UTC = Date.UTC(2026, 9, 25);
 const DAY_MS = 24 * 60 * 60 * 1000;
-const LEGACY_SEASON_LAST_ROUND = 41;
 const SEASON_ROUNDS = 8;
 
 function lastSunday(year, month) {
@@ -39,8 +38,7 @@ function roundOfDay(now) {
 }
 
 function seasonNumber(round) {
-  if (round <= LEGACY_SEASON_LAST_ROUND) return 1;
-  return 2 + Math.floor((round - LEGACY_SEASON_LAST_ROUND - 1) / SEASON_ROUNDS);
+  return 1 + Math.floor((Math.max(1, round) - 1) / SEASON_ROUNDS);
 }
 
 function raceIdForRound(round) {

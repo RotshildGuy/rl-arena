@@ -3,23 +3,19 @@ import { TRACK_DEFS } from '../games/racing/tracks';
 /**
  * Seasons.
  *
- * The first season ran without an end, and under Formula 1 scoring anybody who
- * joined two weeks in sat at the bottom for good. From round 42 - the same
- * Sunday the car physics changes and the house team arrives - a season is
- * eight rounds: twice round the four circuits, about a week and a half. Each
+ * A season is eight rounds: twice round the four circuits, eight days. Each
  * one has its champions, then the table starts again from zero, and the cars
  * on the grid simply carry on into the next one.
  *
- * Season 1 is rounds 1 to 41 and stays exactly that: its race ids, its
- * Firestore path and its seeds are what they always were. Nothing is reset
- * retroactively.
+ * The calendar started over on Sunday 25.10.2026, the public launch: the
+ * database was emptied that morning and that evening's race is round 1 of
+ * season 1. The rounds raced before it (a test season that ran from 14.9) are
+ * gone, and nothing here remembers them.
  */
-export const LEGACY_SEASON_LAST_ROUND = 41;
 export const SEASON_ROUNDS = 8;
 
 export function seasonNumber(round: number): number {
-  if (round <= LEGACY_SEASON_LAST_ROUND) return 1;
-  return 2 + Math.floor((round - LEGACY_SEASON_LAST_ROUND - 1) / SEASON_ROUNDS);
+  return 1 + Math.floor((Math.max(1, round) - 1) / SEASON_ROUNDS);
 }
 
 export function seasonId(n: number): string {
@@ -32,8 +28,7 @@ export function seasonForRound(round: number): string {
 
 /** First and last round of a season, inclusive. */
 export function seasonRange(n: number): { first: number; last: number } {
-  if (n <= 1) return { first: 1, last: LEGACY_SEASON_LAST_ROUND };
-  const first = LEGACY_SEASON_LAST_ROUND + 1 + (n - 2) * SEASON_ROUNDS;
+  const first = 1 + (Math.max(1, n) - 1) * SEASON_ROUNDS;
   return { first, last: first + SEASON_ROUNDS - 1 };
 }
 
@@ -69,7 +64,7 @@ export function roundInSeason(round: number): { index: number; of: number } {
  * browser with stale zone data would otherwise put the race an hour away from
  * everybody else's.
  */
-export const SEASON_START_UTC = Date.UTC(2026, 8, 14);
+export const SEASON_START_UTC = Date.UTC(2026, 9, 25); // round 1: Sunday 25.10.2026, the launch
 export const RACE_HOUR_ISRAEL = 20;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -173,15 +168,11 @@ export function raceIdForRound(round: number): string {
 
 /**
  * The first round raced on version 2 of the car physics - the one where tyres
- * can be overdriven and walls cost time.
- *
- * Training switches the moment the code ships; the championship waits a few
- * days, because every car already on the grid learned to drive on the old
- * physics and its team needs time to retrain it. Until this round the cards
- * keep running on version 1, and a card records its version so the switch
- * never reaches back into a race that has already been run.
+ * can be overdriven and walls cost time. Since the restart that is every
+ * round; version 1 stays in the simulator because a card records the version
+ * it ran on, and an old replay must still play back the way it raced.
  */
-export const PHYSICS_V2_ROUND = 42; // Sunday 25.10.2026
+export const PHYSICS_V2_ROUND = 1;
 
 export function physicsForRound(round: number): number {
   return round >= PHYSICS_V2_ROUND ? 2 : 1;
@@ -203,8 +194,8 @@ export function grandPrixName(round: number): string {
  */
 export function seedForRound(round: number): number {
   let h = 2166136261 ^ round;
-  // Salted with the first season's id for every season: the seed only has to
-  // differ from round to round, and season 1's must never change.
+  // Salted with a fixed string: the seed only has to differ from round to round,
+  // and it must never change once a round has been raced.
   for (const ch of 'S1') h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return (h >>> 0) % 1_000_000_007;
 }

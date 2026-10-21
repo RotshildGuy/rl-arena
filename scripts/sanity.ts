@@ -53,7 +53,7 @@ import { diagnoseCar, diagnoseDay } from '../src/core/champ/diagnose';
 import { buildRaceCard } from '../src/core/champ/card';
 import { runRaceDay } from '../src/core/champ/sim';
 import { hallOfFame, rookieUids, seasonCards, seasonComplete } from '../src/core/champ/seasons';
-import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, seedForRound, displaySeason } from '../src/core/champ/schedule';
+import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, displaySeason } from '../src/core/champ/schedule';
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
 import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
@@ -451,8 +451,8 @@ function physicsTest(): void {
   check('training and play run on the current physics, where a car can slide', slid);
 
   check(
-    'the championship switches physics at its round, not before',
-    physicsForRound(PHYSICS_V2_ROUND - 1) === 1 && physicsForRound(PHYSICS_V2_ROUND) === PHYSICS_VERSION,
+    'the championship races on the current physics from round 1',
+    PHYSICS_V2_ROUND === 1 && physicsForRound(1) === PHYSICS_VERSION,
     `round ${PHYSICS_V2_ROUND}`,
   );
 }
@@ -774,14 +774,10 @@ function championshipTest(): void {
   const offHours: number[] = [];
   for (let r = 1; r <= 365 * 5; r++) if (israelHour(startsAtForRound(r)) !== 20) offHours.push(r);
   check('every round for five years starts at 20:00 Israel time', offHours.length === 0, offHours.slice(0, 5).join(', '));
-  const alreadyRaced: number[] = [];
-  for (let r = 1; r <= 41; r++) {
-    if (startsAtForRound(r) !== Date.UTC(2026, 8, 14 + r - 1, 17)) alreadyRaced.push(r);
-  }
-  check('rounds up to the clock change keep their old start, 17:00 UTC', alreadyRaced.length === 0, alreadyRaced.join(', '));
-  const sunday = startsAtForRound(42);
-  check('round 42, Sunday 25.10, is the first at 18:00 UTC', sunday === Date.UTC(2026, 9, 25, 18));
-  check('and the evening before it is round 41', currentRound(sunday - 1) === 41 && currentRound(sunday) === 42);
+  const sunday = startsAtForRound(1);
+  check('round 1 is Sunday 25.10, 20:00 in winter time - 18:00 UTC', sunday === Date.UTC(2026, 9, 25, 18));
+  check('round 159, 1.4.2027, is back on summer time - 17:00 UTC', startsAtForRound(159) === Date.UTC(2027, 3, 1, 17));
+  check('and the evening before round 1 is no round at all', currentRound(sunday - 1) === 0 && currentRound(sunday) === 1);
   let monotonic = true;
   for (let r = 1; r < 365 * 3; r++) {
     const at = startsAtForRound(r);
@@ -1009,15 +1005,15 @@ function teamLimitTest(): void {
     updatedAt: before - 10_000,
   }));
   const current = entries.slice(0, 2).map((e) => ({ ...e, updatedAt: before }));
-  const shared = eligibleEntries([...older, ...current], round).map((e) => e.id);
+  const shared = eligibleEntries([...older, ...current], round).filter((e) => e.uid !== HOUSE_UID).map((e) => e.id);
   check('one team name on two accounts is one team, with two seats', shared.length === MAX_CARS_PER_TEAM, shared.join(','));
   check('and the seats go to the account in use, not the one left behind', shared.join(',') === 'a,b', shared.join(','));
-  const oneLeft = eligibleEntries([...older, current[0]], round).map((e) => e.id);
+  const oneLeft = eligibleEntries([...older, current[0]], round).filter((e) => e.uid !== HOUSE_UID).map((e) => e.id);
   check('a seat the current account leaves empty is filled from the old one', oneLeft.join(',') === 'x2,a', oneLeft.join(','));
   const renamed = entries.slice(0, 3).map((e, i) => ({ ...e, team: i === 2 ? 'Alpha Renamed' : e.team }));
   check(
     'a second name does not buy a third car',
-    eligibleEntries(renamed, round).length === MAX_CARS_PER_TEAM,
+    eligibleEntries(renamed, round).filter((e) => e.uid !== HOUSE_UID).length === MAX_CARS_PER_TEAM,
   );
 }
 
@@ -1338,17 +1334,17 @@ function metricsTest(): void {
 // ---------------------------------------------------------------- calendar
 function calendarTest(): void {
   console.log(CHAPTER + 'Race calendar');
-  const round = 42;
+  const round = 1;
   const ics = raceCalendarIcs(round, 'https://example.test', Date.UTC(2026, 9, 1));
   const start = new Date(startsAtForRound(round)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const lines = ics.split('\r\n');
-  // Round 42 is Sunday 25.10.2026, the evening Israel goes back to winter time.
+  // Round 1 is Sunday 25.10.2026, the evening Israel goes back to winter time.
   check('the event starts at 20:00 Israel time on the round\'s day',
     ics.includes('\r\nDTSTART;TZID=Asia/Jerusalem:20261025T200000\r\n'), start);
   check('and carries the zone, so it stays at 20:00 through clock changes',
     ics.includes('\r\nBEGIN:VTIMEZONE\r\nTZID:Asia/Jerusalem\r\n'));
-  const summer = raceCalendarIcs(30, 'https://example.test');
-  check('a summer round is 20:00 too', summer.includes('DTSTART;TZID=Asia/Jerusalem:20261013T200000'));
+  const summer = raceCalendarIcs(159, 'https://example.test');
+  check('a summer round is 20:00 too', summer.includes('DTSTART;TZID=Asia/Jerusalem:20270401T200000'));
   check('and repeats every day', ics.includes('\r\nRRULE:FREQ=DAILY\r\n'));
   check('with a reminder fifteen minutes before', ics.includes('\r\nTRIGGER:-PT15M\r\n'));
   check('every line ends in CRLF', !/[^\r]\n/.test(ics) && ics.endsWith('\r\n'));
@@ -1509,57 +1505,47 @@ function houseTest(): void {
 // ---------------------------------------------------------------- seasons
 function seasonTest(): void {
   console.log(CHAPTER + 'Seasons');
-  // Season 1 is untouchable: its ids are its Firestore paths, its seeds its results.
-  const oldSeed = (round: number) => {
-    let h = 2166136261 ^ round;
-    for (const ch of 'S1') h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-    return (h >>> 0) % 1_000_000_007;
-  };
-  let legacy = true;
-  for (let r = 1; r <= 41; r++) {
-    if (raceIdForRound(r) !== `S1-R${String(r).padStart(3, '0')}` || seedForRound(r) !== oldSeed(r)) legacy = false;
-  }
-  check('rounds 1–41 keep their season-1 ids and seeds', legacy);
-  check('round 42 opens season 2', raceIdForRound(42) === 'S2-R042' && seasonForRound(42) === 'S2');
-  check('eight rounds a season', seasonNumber(49) === 2 && seasonNumber(50) === 3 &&
-    seasonRange(3).first === 50 && seasonRange(3).last === 57);
+  check('round 1 opens season 1', raceIdForRound(1) === 'S1-R001' && seasonForRound(1) === 'S1');
+  check('eight rounds a season', seasonNumber(8) === 1 && seasonNumber(9) === 2 && seasonNumber(17) === 3 &&
+    seasonRange(1).first === 1 && seasonRange(1).last === 8 && seasonRange(3).first === 17 && seasonRange(3).last === 24);
   check('every round belongs to exactly one season', [1, 2, 3, 4, 5].every((n) =>
     seasonRange(n + 1).first === seasonRange(n).last + 1));
+  check('before the first race the screens show season 1', displaySeason(startsAtForRound(1) - DAY_MS) === 1);
   check('the final table stays up the day after a final',
-    displaySeason(startsAtForRound(50) - BROADCAST_OPENS_MS - 1) === 2 && displaySeason(startsAtForRound(50) - BROADCAST_OPENS_MS) === 3);
+    displaySeason(startsAtForRound(17) - BROADCAST_OPENS_MS - 1) === 2 && displaySeason(startsAtForRound(17) - BROADCAST_OPENS_MS) === 3);
 
   // Season 2 raced in full; a raced in season 1 too, and wins every S2 round.
   const ids = ['a', 'b0'];
-  const cards = [40, ...Array.from({ length: 8 }, (_, i) => 42 + i), 50].map((r) => fakeCard(r, ids));
+  const cards = [8, ...Array.from({ length: 8 }, (_, i) => 9 + i), 17].map((r) => fakeCard(r, ids));
   const results = new Map<string, RaceResult>();
   for (const c of cards) {
-    const order = c.round === 40 || c.round === 50 ? ['b0', 'a'] : ['a', 'b0'];
+    const order = c.round === 8 || c.round === 17 ? ['b0', 'a'] : ['a', 'b0'];
     results.set(c.id, fakeResult(c.id, order.map((id, i) => fakePlace(id, i + 1))));
   }
   const s3 = buildStandings({ cards: seasonCards(cards, 3), results });
-  const veteran = { ...fakeCard(30, ['v']), id: 'R30x' };
+  const veteran = { ...fakeCard(3, ['v']), id: 'R30x' };
   veteran.entries = veteran.entries.map((e) => ({ ...e, uid: 'old-team' }));
-  const newcomer = fakeCard(45, ['n']);
+  const newcomer = fakeCard(12, ['n']);
   newcomer.entries = newcomer.entries.map((e) => ({ ...e, uid: 'new-team' }));
-  const later = fakeCard(46, ['v2']);
+  const later = fakeCard(13, ['v2']);
   later.entries = later.entries.map((e) => ({ ...e, uid: 'old-team' }));
   const rook = rookieUids([veteran, newcomer, later], 2);
   check('a rookie is a team whose first race is this season', rook.has('new-team') && !rook.has('old-team'));
   check('a new season starts from zero', s3.drivers.find((d) => d.entryId === 'a')?.points === POINTS[1] &&
     s3.drivers[0].entryId === 'b0');
-  const fame = hallOfFame(cards, results, startsAtForRound(51));
+  const fame = hallOfFame(cards, results, startsAtForRound(18));
   const s2 = fame.find((h) => h.season === 2);
   check('the season-2 champion is the one who won it', s2?.driver?.entryId === 'a' && s2.driver.points === 8 * POINTS[0] &&
     s2.races === 8, JSON.stringify(s2 && { d: s2.driver?.entryId, p: s2.driver?.points, r: s2.races }));
   check('and the teams\' title goes with it', s2?.team?.team === 'Alpha');
   check('an unfinished season crowns nobody', !fame.some((h) => h.season === 3));
   const pending = new Map(results);
-  pending.delete(cards.find((c) => c.round === 49)!.id);
-  check('nor does one whose final is not settled', !seasonComplete(2, cards, pending, startsAtForRound(49) + 1000));
-  const noFinal = cards.filter((c) => c.round !== 49);
+  pending.delete(cards.find((c) => c.round === 16)!.id);
+  check('nor does one whose final is not settled', !seasonComplete(2, cards, pending, startsAtForRound(16) + 1000));
+  const noFinal = cards.filter((c) => c.round !== 16);
   check('a final that never ran ends the season a few hours on',
-    !seasonComplete(2, noFinal, results, startsAtForRound(49) + 1000) &&
-      seasonComplete(2, noFinal, results, startsAtForRound(49) + 4 * 3_600_000));
+    !seasonComplete(2, noFinal, results, startsAtForRound(16) + 1000) &&
+      seasonComplete(2, noFinal, results, startsAtForRound(16) + 4 * 3_600_000));
 }
 
 // ---------------------------------------------------------------- diagnosis
