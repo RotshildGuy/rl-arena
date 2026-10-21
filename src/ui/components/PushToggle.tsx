@@ -25,7 +25,7 @@ export function PushToggle() {
     try {
       const next = state === 'on' ? await disablePush() : await enablePush();
       setState(next);
-      if (next === 'on') showToast('תקבלו תזכורת ב-19:45, ואת התוצאה של הרכב שלכם אחרי המרוץ');
+      if (next === 'on') showToast('תקבלו תזכורת ב-19:45 לפני כל מרוץ, ואת התוצאה של הרכב שלכם אחריו');
       if (next === 'blocked') showToast('ההתראות חסומות בדפדפן. אפשר להפעיל אותן בהגדרות האתר.');
     } catch {
       showToast('לא הצלחתי להפעיל התראות במכשיר הזה');
@@ -36,8 +36,8 @@ export function PushToggle() {
 
   return (
     <>
-      <button onClick={() => void toggle()} disabled={busy || state === 'blocked'} title="התראה לפני המרוץ ואחריו">
-        {state === 'on' ? '🔔 התראות פועלות' : state === 'blocked' ? '🔕 חסום בדפדפן' : '🔔 התראה לפני המרוץ'}
+      <button onClick={() => void toggle()} disabled={busy || state === 'blocked'} title="התראה לפני כל מרוץ ואחריו, עד שמכבים">
+        {state === 'on' ? '🔔 התראות פועלות' : state === 'blocked' ? '🔕 חסום בדפדפן' : '🔔 התראות לפני כל מרוץ'}
       </button>
       {howTo && (
         <Modal title="התראות באייפון" onClose={() => setHowTo(false)}>

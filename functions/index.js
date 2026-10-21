@@ -9,8 +9,9 @@
  *                      been published by then (somebody has to have opened
  *                      the site to run it) - otherwise nothing.
  *
- * Tokens live in pushTokens/{token} = { uid, token, createdAt }. A token the
- * push service no longer knows is deleted on the spot.
+ * Tokens live in pushTokens/{token} = { uid, token, createdAt, seenAt }:
+ * createdAt is when the account was made, seenAt the last load that saved it.
+ * A token the push service no longer knows is deleted on the spot.
  *
  * Deploy: `cd functions && npm install && cd .. && firebase deploy --only functions`.
  * Scheduled functions need the Blaze (pay-as-you-go) plan.
