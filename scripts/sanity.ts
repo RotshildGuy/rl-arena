@@ -41,6 +41,7 @@ import {
   dayStatus,
   liveSession,
   resultsVisible,
+  sessionEndsAt,
   sessionWindows,
   settledResults,
 } from '../src/core/champ/timing';
@@ -1647,6 +1648,7 @@ function functionsCalendarTest(): void {
     startsAtForRound(r: number): number;
     raceIdForRound(r: number): string;
     roundOfDay(now: number): number;
+    dayEndsAt(card: RaceCard, result: RaceResult | null): number;
   };
   let same = true;
   let today = true;
@@ -1659,6 +1661,30 @@ function functionsCalendarTest(): void {
   }
   check('the functions name every round the way the app does', same);
   check('and find the round of the day at 19:45 and 20:45', today);
+
+  // The result notification waits for the flag on the last session, so the
+  // server must see the broadcast end exactly when the app does.
+  const finish = (entryId: string, laps: number[], totalMs: number | null): Finish => ({
+    entryId, position: 1, laps: laps.length, totalMs, gapMs: null, bestLapMs: null, bestSectorsMs: [],
+    lapTimesMs: laps, lapPositions: [], topSpeed: 0, overtakes: 0, wallHits: 0, carHits: 0, lapsLed: 0,
+    status: totalMs === null ? 'dnf' : 'finished', gridPos: 1,
+  });
+  let ends = true;
+  for (const n of [2, 7, 10, 11, 19, 20, 31, 64, 150]) {
+    const card = fakeCard(42, seedIds(n));
+    const last = sessionWindows(card).at(-1)!;
+    const lastId = last.session.id;
+    const results: (RaceResult | null)[] = [
+      null,
+      fakeResult(card.id, []),
+      { ...fakeResult(card.id, []), sessions: [{ sessionId: lastId, grid: [], fastestLap: null, classification: [finish('e0', [30_000, 31_500], 61_500), finish('e1', [40_000, 30_000], null)] }] },
+      { ...fakeResult(card.id, []), sessions: [{ sessionId: lastId, grid: [], fastestLap: null, classification: [finish('e0', [], 500_000)] }] },
+    ];
+    for (const result of results) {
+      if (server.dayEndsAt(card, result) !== sessionEndsAt(last, result)) ends = false;
+    }
+  }
+  check('and see the broadcast end when the app does, for any size of grid', ends);
 }
 
 function coinsTest(): void {

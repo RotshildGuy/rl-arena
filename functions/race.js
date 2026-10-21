@@ -47,4 +47,36 @@ function raceIdForRound(round) {
   return `S${seasonNumber(round)}-R${String(round).padStart(3, '0')}`;
 }
 
-module.exports = { startsAtForRound, roundOfDay, seasonNumber, raceIdForRound };
+/*
+ * When a race day's broadcast ends: the flag on its last session. A copy of
+ * planSessions (src/core/champ/format.ts) and sessionEndsAt
+ * (src/core/champ/timing.ts), cut down to the last session. `npm run sanity`
+ * checks it against the app's own answer.
+ */
+const GRID_SIZE = 10;
+const SESSION_GAP_MS = 3 * 60 * 1000;
+const RETIREMENT_GRACE_MS = 8000;
+
+function dayEndsAt(card, result) {
+  // Every heat round before the final takes one slot per group.
+  let count = card.qualifying.length;
+  let slots = 0;
+  while (count > GRID_SIZE) {
+    const groups = Math.ceil(count / GRID_SIZE);
+    slots += groups;
+    count = groups * Math.max(2, Math.floor(GRID_SIZE / groups));
+  }
+  const startsAt = card.startsAt + slots * SESSION_GAP_MS;
+  const slotEnd = startsAt + SESSION_GAP_MS;
+  const last = result && result.sessions.find((s) => s.sessionId === (slots ? 'final' : 'race'));
+  if (!last) return slotEnd;
+  let max = 0;
+  for (const f of last.classification) {
+    const ran = f.lapTimesMs.reduce((a, b) => a + b, 0);
+    const t = f.totalMs != null ? f.totalMs : ran + RETIREMENT_GRACE_MS;
+    if (t > max) max = t;
+  }
+  return max > 0 ? Math.min(slotEnd, startsAt + Math.ceil(max / 1000) * 1000) : slotEnd;
+}
+
+module.exports = { startsAtForRound, roundOfDay, seasonNumber, raceIdForRound, dayEndsAt };

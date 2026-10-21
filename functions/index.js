@@ -5,9 +5,11 @@
  *
  *   19:45 Israel time  "the race starts in a quarter of an hour", to everyone
  *                      who turned reminders on;
- *   20:45 Israel time  how each person's best car finished, if the result has
- *                      been published by then (somebody has to have opened
- *                      the site to run it) - otherwise nothing.
+ *   after the race     how each person's best car finished, the minute the
+ *                      broadcast ends. Checked every minute from 20:00 to
+ *                      21:59; the result only exists once somebody has opened
+ *                      the site to run it, so a day nobody opened sends nothing.
+ *                      pushSent/{raceId} records that a day's results went out.
  *   on a reply         when an operator answers a feedback message or moves
  *                      its status, its sender hears about it (`feedback.js`).
  *
@@ -23,7 +25,7 @@ const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
-const { raceIdForRound, roundOfDay } = require('./race');
+const { dayEndsAt, raceIdForRound, roundOfDay } = require('./race');
 const { feedbackChange } = require('./feedback');
 
 initializeApp();
@@ -53,29 +55,46 @@ async function send(messages) {
   }
 }
 
-function message(token, title, body, tag, url = SITE) {
+/*
+ * High urgency: at the default, Android holds a push for a phone that is
+ * asleep and hands it over at its next wake-up, which is how a result came in
+ * a quarter of an hour late. `ttl` is how many seconds it is still worth
+ * delivering - a reminder that turns up after the start is only noise.
+ */
+function message(token, title, body, tag, { url = SITE, ttl = 6 * 60 * 60 } = {}) {
   return {
     token,
     notification: { title, body },
     data: { url, tag },
-    webpush: { fcmOptions: { link: url } },
+    webpush: { headers: { Urgency: 'high', TTL: String(ttl) }, fcmOptions: { link: url } },
   };
 }
 
 exports.raceReminder = onSchedule({ schedule: '45 19 * * *', timeZone: 'Asia/Jerusalem', region: REGION }, async () => {
   const tokens = await allTokens();
-  await send(tokens.map((t) => message(t.token, 'RL Arena', 'המרוץ מתחיל בעוד רבע שעה. השידור נפתח דקה לפני.', 'reminder')));
+  await send(tokens.map((t) => message(t.token, 'RL Arena', 'המרוץ מתחיל בעוד רבע שעה. השידור נפתח דקה לפני.', 'reminder', { ttl: 15 * 60 })));
 });
 
-exports.raceResult = onSchedule({ schedule: '45 20 * * *', timeZone: 'Asia/Jerusalem', region: REGION }, async () => {
-  const round = roundOfDay(Date.now());
-  const raceId = raceIdForRound(round);
+exports.raceResult = onSchedule({ schedule: '* 20-21 * * *', timeZone: 'Asia/Jerusalem', region: REGION }, async () => {
+  const now = Date.now();
+  const raceId = raceIdForRound(roundOfDay(now));
+  const sent = db.collection('pushSent').doc(raceId);
+  if ((await sent.get()).exists) return;
   const season = raceId.split('-')[0];
   const race = db.collection('seasons').doc(season).collection('races').doc(raceId);
   const [cardSnap, resultSnap] = await Promise.all([race.get(), race.collection('result').doc('final').get()]);
   if (!cardSnap.exists || !resultSnap.exists) return;
   const card = cardSnap.data();
   const result = resultSnap.data();
+  // Not while people are still watching: the result exists from the lights.
+  if (now < dayEndsAt(card, result)) return;
+  // Claimed before sending, so two runs that overlap cannot both send.
+  try {
+    await sent.create({ at: now });
+  } catch (err) {
+    if (err.code === 6) return; // ALREADY_EXISTS
+    throw err;
+  }
   const owner = new Map(card.entries.map((e) => [e.id, e]));
 
   // Each account's best-placed car.
@@ -110,5 +129,5 @@ exports.feedbackReply = onDocumentUpdated({ document: 'feedback/{id}', region: R
   if (!note || !after.uid) return;
   const snap = await db.collection('pushTokens').where('uid', '==', after.uid).get();
   const url = `${SITE}?open=feedback`;
-  await send(snap.docs.map((d) => message(d.data().token, note.title, note.body, `feedback-${event.params.id}`, url)));
+  await send(snap.docs.map((d) => message(d.data().token, note.title, note.body, `feedback-${event.params.id}`, { url })));
 });
