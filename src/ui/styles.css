@@ -2143,3 +2143,4 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   .nav.bottom button { font-size: 12.5px; }
   .tiny { font-size: 12.5px; }
 }
+button.last-race-link { margin-bottom: 14px; justify-content: center; gap: 8px; }

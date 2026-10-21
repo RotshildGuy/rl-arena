@@ -123,9 +123,6 @@ interface AppState {
   /** The friends' league the tables are filtered to, or null for everybody. */
   leagueId: string | null;
   setLeague(id: string | null): void;
-  /** Came in through "watch the last race first": open a broadcast once there is one. */
-  watchFirst: boolean;
-  setWatchFirst(on: boolean): void;
   openRace(raceId: string, screen: 'broadcast' | 'report'): void;
   setCompetitor(name: string): void;
   /** The same, for a name that came *from* the account - so it is not sent back. */
@@ -274,8 +271,6 @@ export const useApp = create<AppState>((set, get) => ({
   feedbackFrom: 'championship',
   leagueId: null,
   setLeague: (leagueId) => set({ leagueId }),
-  watchFirst: false,
-  setWatchFirst: (watchFirst) => set({ watchFirst }),
   openFeedback: () =>
     leave(get(), 'feedback', () =>
       set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' })),

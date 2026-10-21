@@ -129,17 +129,6 @@ export function Championship() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lastRound]);
 
-  // In through "watch the last race first": straight to the race on air, or
-  // the last one run, as soon as the season has loaded.
-  const watchFirst = useApp((s) => s.watchFirst);
-  const setWatchFirst = useApp((s) => s.setWatchFirst);
-  useEffect(() => {
-    if (!watchFirst || !state) return;
-    const target = liveCard ?? lastFinished;
-    setWatchFirst(false);
-    if (target) openRace(target.id, 'broadcast');
-  }, [watchFirst, state, liveCard, lastFinished, openRace, setWatchFirst]);
-
   // A car is either on the grid or it is not: an entry left retired under the
   // old withdrawal rules is filtered out here, so its model reads as
   // unregistered everywhere instead of wearing a badge it cannot shed.
@@ -169,7 +158,7 @@ export function Championship() {
 
       {/* Not while on the way to the broadcast: the name form flashing past
           for a moment, unexplained, was the first thing a watcher saw. */}
-      {(editingName || nameTaken) && !watchFirst ? (
+      {editingName || nameTaken ? (
         <div className="card notched" style={{ marginBottom: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>מי אתם</div>
           {nameTaken && (
@@ -229,6 +218,16 @@ export function Championship() {
           onWatch={() => openRace(liveCard.id, 'broadcast')}
           onReport={() => openRace(liveCard.id, 'report')}
         />
+      )}
+
+      {/* The way to see what this is about without building anything first.
+          It used to be a second door on the sign-in screen; one door is
+          enough, and the race is one tap from here. Not while one is on air -
+          the live banner above already offers that. */}
+      {!liveCard && lastFinished && (
+        <button className="wide last-race-link" onClick={() => openRace(lastFinished.id, 'broadcast')}>
+          <span aria-hidden="true">🎬</span> צפו במרוץ האחרון · {lastFinished.name}
+        </button>
       )}
 
       {lastHonours && now < startsAtForRound(lastHonours.last) + 3 * DAY_MS && (

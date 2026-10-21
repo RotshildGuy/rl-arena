@@ -108,11 +108,12 @@ export function SignIn() {
         </p>
 
         {/* Playing first. Most people arrive to try the thing, not to open an
-            account, so the one big button is the way in with nothing to fill;
-            watching a race is the gentler second door, and the accounts fold
-            away under "I have an account" for whoever is coming back. The
-            anonymous identity can be linked to Google or an e-mail later, from
-            inside, keeping everything. */}
+            account, so the one big button is the way in with nothing to fill.
+            Watching the last race is a tap away inside, on the championship
+            screen, so it needs no door of its own. Opening an account comes
+            next, with signing in one tap away on the same form. The anonymous
+            identity can be linked to Google or an e-mail later, keeping
+            everything. */}
         <button
           className="primary wide big"
           disabled={busy !== null}
@@ -120,21 +121,6 @@ export function SignIn() {
         >
           {busy === 'anon' ? 'נכנס…' : inherited ? 'המשך בלי חשבון' : '🏁 שחקו עכשיו - בלי חשבון'}
         </button>
-        {!inherited && (
-          <button
-            className="wide"
-            style={{ marginTop: 8 }}
-            disabled={busy !== null}
-            onClick={() =>
-              void attempt('anon', async () => {
-                useApp.getState().setWatchFirst(true);
-                await signIn.anonymous();
-              })
-            }
-          >
-            👀 קודם לצפות במרוץ האחרון
-          </button>
-        )}
         <p className="small muted" style={{ margin: '8px 0 0' }}>
           {inherited ? (
             <>
