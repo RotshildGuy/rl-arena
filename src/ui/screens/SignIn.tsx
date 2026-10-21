@@ -29,7 +29,12 @@ export function SignIn() {
   const openInfo = useApp((s) => s.openInfo);
   /** True when an unchosen identity is already sitting in this browser. */
   const inherited = useSyncExternalStore(subscribeAuth, getAuthView).needsDoor;
-  const [mode, setMode] = useState<Mode>('in');
+  /**
+   * Opening an account is what a newcomer is offered; signing in to one that
+   * already exists is a tap away and swaps the same form over. A browser that
+   * already holds an identity is likelier to belong to somebody returning.
+   */
+  const [mode, setMode] = useState<Mode>(() => (getAuthView().needsDoor ? 'in' : 'up'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<Busy>(null);
@@ -42,8 +47,6 @@ export function SignIn() {
    * rather than leave somebody at a door that will not open, offer them that.
    */
   const [stuck, setStuck] = useState(false);
-  /** The account options fold away; somebody holding an inherited identity may well have one. */
-  const [showAccounts, setShowAccounts] = useState(inherited);
 
   const attempt = async (what: Exclude<Busy, null>, fn: () => Promise<unknown>) => {
     setBusy(what);
@@ -150,12 +153,15 @@ export function SignIn() {
           <span>או</span>
         </div>
 
-        {!showAccounts ? (
-          <button className="ghost wide" disabled={busy !== null} onClick={() => setShowAccounts(true)}>
-            יש לי חשבון - התחברות עם Google או מייל
-          </button>
-        ) : (
-          <>
+        <h2 style={{ fontSize: 17, margin: '0 0 4px' }}>
+          {mode === 'up' ? 'רוצים לשמור את ההתקדמות בחשבון?' : 'התחברות לחשבון קיים'}
+        </h2>
+        <p className="small muted" style={{ margin: '0 0 10px' }}>
+          {mode === 'up'
+            ? 'עם חשבון המודלים והנקודות שלכם זמינים מכל מכשיר.'
+            : 'המודלים והנקודות שלכם יחכו לכם בדיוק איפה שעזבתם.'}
+        </p>
+        <>
             <button className="provider" disabled={busy !== null} onClick={() => void attempt('google', signIn.google)}>
               <GoogleMark />
               {busy === 'google' ? 'מתחבר…' : 'המשך עם Google'}
@@ -200,7 +206,7 @@ export function SignIn() {
                   setNote(null);
                 }}
               >
-                {mode === 'in' ? 'אין לי חשבון - הרשמה' : 'יש לי כבר חשבון'}
+                {mode === 'in' ? 'אין לי חשבון - הרשמה' : 'כבר יש לי חשבון - התחברות'}
               </button>
               <div style={{ flex: 1 }} />
               {mode === 'in' && (
@@ -209,8 +215,7 @@ export function SignIn() {
                 </button>
               )}
             </div>
-          </>
-        )}
+        </>
 
         {error && (
           <div className="auth-note warn" role="alert">
