@@ -57,10 +57,8 @@ async function messagingToken(): Promise<string> {
   return getToken(getMessaging(getApp()), { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
 }
 
-export async function enablePush(): Promise<PushState> {
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off';
-  const token = await messagingToken();
+/** Write `pushTokens/{token}` for the signed-in account and remember the token on this device. */
+async function saveToken(token: string): Promise<void> {
   const [{ doc, setDoc }, { ensureApp, currentUser }] = await Promise.all([
     import('firebase/firestore'),
     import('../storage/firebaseApp'),
@@ -73,7 +71,40 @@ export async function enablePush(): Promise<PushState> {
   } catch {
     // The token is stored; only the switch's memory of it is lost.
   }
+}
+
+export async function enablePush(): Promise<PushState> {
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off';
+  await saveToken(await messagingToken());
   return 'on';
+}
+
+/**
+ * Run once per load where the switch reads "on". The server deletes a token
+ * the push service has forgotten, and the push service can hand this device a
+ * new one, so the switch could say "on" while nothing arrives. Writing the
+ * current token again puts it back. The rules do not let a browser read
+ * `pushTokens`, so this writes rather than checks; it is one small write.
+ */
+export async function refreshPush(): Promise<void> {
+  if (pushState() !== 'on') return;
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(FLAG);
+  } catch {
+    // Nothing to compare with; the write below still happens.
+  }
+  try {
+    const token = await messagingToken();
+    await saveToken(token);
+    if (stored && stored !== token) {
+      const [{ doc, deleteDoc }, { ensureApp }] = await Promise.all([import('firebase/firestore'), import('../storage/firebaseApp')]);
+      await deleteDoc(doc(ensureApp().db, 'pushTokens', stored)).catch(() => {});
+    }
+  } catch {
+    // Offline or signed out: try again next load.
+  }
 }
 
 export async function disablePush(): Promise<PushState> {
