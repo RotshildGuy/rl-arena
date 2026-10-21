@@ -122,6 +122,27 @@ function Arena() {
       .catch(() => showToast('הקישור לליגה לא עבד - אולי הליגה נמחקה'));
   }, [go, setLeague, showToast]);
 
+  // A notification about a reply links to ?open=feedback. From a closed site
+  // that arrives as the address; with the site already open, the service
+  // worker passes it on as a message instead.
+  useEffect(() => {
+    const open = (url: string) => {
+      if (new URL(url, window.location.href).searchParams.get('open') === 'feedback') openFeedback();
+    };
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('open')) {
+      open(window.location.href);
+      params.delete('open');
+      const rest = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+    }
+    const onMessage = (ev: MessageEvent<{ type?: string; url?: string }>) => {
+      if (ev.data?.type === 'open' && ev.data.url) open(ev.data.url);
+    };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
+  }, [openFeedback]);
+
   // The team name lives with the account, not with the browser, so the first
   // thing to do behind the gate is ask the account what it is. On the device
   // that already knows, this changes nothing; on a new one it is the difference

@@ -1708,6 +1708,21 @@ function rivalTest(): void {
   check('and drives every step it is on track', rivalCalls >= 25, String(rivalCalls));
 }
 
+/** What a feedback sender is told when their message is answered or moves on. */
+function feedbackNoticeTest(): void {
+  console.log(CHAPTER + 'Feedback notifications');
+  const { feedbackChange } = createRequire(import.meta.url)('../functions/feedback.js') as {
+    feedbackChange(a: object, b: object): { title: string; body: string } | null;
+  };
+  const base = { uid: 'u', kind: 'bug', text: 'the broadcast froze on lap three of the final', status: 'new' };
+  const reply = feedbackChange(base, { ...base, reply: 'Fixed, thanks!' });
+  check('an answer is told, with the answer in it', !!reply && reply.body.includes('Fixed, thanks!'), reply?.title);
+  const done = feedbackChange(base, { ...base, status: 'done' });
+  check('so is a message marked done', !!done && done.title.includes('טופלה'));
+  check('an unchanged message is not', feedbackChange(base, { ...base }) === null);
+  check('nor the same answer saved twice', feedbackChange({ ...base, reply: 'ok' }, { ...base, reply: 'ok' }) === null);
+}
+
 function feedbackTest(): void {
   console.log(CHAPTER + 'Feedback');
   check('a one-word report is sent back for more', feedbackProblem('broken') !== null);
@@ -1757,6 +1772,7 @@ houseTest();
 seasonTest();
 diagnoseTest();
 feedbackTest();
+feedbackNoticeTest();
 leagueTest();
 copiesTest();
 coinsTest();

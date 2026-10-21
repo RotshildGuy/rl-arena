@@ -41,7 +41,12 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
       for (const w of wins) {
-        if ('focus' in w) return w.focus();
+        if ('focus' in w) {
+          // Already open: bring it forward and tell it where the tap was
+          // meant to go (a reply opens the feedback page).
+          w.postMessage({ type: 'open', url });
+          return w.focus();
+        }
       }
       return self.clients.openWindow(url);
     }),
