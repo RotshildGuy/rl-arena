@@ -8,6 +8,8 @@
  *   20:45 Israel time  how each person's best car finished, if the result has
  *                      been published by then (somebody has to have opened
  *                      the site to run it) - otherwise nothing.
+ *   on a reply         when an operator answers a feedback message or moves
+ *                      its status, its sender hears about it (`feedback.js`).
  *
  * Tokens live in pushTokens/{token} = { uid, token, createdAt, seenAt }:
  * createdAt is when the account was made, seenAt the last load that saved it.
@@ -17,10 +19,12 @@
  * Scheduled functions need the Blaze (pay-as-you-go) plan.
  */
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { raceIdForRound, roundOfDay } = require('./race');
+const { feedbackChange } = require('./feedback');
 
 initializeApp();
 const db = getFirestore();
@@ -49,12 +53,12 @@ async function send(messages) {
   }
 }
 
-function message(token, title, body, tag) {
+function message(token, title, body, tag, url = SITE) {
   return {
     token,
     notification: { title, body },
-    data: { url: SITE, tag },
-    webpush: { fcmOptions: { link: SITE } },
+    data: { url, tag },
+    webpush: { fcmOptions: { link: url } },
   };
 }
 
@@ -94,4 +98,17 @@ exports.raceResult = onSchedule({ schedule: '45 20 * * *', timeZone: 'Asia/Jerus
     messages.push(message(t.token, card.name, `${entry.driver} ${how}${points}.`, 'result'));
   }
   await send(messages);
+});
+
+// An answer, or a status change, on somebody's feedback: tell them, on every
+// device where they turned notifications on. The link opens the feedback page,
+// where the answer is shown under their message.
+exports.feedbackReply = onDocumentUpdated({ document: 'feedback/{id}', region: REGION }, async (event) => {
+  const before = event.data && event.data.before.data();
+  const after = event.data && event.data.after.data();
+  const note = feedbackChange(before, after);
+  if (!note || !after.uid) return;
+  const snap = await db.collection('pushTokens').where('uid', '==', after.uid).get();
+  const url = `${SITE}?open=feedback`;
+  await send(snap.docs.map((d) => message(d.data().token, note.title, note.body, `feedback-${event.params.id}`, url)));
 });
