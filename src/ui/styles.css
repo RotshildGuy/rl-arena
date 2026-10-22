@@ -452,6 +452,11 @@ input[type='number'] { direction: ltr; text-align: end; }
    and <th>, and an inline-block cell drops out of its column, so every
    number below the header lands wherever its own row happens to end. */
 .num { direction: ltr; unicode-bidi: plaintext; }
+/* A typed name, and a run that always reads left to right (components/Name.tsx).
+   Spelled out rather than left to the <bdi> defaults, so a class on the same
+   element - `.mono` and its `plaintext` - cannot undo the isolation. */
+.name { unicode-bidi: isolate; }
+.ltr, .mono.ltr { direction: ltr; unicode-bidi: isolate; }
 
 /* ------------------------------------------------------------------ shell */
 

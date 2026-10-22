@@ -23,6 +23,7 @@ import { CoachAnchor, useCoachStep } from '../coach';
 import { TeamNameForm } from '../components/TeamNameForm';
 import { locale, useT } from '../../i18n';
 import { trackName } from '../../i18n/names';
+import { Name } from '../components/Name';
 
 export function TrainSetup() {
   const s = useT().trainSetup;
@@ -187,7 +188,9 @@ export function TrainSetup() {
               <div className="field">
                 <label>{s.teamLabel}</label>
                 <div className="row">
-                  <b>{competitor}</b>
+                  <b>
+                    <Name>{competitor}</Name>
+                  </b>
                   <button className="ghost small" onClick={() => setEditingName(true)}>
                     {s.rename}
                   </button>
@@ -311,7 +314,9 @@ function SlotCard({
       {slot.modelId ? (
         <div className="field">
           <label>{s.continueTraining}</label>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{slot.name}</div>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>
+            <Name>{slot.name}</Name>
+          </div>
         </div>
       ) : (
       <div className="cols-2">

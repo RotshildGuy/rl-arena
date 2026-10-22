@@ -25,6 +25,7 @@ import { useIsNarrow } from './device';
 import { track } from '../storage/metrics';
 import { joinLeague, leaguesAvailable } from '../storage/leagues';
 import { t as words, useT } from '../i18n';
+import { Name } from './components/Name';
 
 interface Tab {
   id: 'championship' | 'standings' | 'library' | 'raceSetup' | 'shop';
@@ -228,7 +229,7 @@ function Arena() {
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
             {/* Its own direction: a Latin name inside the RTL bar was cut off
                 from its start, losing exactly the part that identifies it. */}
-            <bdi dir="auto" className="pill-name">{competitor}</bdi>
+            <Name className="pill-name">{competitor}</Name>
           </span>
         )}
         {/* A guest is told they are a guest. A green "connected" next to an
