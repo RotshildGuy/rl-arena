@@ -6,6 +6,7 @@ import { earnedCoins } from '../../core/champ/coins';
 import {
   ITEM_BY_ID,
   SHOP_ITEMS,
+  normalizeShop,
   paintOf,
   spent,
   type Equipped,
@@ -46,7 +47,9 @@ export function Shop() {
 
   useEffect(() => {
     if (!uid) return;
-    void myShop(uid).then(setDoc);
+    // Through the same check every other reader uses: a document of the wrong
+    // shape is an empty shop, not a crash.
+    void myShop(uid).then((d) => setDoc(normalizeShop(d)));
   }, [uid]);
 
   const wallet = useMemo(() => {

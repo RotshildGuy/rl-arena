@@ -1826,6 +1826,25 @@ function coinsTest(): void {
   const stripe = validLook(two, 1000);
   check('a second colour goes on the stripe', stripe?.look.secondary === ITEM_BY_ID.get('second-white')!.value && stripe.look.pattern === 'stripe');
   check('and must be bought like the first', validLook({ ...two, purchases: ['color-navy', 'pattern-stripe'] }, 1000) === null);
+  const survives = (raw: unknown) => {
+    try {
+      validLook(raw, 1000);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  check('a malformed shop document never throws', [
+    { purchases: 'color-navy', equipped: { color: 'color-navy' } },
+    { purchases: { 0: 'x' }, equipped: null },
+    { purchases: ['color-navy'] },
+    { purchases: [1, null], equipped: [] },
+    { equipped: 'red' },
+    'a string',
+    42,
+  ].every(survives));
+  check('and reads as empty', validLook({ purchases: 'x', equipped: 7 }, 0)?.color === undefined
+    && validLook({ purchases: null, equipped: { color: 'color-navy' } }, 1000) === null);
   check('buying twice costs once', spent(['color-navy', 'color-navy']) === color.price);
   check('no timing colour is for sale', [...ITEM_BY_ID.values()].filter((i) => i.kind === 'color')
     .every((i) => !['#c77dff', '#3de87a', '#ffd84d'].includes(i.value.toLowerCase())));
