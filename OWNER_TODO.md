@@ -11,12 +11,12 @@
 
 מהרגע שהגרסה הזו באוויר, הדפדפנים מפסיקים להריץ את המרוץ ורק השרת מריץ אותו. לכן הסדר חשוב:
 
-1. [ ] **לפרוס את הפונקציות:** `npm ci`, ואז `cd functions && npm install && cd ..`, ואז
+1. [x] (בוצע 22.10: `raceResult` פרוסה ב-`me-west1`) **לפרוס את הפונקציות:** `npm ci`, ואז `cd functions && npm install && cd ..`, ואז
    `firebase deploy --only functions`. הפריסה בונה קודם את הקובץ שמריץ את המרוץ (`npm run build:functions`).
-2. [ ] **למזג ל-main** (האתר עולה לבד).
-3. [ ] **לפרסם את כללי Firestore** (`firebase deploy --only firestore:rules`). הכללים החדשים כבר
+2. [x] (בוצע 22.10, PR #7) **למזג ל-main** (האתר עולה לבד).
+3. [x] (בוצע 22.10, אחרי שהאתר עלה) **לפרסם את כללי Firestore** (`firebase deploy --only firestore:rules`). הכללים החדשים כבר
    בקובץ המקומי `firestore.rules` ונבדקו באמולטור. זה הצעד שבאמת סוגר את הזיוף ומסתיר את המשקולות.
-4. [ ] **להריץ ב-GitHub את הפעולה Backfill replays** (Actions ← Backfill replays ← Run workflow).
+4. [ ] **(זה מה שנשאר לך)** **להריץ ב-GitHub את הפעולה Backfill replays** (Actions ← Backfill replays ← Run workflow).
    היא מקליטה צפייה חוזרת לכל מרוץ שכבר נערך. אם היא נכשלת בשגיאת הרשאה, לתת לחשבון השירות שב-
    `FIREBASE_SERVICE_ACCOUNT` את התפקיד **Cloud Datastore User** ב-IAM. מרוץ שמדווח `mismatch` יישאר
    בלי צפייה חוזרת (התוצאה והטבלאות נשארות).
