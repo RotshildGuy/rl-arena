@@ -28,7 +28,6 @@ export const misc: typeof He.misc = {
   start: 'Start',
   secondsToStart: (n) => `${n} seconds to the start`,
   weightsTimeout: 'The request for the weights went unanswered',
-  coachClose: 'Close the tip',
   coachSkip: 'Skip the guide',
   retired: 'Out',
   leader: 'Leader',

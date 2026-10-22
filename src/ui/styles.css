@@ -1825,16 +1825,12 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
 .coach {
   --coach-bg: #1d2336;
   --coach-ink: var(--text);
-  --coach-soft: var(--muted);
   --coach-faint: var(--dim);
-  --coach-hover: rgba(255, 255, 255, 0.08);
 }
 :root[data-theme='light'] .coach {
   --coach-bg: #fff;
   --coach-ink: #10131c;
-  --coach-soft: #4a5063;
   --coach-faint: #6a7085;
-  --coach-hover: #eef0f5;
 }
 .coach {
   position: fixed;
@@ -1844,7 +1840,6 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   color: var(--coach-ink);
   border-radius: var(--radius);
   padding: 11px 14px 9px;
-  padding-inline-end: 34px;
   font-size: 13.5px;
   font-weight: 600;
   line-height: 1.55;
@@ -1864,22 +1859,6 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   border: 7px solid transparent;
 }
 .coach.below::before { bottom: 100%; border-bottom-color: var(--coach-bg); }
-.coach .coach-x {
-  position: absolute;
-  top: 4px;
-  inset-inline-end: 4px;
-  width: 28px;
-  height: 28px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: var(--coach-soft);
-  font-size: 14px;
-  line-height: 1;
-}
-.coach .coach-x:hover { background: var(--coach-hover); color: var(--coach-ink); }
 .coach .coach-skip {
   display: block;
   margin-top: 6px;

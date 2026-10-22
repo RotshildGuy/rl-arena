@@ -27,7 +27,6 @@ export const misc = {
   start: 'זינוק',
   secondsToStart: (n: number) => `${n} שניות לזינוק`,
   weightsTimeout: 'הבקשה למשקולות לא נענתה',
-  coachClose: 'סגירת ההסבר',
   coachSkip: 'דלגו על ההדרכה',
   retired: 'פרש',
   leader: 'מוביל',
