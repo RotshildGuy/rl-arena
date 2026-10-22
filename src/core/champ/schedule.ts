@@ -1,4 +1,5 @@
 import { TRACK_DEFS } from '../games/racing/tracks';
+import { LEGACY_ROTATION, TRACK_POOL_FROM_SEASON, drawRotation, fitRotation } from './rotation';
 
 /**
  * Seasons.
@@ -187,13 +188,44 @@ export function physicsForRound(round: number): number {
   return round >= PHYSICS_V2_ROUND ? 2 : 1;
 }
 
-/** Circuits rotate through the calendar, the way a real season does. */
+/**
+ * Circuits rotate through the calendar, the way a real season does: the
+ * original four in turn until season 3, then each season's own draw from the
+ * pool (see `rotation.ts`). Rounds already raced keep their track forever -
+ * and their card records it besides, which is what a replay reads.
+ */
 export function trackForRound(round: number): string {
-  return TRACK_DEFS[(round - 1) % TRACK_DEFS.length].id;
+  const n = seasonNumber(round);
+  if (n < TRACK_POOL_FROM_SEASON) return LEGACY_ROTATION[(round - 1) % LEGACY_ROTATION.length];
+  const rotation = seasonRotation(n);
+  return rotation[(round - seasonRange(n).first) % rotation.length];
+}
+
+const rotations = new Map<number, readonly string[]>();
+
+/** The circuits a season visits, in the order it races them. */
+export function seasonRotation(n: number): readonly string[] {
+  let rotation = rotations.get(n);
+  if (!rotation) {
+    const { first, last } = seasonRange(n);
+    if (n < TRACK_POOL_FROM_SEASON) {
+      const seen: string[] = [];
+      for (let r = first; r <= last && seen.length < LEGACY_ROTATION.length; r++) {
+        const id = trackForRound(r);
+        if (!seen.includes(id)) seen.push(id);
+      }
+      rotation = seen;
+    } else {
+      rotation = fitRotation(drawRotation(n), trackForRound(first - 1));
+    }
+    rotations.set(n, rotation);
+  }
+  return rotation;
 }
 
 export function grandPrixName(round: number): string {
-  const track = TRACK_DEFS[(round - 1) % TRACK_DEFS.length];
+  const id = trackForRound(round);
+  const track = TRACK_DEFS.find((t) => t.id === id) ?? TRACK_DEFS[0];
   return `גרנד פרי ${track.name}`;
 }
 

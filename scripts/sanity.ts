@@ -29,11 +29,13 @@ import {
   lockAtForRound,
   startsAtForRound,
   trackForRound,
+  seasonRotation,
   BROADCAST_OPENS_MS,
   LOCK_BEFORE_MS,
   DAY_MS,
 } from '../src/core/champ/schedule';
 import { nextRoundOnTrack, trainingTarget } from '../src/core/champ/records';
+import { ROTATION_SIZE, TRACK_POOLS, TRACK_POOL_FROM_SEASON, drawRotation, poolForSeason } from '../src/core/champ/rotation';
 import { eligibleEntries, MAX_CARS_PER_TEAM } from '../src/core/champ/card';
 import {
   broadcastOpensAt,
@@ -280,6 +282,117 @@ function trackTest(): void {
   }
 }
 
+// --------------------------------------------------------------- rotation
+/**
+ * A race replays from its card, and its card names its track by id. So a
+ * circuit's shape must never change and no circuit may ever be removed, and
+ * the calendar must never move a round that has been raced - or announced -
+ * to another track.
+ *
+ * Rounds before the pool are pinned by the old formula, written out here
+ * rather than read from the code under test. Seasons drawn from the pool are
+ * pinned as drawn: if a check below fails because a pool was edited, put the
+ * pool back and add a new one for a season that has not started (`rotation.ts`).
+ * When the season on air outruns the pins, add the line the check prints.
+ */
+function rotationTest(): void {
+  console.log(CHAPTER + 'track rotation');
+
+  const SHAPES: Record<string, string> = {
+    oval: '1657bae9',
+    kidney: 'cb8cc27a',
+    technical: 'fe2253ba',
+    speedway: '24f11e3f',
+    stadium: '5c69042',
+    triangle: '88074118',
+    serpent: 'c52d0917',
+    clover: '95ecec69',
+    coast: '6795b835',
+    ring: '989f5909',
+  };
+  const f = new Float32Array(1);
+  const u = new Uint32Array(f.buffer);
+  for (const [id, want] of Object.entries(SHAPES)) {
+    const def = TRACK_DEFS.find((d) => d.id === id);
+    let h = 2166136261;
+    if (def) {
+      const t = buildTrack(def);
+      for (const arr of [t.center, t.inner, t.outer]) {
+        for (const v of arr) {
+          f[0] = v;
+          h = Math.imul(h ^ u[0], 16777619) >>> 0;
+        }
+      }
+    }
+    check(`circuit "${id}" is still there, the shape it always was`, !!def && h.toString(16) === want, def ? h.toString(16) : 'missing');
+  }
+  const unpinned = TRACK_DEFS.filter((d) => !(d.id in SHAPES)).map((d) => d.id);
+  check('every circuit has its shape pinned here', unpinned.length === 0, unpinned.join(', '));
+
+  const LEGACY = ['oval', 'kidney', 'technical', 'speedway'];
+  const legacyLast = seasonRange(TRACK_POOL_FROM_SEASON - 1).last;
+  let legacyBad = 0;
+  for (let r = 1; r <= legacyLast; r++) if (trackForRound(r) !== LEGACY[(r - 1) % 4]) legacyBad++;
+  check(
+    'rounds before the pool run the original rotation, round for round',
+    legacyBad === 0 && legacyLast >= 49 && trackForRound(41) === 'oval' && trackForRound(42) === 'kidney',
+    `rounds 1-${legacyLast}, ${legacyBad} moved`,
+  );
+
+  const PINNED: Record<number, string[]> = {
+    3: ['kidney', 'ring', 'coast', 'clover'],
+    4: ['serpent', 'stadium', 'clover', 'technical'],
+    5: ['ring', 'technical', 'kidney', 'stadium'],
+    6: ['clover', 'stadium', 'ring', 'coast'],
+    7: ['speedway', 'clover', 'coast', 'ring'],
+    8: ['technical', 'coast', 'oval', 'clover'],
+  };
+  for (const [n, want] of Object.entries(PINNED)) {
+    const got = seasonRotation(Number(n));
+    check(`season ${n} races the circuits it drew`, got.join(',') === want.join(','), got.join(', '));
+  }
+  const onAir = displaySeason();
+  const lastPinned = Math.max(...Object.keys(PINNED).map(Number));
+  check(
+    'the season on air has its rotation pinned here',
+    onAir <= lastPinned,
+    onAir <= lastPinned
+      ? `pinned to season ${lastPinned}`
+      : `add ${onAir}: [${seasonRotation(onAir).map((id) => `'${id}'`).join(', ')}] to PINNED`,
+  );
+
+  let poolsBad = 0;
+  for (let i = 1; i < TRACK_POOLS.length; i++) if (TRACK_POOLS[i].fromSeason <= TRACK_POOLS[i - 1].fromSeason) poolsBad++;
+  check('pools only ever apply from later seasons', poolsBad === 0);
+
+  let seasonsBad = 0;
+  for (let n = 1; n <= 80; n++) {
+    const rot = seasonRotation(n);
+    const pool = poolForSeason(n)?.trackIds ?? LEGACY;
+    if (rot.length !== ROTATION_SIZE || new Set(rot).size !== rot.length) seasonsBad++;
+    else if (!rot.every((id) => pool.includes(id) && TRACK_DEFS.some((d) => d.id === id))) seasonsBad++;
+  }
+  check('every season visits four different circuits, all from its pool', seasonsBad === 0);
+
+  let backToBack = 0;
+  for (let r = 1; r < seasonRange(80).last; r++) if (trackForRound(r) === trackForRound(r + 1)) backToBack++;
+  check('no circuit two days running, across seasons too', backToBack === 0, `${backToBack} repeats`);
+
+  let refused = false;
+  try {
+    runRaceDay({ ...fakeCard(60, seedIds(2)), trackId: 'not-yet-built' }, new Map());
+  } catch {
+    refused = true;
+  }
+  check('a card on a circuit this build does not know is not raced', refused);
+
+  // Every client draws for itself, so the draw can depend on the season alone.
+  check(
+    'the draw is a function of the season alone',
+    drawRotation(9).join() === drawRotation(9).join() && drawRotation(9).join() !== drawRotation(10).join(),
+  );
+}
+
 // --------------------------------------------------------------------- GA
 function gaTest(): void {
   console.log(CHAPTER + 'neuroevolution');
@@ -405,7 +518,8 @@ function physicsTest(): void {
   };
   const f = new Float32Array(1);
   const u = new Uint32Array(f.buffer);
-  for (const def of TRACK_DEFS) {
+  // Only the circuits that raced on physics 1; the rest never will.
+  for (const def of TRACK_DEFS.filter((d) => d.id in V1_FINGERPRINTS)) {
     const env = new RacingEnv(
       { ...DEFAULT_RACING_CONFIG, trackId: def.id, nCars: 4, laps: 3, physics: 1 },
       defaultRewards(RACING_SPEC),
@@ -438,6 +552,7 @@ function physicsTest(): void {
         brake.totalMs === null ? 'DNF' : (brake.totalMs / 1000).toFixed(2) + 's'
       }`,
     );
+    check(`the braking driver stays off the walls on ${def.id}`, brake.finished && brake.wallHits === 0, `${brake.wallHits} walls`);
   }
 
   const freePlay = new RacingEnv({ ...DEFAULT_RACING_CONFIG }, defaultRewards(RACING_SPEC));
@@ -712,16 +827,19 @@ function championshipTest(): void {
 
   // The calendar rotates through the circuits, which is what makes a track
   // record worth chasing. `nextRoundOnTrack` must always name the *earliest*
-  // future round on that track.
+  // future round on that track, and miss none that the season on air or the
+  // next one holds.
   let rotationBad = 0;
-  for (let after = 0; after < 24; after++) {
+  for (let after = 0; after < 120; after++) {
+    const horizon = seasonRange(seasonNumber(after + 1) + 1).last;
     for (const def of TRACK_DEFS) {
       const next = nextRoundOnTrack(def.id, after);
-      if (next === null || next <= after || trackForRound(next) !== def.id) rotationBad++;
-      else for (let k = after + 1; k < next; k++) if (trackForRound(k) === def.id) rotationBad++;
+      let first: number | null = null;
+      for (let k = after + 1; k <= horizon && first === null; k++) if (trackForRound(k) === def.id) first = k;
+      if (next !== first) rotationBad++;
     }
   }
-  check('every circuit comes round again, and the next date is the nearest one', rotationBad === 0, `${TRACK_DEFS.length} circuits`);
+  check('the next date on a circuit is the nearest one', rotationBad === 0, `${TRACK_DEFS.length} circuits`);
   check('consecutive rounds are on different circuits', trackForRound(1) !== trackForRound(2));
 
   // A model that parks must not hold the race open. In a championship session
@@ -1760,6 +1878,7 @@ gradientCheck();
 xorTest();
 serializeTest();
 trackTest();
+rotationTest();
 corridorTest();
 gaTest();
 sharedSessionTest();

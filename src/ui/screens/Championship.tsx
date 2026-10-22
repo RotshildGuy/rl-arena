@@ -34,6 +34,7 @@ import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateText, dateTimeText, lapTime, posClass, timeText, untilText, untilWords } from '../format';
 import { googleCalendarUrl } from '../calendar';
+import { SeasonTracks } from '../components/SeasonTracks';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -523,8 +524,11 @@ function NextRace({
         <h1 className="display" style={{ margin: '8px 0 4px' }}>
           {grandPrixName(round)}
         </h1>
-        <div className="muted small" style={{ marginBottom: 16 }}>
+        <div className="muted small" style={{ marginBottom: 8 }}>
           {dateTimeText(startsAt)} · מסלול {track?.name ?? '-'}
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <SeasonTracks season={seasonNumber(round)} round={round} />
         </div>
 
         <div className="dim small" style={{ marginBottom: 2 }}>
