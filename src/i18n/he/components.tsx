@@ -26,6 +26,12 @@ export const rewardEditor = {
   level: (label: string, level: number, of: number) => `${label}: ${level} מתוך ${of}`,
 };
 
+export const welcome = {
+  eyebrow: 'ברוכים הבאים',
+  title: 'איך זה עובד',
+  ok: 'הבנתי',
+};
+
 export const primer = {
   eyebrow: 'לפני שמתחילים',
   title: 'המודל לא מנסה לנהוג טוב',

@@ -27,6 +27,12 @@ export const rewardEditor: typeof He.rewardEditor = {
   level: (label, level, of) => `${label}: ${level} of ${of}`,
 };
 
+export const welcome: typeof He.welcome = {
+  eyebrow: 'Welcome',
+  title: 'How it works',
+  ok: 'Got it',
+};
+
 export const primer: typeof He.primer = {
   eyebrow: 'Before you start',
   title: "The model isn't trying to drive well",
