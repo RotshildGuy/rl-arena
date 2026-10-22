@@ -2,6 +2,7 @@ import type { CarLook } from '../../core/games/racing/render';
 import type { RacingSnapshot } from '../../core/games/racing/env';
 import { lapTime, shortGap } from '../format';
 import { useT } from '../../i18n';
+import { Name } from './Name';
 
 export interface TowerCar {
   /** Grid slot, which is also the index into the snapshot. */
@@ -42,7 +43,9 @@ export function TimingTower({
           <div className={`row-t ${meta.mine ? 'me' : ''} ${retired ? 'out' : ''}`} key={carIdx}>
             <span className="p">{i + 1}</span>
             <span className="livery" style={{ background: meta.color }} />
-            <span className="who">{meta.name}</span>
+            <span className="who">
+              <Name>{meta.name}</Name>
+            </span>
             <span className="gap">
               {retired
                 ? t.misc.retired

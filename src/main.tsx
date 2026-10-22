@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';
+import { ErrorBoundary } from './ui/components/ErrorBoundary';
+import { useApp } from './ui/store';
 import { startAuth } from './ui/auth';
 import './ui/styles.css';
 import { initTheme } from './ui/theme';
@@ -22,4 +24,8 @@ registerServiceWorker();
 startAuth();
 
 // No StrictMode: its double-invoked effects would spawn two training workers.
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <ErrorBoundary page onHome={() => useApp.getState().go('championship')}>
+    <App />
+  </ErrorBoundary>,
+);

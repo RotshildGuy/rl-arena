@@ -35,6 +35,7 @@ import { exportModel, importModel, ModelFileError } from '../modelFile';
 import { CoachAnchor, modelsChanged, useCoachStep } from '../coach';
 import { locale, useT } from '../../i18n';
 import { grandPrixTitle, trackName } from '../../i18n/names';
+import { Name } from '../components/Name';
 
 export function Garage() {
   const t = useT();
@@ -497,6 +498,7 @@ export function Garage() {
                         <input
                           type="text"
                           autoFocus
+                          aria-label={g.rename}
                           value={renameText}
                           onChange={(e) => setRenameText(e.target.value)}
                           onBlur={() => void commitRename(m)}
@@ -506,7 +508,9 @@ export function Garage() {
                           }}
                         />
                       ) : (
-                        <h2>{m.name}</h2>
+                        <h2>
+                          <Name>{m.name}</Name>
+                        </h2>
                       )}
                       <div className="fill" />
                       <button className="ghost small" onClick={() => setSelected(null)}>

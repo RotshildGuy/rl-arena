@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore, type FormEvent } from 'react';
+import { useId, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Modal } from './Modal';
 import { GoogleMark } from './GoogleMark';
 import { useApp } from '../store';
@@ -37,9 +37,12 @@ export function AccountButton() {
       <button
         className={`ghost small account-btn${linked ? '' : ' unlinked'}`}
         onClick={() => setOpen(true)}
+        // A short name for a screen reader - below 900px the words are hidden
+        // and only the glyph shows - with the whole explanation on hover.
+        aria-label={linked ? a.mine : a.save}
         title={linked ? a.signedInAs(auth.email) : a.anonymousTitle}
       >
-        <span className="glyph">{linked ? '👤' : '🔗'}</span>
+        <span className="glyph" aria-hidden="true">{linked ? '👤' : '🔗'}</span>
         <span className="txt">{linked ? a.mine : a.save}</span>
       </button>
       {open && <AccountModal onClose={() => setOpen(false)} />}
@@ -61,6 +64,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
   const a = useT().account;
   const auth = useSyncExternalStore(subscribeAuth, getAuthView);
   const showToast = useApp((s) => s.showToast);
+  const id = useId();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<null | 'google' | 'email' | 'in-google' | 'in-email' | 'out'>(null);
@@ -179,9 +183,9 @@ export function AccountModal({ onClose }: { onClose(): void }) {
 
           <form onSubmit={linkEmail}>
             <div className="field">
-              <label htmlFor="link-email">{a.email}</label>
+              <label htmlFor={`${id}-link-email`}>{a.email}</label>
               <input
-                id="link-email"
+                id={`${id}-link-email`}
                 type="email"
                 autoComplete="email"
                 dir="ltr"
@@ -191,9 +195,9 @@ export function AccountModal({ onClose }: { onClose(): void }) {
               />
             </div>
             <div className="field">
-              <label htmlFor="link-password">{a.newPassword}</label>
+              <label htmlFor={`${id}-link-password`}>{a.newPassword}</label>
               <input
-                id="link-password"
+                id={`${id}-link-password`}
                 type="password"
                 autoComplete="new-password"
                 dir="ltr"
@@ -224,9 +228,9 @@ export function AccountModal({ onClose }: { onClose(): void }) {
                 }}
               >
                 <div className="field">
-                  <label htmlFor="in-email">{a.email}</label>
+                  <label htmlFor={`${id}-in-email`}>{a.email}</label>
                   <input
-                    id="in-email"
+                    id={`${id}-in-email`}
                     type="email"
                     autoComplete="email"
                     dir="ltr"
@@ -236,9 +240,9 @@ export function AccountModal({ onClose }: { onClose(): void }) {
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="in-password">{a.password}</label>
+                  <label htmlFor={`${id}-in-password`}>{a.password}</label>
                   <input
-                    id="in-password"
+                    id={`${id}-in-password`}
                     type="password"
                     autoComplete="current-password"
                     dir="ltr"

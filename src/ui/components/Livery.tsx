@@ -1,4 +1,5 @@
 import { teamColor } from '../../core/champ/livery';
+import { Name } from './Name';
 
 /**
  * The driver cell every table shares: a livery bar, the model's name, and the
@@ -22,9 +23,11 @@ export function DriverCell({
     <div className="driver">
       <span className="livery" style={{ background: color ?? teamColor(team) }} />
       <div className="names">
-        <span className="who">{driver}</span>
+        <span className="who">
+          <Name>{driver}</Name>
+        </span>
         <span className="team">
-          {team}
+          <Name>{team}</Name>
           {note ? ` · ${note}` : ''}
         </span>
       </div>
