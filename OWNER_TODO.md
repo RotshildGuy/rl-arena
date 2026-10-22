@@ -7,6 +7,14 @@
 - [ ] בקונסולה: Authentication ← Settings ← Authorized domains ← **Add domain** ← `rl-arena.web.app`.
   בלי זה הכניסה עם Google לא עובדת בכתובת החדשה (בישנה היא ממשיכה לעבוד).
 
+## 0.1 הרשאה לחשבון השירות של הפריסה
+
+- [ ] בקונסולה של Google Cloud: IAM ← החשבון שב-`FIREBASE_SERVICE_ACCOUNT` (שם כמו
+  `github-action-...@reinforcement-learning-ed0ed.iam.gserviceaccount.com`) ← Edit ← Add role ←
+  **Service Usage Viewer**. מגרסה 15.34.1 של firebase-tools הפריסה בודקת שה-API של Hosting פעיל,
+  ובלי ההרשאה הזו היא נכשלת ב-403. עד אז שתי הפעולות ב-GitHub נעולות על 15.34.0 (`firebaseToolsVersion`
+  ב-`deploy.yml` וב-`preview.yml`), ואחרי הוספת ההרשאה אפשר להסיר את הנעילה.
+
 ## 1. לפני יום ראשון 25.10 (סבב 42)
 
 - [ ] **לבדוק שהכללים של `seasons` לא נעולים ל-`S1`.** מסבב 42 המרוצים נשמרים תחת `seasons/S2/...`.
