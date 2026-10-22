@@ -16,7 +16,7 @@
 2. [x] (בוצע 22.10, PR #7) **למזג ל-main** (האתר עולה לבד).
 3. [x] (בוצע 22.10, אחרי שהאתר עלה) **לפרסם את כללי Firestore** (`firebase deploy --only firestore:rules`). הכללים החדשים כבר
    בקובץ המקומי `firestore.rules` ונבדקו באמולטור. זה הצעד שבאמת סוגר את הזיוף ומסתיר את המשקולות.
-4. [ ] **(זה מה שנשאר לך)** **להריץ ב-GitHub את הפעולה Backfill replays** (Actions ← Backfill replays ← Run workflow).
+4. [x] (בוצע 22.10: 36 מרוצים קיבלו צפייה חוזרת. סבבים 1, 2 ו-7 לא שוחזרו ונשארים בלי צפייה חוזרת. התוצאות והטבלאות שלהם לא השתנו) **להריץ ב-GitHub את הפעולה Backfill replays** (Actions ← Backfill replays ← Run workflow).
    היא מקליטה צפייה חוזרת לכל מרוץ שכבר נערך. אם היא נכשלת בשגיאת הרשאה, לתת לחשבון השירות שב-
    `FIREBASE_SERVICE_ACCOUNT` את התפקיד **Cloud Datastore User** ב-IAM. מרוץ שמדווח `mismatch` יישאר
    בלי צפייה חוזרת (התוצאה והטבלאות נשארות).
