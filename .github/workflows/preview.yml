@@ -59,7 +59,6 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET || secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID || secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_VAPID_KEY: ${{ vars.VITE_FIREBASE_VAPID_KEY || secrets.VITE_FIREBASE_VAPID_KEY }}
         run: npm run build
 
       # A channel id is lowercase letters, digits and dashes, at most 36 long
@@ -78,6 +77,11 @@ jobs:
           projectId: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || 'reinforcement-learning-ed0ed' }}
           channelId: ${{ steps.channel.outputs.id }}
           expires: 7d
+          # Pinned: 15.34.1 (21.10.2026) first asks the Service Usage API whether
+          # Hosting is enabled, which the deploy service account may not do, and
+          # every deploy failed with a 403. Unpin once the account has the
+          # "Service Usage Viewer" role (OWNER_TODO.md).
+          firebaseToolsVersion: 15.34.0
 
       - name: Preview address
         run: |

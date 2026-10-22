@@ -21,7 +21,6 @@ import { carRecaps, type CarRecap } from '../../core/champ/recap';
 import { diagnoseCar } from '../../core/champ/diagnose';
 import { AdviceLine } from '../components/AdviceLine';
 import { shareResult } from '../shareCard';
-import { PushToggle } from '../components/PushToggle';
 import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
@@ -603,7 +602,6 @@ function NextRace({
             {mine > 0 ? 'למוסך - הרכבים שלי' : 'רשמו מודל לאליפות'}
           </button>
           <AddToCalendar round={round} />
-          <PushToggle />
         </div>
       </div>
     </div>
