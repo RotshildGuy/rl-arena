@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
 import {
+  chooseTimeLimit,
   MAX_TRAIN_SLOTS,
   nextGrandPrixTrack,
   TIME_LIMITS,
@@ -452,7 +453,14 @@ function TimeLimit() {
       <div className="eyebrow">{s.autoStop}</div>
       <div className="segmented">
         {TIME_LIMITS.map((m) => (
-          <button key={m} className={draft.timeLimitMin === m ? 'on' : ''} onClick={() => patchDraft({ timeLimitMin: m })}>
+          <button
+            key={m}
+            className={draft.timeLimitMin === m ? 'on' : ''}
+            onClick={() => {
+              chooseTimeLimit(m);
+              patchDraft({ timeLimitMin: m });
+            }}
+          >
             {m === 0 ? s.noLimit : s.minutes(m)}
           </button>
         ))}
