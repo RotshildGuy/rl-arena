@@ -12,7 +12,6 @@ import { syncChampionship, type ChampionshipState } from './champSync';
  */
 let cache: ChampionshipState | null = null;
 let inflight: Promise<ChampionshipState> | null = null;
-let note: string | null = null;
 /** Which round the cache was built for, so a race starting invalidates it. */
 let cacheRound = -1;
 /** And which round was on air, so the feed opening invalidates it too. */
@@ -49,19 +48,14 @@ function load(): Promise<ChampionshipState> {
 function refresh(): Promise<ChampionshipState> {
   cacheRound = currentRound();
   cacheAiring = airingRound();
-  inflight = syncChampionship((n) => {
-    note = n;
-    emit();
-  })
+  inflight = syncChampionship()
     .then((s) => {
       cache = s;
-      note = null;
       emit();
       return s;
     })
     .catch((e) => {
       inflight = null;
-      note = null;
       emit();
       throw e;
     });
@@ -70,7 +64,6 @@ function refresh(): Promise<ChampionshipState> {
 
 export interface ChampionshipView {
   state: ChampionshipState | null;
-  progress: string | null;
   error: string | null;
   reload(): void;
 }
@@ -110,7 +103,7 @@ export function useChampionship(): ChampionshipView {
     return () => clearInterval(id);
   }, []);
 
-  return { state: cache, progress: note, error, reload };
+  return { state: cache, error, reload };
 }
 
 /** A clock that re-renders once a second - countdowns and live windows need it. */

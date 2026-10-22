@@ -1,14 +1,15 @@
 /*
- * Race notifications. The only code in RL Arena that runs on a server, and it
- * does no racing: the races are still run by whoever opens the site. These two
- * jobs only read what is already in Firestore and send a push:
+ * The only code in RL Arena that runs on a server: the race day itself, and
+ * the notifications around it.
  *
  *   19:45 Israel time  "the race starts in a quarter of an hour", to everyone
  *                      who turned reminders on;
+ *   from 20:00         the day's race. Every minute from 20:00 to 21:59 the
+ *                      job makes sure the round has its card and its result,
+ *                      running them itself (`raceDay.js`) when no browser has
+ *                      yet - so the race happens even if nobody opens the site.
  *   after the race     how each person's best car finished, the minute the
- *                      broadcast ends. Checked every minute from 20:00 to
- *                      21:59; the result only exists once somebody has opened
- *                      the site to run it, so a day nobody opened sends nothing.
+ *                      broadcast ends, from that same job.
  *                      pushSent/{raceId} records that a day's results went out.
  *   on a reply         when an operator answers a feedback message or moves
  *                      its status, its sender hears about it (`feedback.js`).
@@ -17,7 +18,11 @@
  * createdAt is when the account was made, seenAt the last load that saved it.
  * A token the push service no longer knows is deleted on the spot.
  *
- * Deploy: `cd functions && npm install && cd .. && firebase deploy --only functions`.
+ * `raceDay.js` and `house/` are built from the app (`src/server/raceDay.ts`,
+ * `public/house/`) by `npm run build:functions`, which `firebase deploy` runs
+ * first (`predeploy` in firebase.json). They are not in the repository.
+ *
+ * Deploy: `npm ci && (cd functions && npm install) && firebase deploy --only functions`.
  * Scheduled functions need the Blaze (pay-as-you-go) plan.
  */
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -25,8 +30,9 @@ const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
-const { dayEndsAt, raceIdForRound, roundOfDay } = require('./race');
+const { dayEndsAt, raceIdForRound, roundOfDay, startsAtForRound } = require('./race');
 const { feedbackChange } = require('./feedback');
+const { raceRound, HOUSE_IDS } = require('./raceDay');
 
 initializeApp();
 const db = getFirestore();
@@ -35,6 +41,71 @@ const db = getFirestore();
 // where its sign-in lives.
 const SITE = '/';
 const REGION = 'me-west1';
+
+// The house cars, from the copies of public/house/ the build puts here.
+const HOUSE = new Map(HOUSE_IDS.map((id) => [id, require(`./house/${id}.json`).weightsB64]));
+
+function raceRef(raceId) {
+  return db.collection('seasons').doc(raceId.split('-')[0]).collection('races').doc(raceId);
+}
+
+/*
+ * The arena, the way `FirestoreArena` (src/storage/arena.ts) reads and writes
+ * it - only what a race day needs. Cards, their cars and results are created,
+ * never overwritten: admin writes skip the security rules, so `create` is what
+ * keeps the server to the same "first record stands" rule as the browsers.
+ */
+const arena = {
+  async listEntries() {
+    return (await db.collection('arena').get()).docs.map((d) => d.data());
+  },
+  async loadEntryWeights(id) {
+    const snap = await db.collection('arena').doc(id).collection('data').doc('weights').get();
+    return snap.exists ? (snap.data().weightsB64 ?? null) : null;
+  },
+  async getCard(raceId) {
+    const snap = await raceRef(raceId).get();
+    return snap.exists ? snap.data() : null;
+  },
+  async putCard(card, cars) {
+    const race = raceRef(card.id);
+    try {
+      // Cars first: a card without its weights would be an unraceable record.
+      const all = [...cars];
+      for (let i = 0; i < all.length; i += 20) {
+        const batch = db.batch();
+        for (const [entryId, weightsB64] of all.slice(i, i + 20)) batch.create(race.collection('cars').doc(entryId), { entryId, weightsB64 });
+        await batch.commit();
+      }
+      await race.create(card);
+      return card;
+    } catch (err) {
+      // A browser got there first. Its card stands; if it has not landed yet,
+      // the next minute's run finds it.
+      const landed = await arena.getCard(card.id);
+      if (landed) return landed;
+      throw err;
+    }
+  },
+  async loadRaceWeights(raceId) {
+    const snap = await raceRef(raceId).collection('cars').get();
+    return new Map(snap.docs.map((d) => [d.data().entryId, d.data().weightsB64]));
+  },
+  async getResult(raceId) {
+    const snap = await raceRef(raceId).collection('result').doc('final').get();
+    return snap.exists ? snap.data() : null;
+  },
+  async putResult(result) {
+    try {
+      await raceRef(result.raceId).collection('result').doc('final').create(result);
+      return result;
+    } catch (err) {
+      const landed = await arena.getResult(result.raceId);
+      if (landed) return landed;
+      throw err;
+    }
+  },
+};
 
 async function allTokens() {
   const snap = await db.collection('pushTokens').get();
@@ -78,13 +149,29 @@ exports.raceReminder = onSchedule({ schedule: '45 19 * * *', timeZone: 'Asia/Jer
   await send(tokens.map((t) => message(t.token, 'RL Arena', 'המרוץ מתחיל בעוד רבע שעה. השידור נפתח דקה לפני.', 'reminder', { ttl: 15 * 60 })));
 });
 
-exports.raceResult = onSchedule({ schedule: '* 20-21 * * *', timeZone: 'Asia/Jerusalem', region: REGION }, async () => {
+/*
+ * A six-car day simulates in under a second; a full grid with heats takes a
+ * few. The timeout is room for that on a cold start, not an expectation.
+ */
+const RACE_OPTIONS = { schedule: '* 20-21 * * *', timeZone: 'Asia/Jerusalem', region: REGION, memory: '512MiB', timeoutSeconds: 300 };
+
+exports.raceResult = onSchedule(RACE_OPTIONS, async () => {
   const now = Date.now();
-  const raceId = raceIdForRound(roundOfDay(now));
+  const round = roundOfDay(now);
+  const raceId = raceIdForRound(round);
   const sent = db.collection('pushSent').doc(raceId);
   if ((await sent.get()).exists) return;
-  const season = raceId.split('-')[0];
-  const race = db.collection('seasons').doc(season).collection('races').doc(raceId);
+  // Never before the lights: a tick that fires a moment early must not race.
+  if (now >= startsAtForRound(round)) {
+    try {
+      const outcome = await raceRound(arena, round, HOUSE);
+      if (outcome !== 'already') console.log(`${raceId}: ${outcome}`);
+    } catch (err) {
+      // Next minute tries again, and a browser may yet run it.
+      console.error(`${raceId}: race day failed`, err);
+    }
+  }
+  const race = raceRef(raceId);
   const [cardSnap, resultSnap] = await Promise.all([race.get(), race.collection('result').doc('final').get()]);
   if (!cardSnap.exists || !resultSnap.exists) return;
   const card = cardSnap.data();

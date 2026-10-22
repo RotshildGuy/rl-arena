@@ -45,7 +45,7 @@ import {
   sessionWindows,
   settledResults,
 } from '../src/core/champ/timing';
-import type { DayPlace, Finish, RaceCard, RaceResult } from '../src/core/champ/types';
+import type { ArenaEntry, DayPlace, Finish, RaceCard, RaceResult } from '../src/core/champ/types';
 import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
 import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
@@ -62,7 +62,11 @@ import { leagueView, newLeagueId } from '../src/core/champ/league';
 import { findCopies, weightsFingerprint } from '../src/core/champ/copies';
 import { earnedCoins, COINS_PER_START } from '../src/core/champ/coins';
 import { spent, validLook, ITEM_BY_ID } from '../src/core/champ/shop';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { raceRound, HOUSE_IDS, type RaceStore } from '../src/server/raceDay';
+import { buildFunctions } from './buildFunctions';
 import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { Policy } from '../src/core/rl/policy';
@@ -1641,6 +1645,71 @@ function copiesTest(): void {
   check('one changed character is a different fingerprint', weightsFingerprint('AAAA') !== weightsFingerprint('AAAB'));
 }
 
+/** An arena in memory, create-only like the real one, for running a race day. */
+function memoryArena(entries: ArenaEntry[], weights: Map<string, string>): RaceStore & { cards: Map<string, RaceCard>; results: Map<string, RaceResult> } {
+  const cards = new Map<string, RaceCard>();
+  const cars = new Map<string, Map<string, string>>();
+  const results = new Map<string, RaceResult>();
+  return {
+    cards,
+    results,
+    listEntries: async () => entries,
+    loadEntryWeights: async (id) => weights.get(id) ?? null,
+    getCard: async (id) => cards.get(id) ?? null,
+    putCard: async (card, w) => {
+      if (!cards.has(card.id)) {
+        cars.set(card.id, new Map(w));
+        cards.set(card.id, card);
+      }
+      return cards.get(card.id)!;
+    },
+    loadRaceWeights: async (id) => new Map(cars.get(id) ?? []),
+    getResult: async (id) => results.get(id) ?? null,
+    putResult: async (r) => {
+      if (!results.has(r.raceId)) results.set(r.raceId, r);
+      return results.get(r.raceId)!;
+    },
+  };
+}
+
+/**
+ * The server runs the race day from a bundle of the app's own code. It has to
+ * race exactly as the source does, or the broadcast (which re-simulates in the
+ * browser) would disagree with the result the server wrote.
+ */
+async function serverRaceDayTest(): Promise<void> {
+  console.log(CHAPTER + 'Race day on the server');
+  const dir = mkdtempSync(join(tmpdir(), 'raceday-'));
+  buildFunctions(dir);
+  const load = (id: string) => (JSON.parse(readFileSync(join(dir, 'house', `${id}.json`), 'utf8')) as { weightsB64: string }).weightsB64;
+  const house = new Map(HOUSE_IDS.map((id) => [id, load(id)]));
+  check('every house driver has weights next to the bundle', HOUSE_IDS.length === HOUSE_DRIVERS.length && [...house.values()].every((w) => w.length > 0));
+
+  const round = HOUSE_FROM_ROUND + 3;
+  const entry: ArenaEntry = { ...HOUSE_DRIVERS[2], id: 'e1', uid: 'u1', team: 'בודקים', driver: 'בודק', createdAt: 0 };
+  const weights = new Map([['e1', house.get(HOUSE_DRIVERS[2].id)!]]);
+
+  const t0 = Date.now();
+  const source = memoryArena([entry], weights);
+  const outcome = await raceRound(source, round, house);
+  const ms = Date.now() - t0;
+  check('a day nobody opened is built and raced', outcome === 'raced', outcome);
+  check('and a second run leaves it as it was', (await raceRound(source, round, house)) === 'already');
+  check(`a race day takes seconds, not minutes (${(ms / 1000).toFixed(1)} s)`, ms < 60_000);
+
+  const bundled = createRequire(import.meta.url)(join(dir, 'raceDay.js')) as { raceRound: typeof raceRound };
+  const built = memoryArena([entry], weights);
+  await bundled.raceRound(built, round, house);
+
+  const raceId = raceIdForRound(round);
+  const strip = <T extends object>(x: T | undefined, key: string) => JSON.stringify({ ...x, [key]: 0 });
+  check('the bundle builds the same card', strip(source.cards.get(raceId), 'createdAt') === strip(built.cards.get(raceId), 'createdAt'));
+  check('and the same result', strip(source.results.get(raceId), 'computedAt') === strip(built.results.get(raceId), 'computedAt'));
+
+  const empty = memoryArena([], new Map());
+  check('no cars, no race', (await raceRound(empty, round, house)) === 'no-field' && empty.cards.size === 0);
+}
+
 /** The functions carry their own copy of the calendar; it must agree with the app's. */
 function functionsCalendarTest(): void {
   console.log(CHAPTER + 'Server calendar');
@@ -1804,6 +1873,7 @@ copiesTest();
 coinsTest();
 rivalTest();
 functionsCalendarTest();
+await serverRaceDayTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

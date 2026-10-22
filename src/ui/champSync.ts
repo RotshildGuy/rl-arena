@@ -12,10 +12,11 @@ import type { FromChamp, ToChamp, WeightPairs } from '../workers/champProtocol';
 /**
  * Runs the championship forward.
  *
- * There is no server here. Whoever opens the app does the work: any round whose
- * lights have gone out but that nobody has simulated yet gets built, raced and
- * written back, create-only, so the first record to land is the record. That
- * makes the daily race happen without anything running between visits.
+ * Whoever opens the app does the work: any round whose lights have gone out but
+ * that nobody has simulated yet gets built, raced and written back, create-only,
+ * so the first record to land is the record. The server runs today's round at
+ * 20:00 the same way (`src/server/raceDay.ts`); this is what catches anything
+ * it missed, and what runs the championship without a cloud at all.
  */
 
 let worker: Worker | null = null;
@@ -84,13 +85,9 @@ export interface ChampionshipState {
   entries: ArenaEntry[];
   cards: RaceCard[];
   results: Map<string, RaceResult>;
-  /** Non-null while a round is being simulated, for the progress line. */
-  busy: string | null;
   kind: 'local' | 'cloud';
   uid: string;
 }
-
-export type SyncProgress = (note: string | null) => void;
 
 /** House weights are static files; one fetch each per session is plenty. */
 const houseWeights = new Map<string, Promise<string | null>>();
@@ -126,7 +123,7 @@ async function weightsForEntries(arena: ArenaStore, entries: ArenaEntry[]): Prom
  * Missing rounds are processed oldest first so the standings build in the order
  * they were raced.
  */
-export async function syncChampionship(onProgress: SyncProgress = () => {}): Promise<ChampionshipState> {
+export async function syncChampionship(): Promise<ChampionshipState> {
   const arena = await getArena();
   const [entries, uid] = await Promise.all([arena.listEntries(), arena.uid()]);
   const cache = getChampCache(arena.kind);
@@ -163,7 +160,6 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
       if (!card && buildable.has(round)) {
         const field = eligibleEntries(entries, round);
         if (field.length >= MIN_ENTRIES) {
-          onProgress(`מריץ מוקדמות לסבב ${round}…`);
           const weights = await weightsForEntries(arena, field);
           // A house car whose file did not load would be frozen onto the card
           // without a car to drive; better to leave the card to the next visit.
@@ -190,7 +186,6 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
       }
 
       if (!result && runnable.has(round)) {
-        onProgress(`מריץ את ${card.name}…`);
         const weights = await arena.loadRaceWeights(raceId);
         if (weights.size >= MIN_ENTRIES) {
           result = await arena.putResult(await runDay(card, [...weights.entries()]));
@@ -205,12 +200,10 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
     }
   }
 
-  onProgress(null);
   return {
     entries,
     cards: [...cards.values()].sort((a, b) => a.round - b.round),
     results,
-    busy: null,
     kind: arena.kind,
     uid,
   };

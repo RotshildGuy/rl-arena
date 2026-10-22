@@ -27,7 +27,7 @@ export function Standings() {
   const ROOKIES = '__rookies';
   const rookies = leagueId === ROOKIES;
   const league = leagues.find((l) => l.id === leagueId) ?? null;
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const now = useNow(5000);
   const [tab, setTab] = useState<Tab>('drivers');
   const current = displaySeason(now);
@@ -76,7 +76,7 @@ export function Standings() {
   const mine = new Set(state ? state.entries.filter((e) => e.uid === state.uid).map((e) => e.id) : []);
 
   if (!state || !standings) {
-    return <PageSkeleton variant="table" note={progress} />;
+    return <PageSkeleton variant="table" />;
   }
 
   if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !leagueId && leagues.length === 0) {

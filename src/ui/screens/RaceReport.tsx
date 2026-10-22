@@ -20,17 +20,17 @@ import { dateTimeText, gapTime, lapClass, lapTime, posClass, raceTime, speedText
 
 export function RaceReport() {
   const { viewRaceId, go, openRace } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const now = useNow(1000);
 
   const card = state?.cards.find((c) => c.id === viewRaceId) ?? null;
   const result = card ? (state?.results.get(card.id) ?? null) : null;
 
-  if (!state) return <PageSkeleton variant="race" note={progress} />;
+  if (!state) return <PageSkeleton variant="race" />;
   if (!card) {
     return (
       <div className="empty">
-        {progress ?? 'לא נמצא מרוץ.'}
+        לא נמצא מרוץ.
         <div style={{ marginTop: 14 }}>
           <button onClick={() => go('championship')}>חזרה לאליפות</button>
         </div>

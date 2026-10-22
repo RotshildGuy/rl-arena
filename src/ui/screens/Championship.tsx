@@ -59,7 +59,7 @@ function useMyModels(): ModelMeta[] {
 
 export function Championship() {
   const { go, openRace, competitor, nameTaken } = useApp();
-  const { state, progress, error, reload } = useChampionship();
+  const { state, error, reload } = useChampionship();
   const now = useNow();
   const [editingName, setEditingName] = useState(!competitor);
   /** Whether this person has started typing a name of their own. */
@@ -190,14 +190,6 @@ export function Championship() {
         </div>
       ) : null}
 
-      {progress && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="row">
-            <span className="pill hot">מחשב</span>
-            <span className="muted small">{progress}</span>
-          </div>
-        </div>
-      )}
       {error && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="row">
@@ -341,7 +333,7 @@ export function Championship() {
         </div>
       )}
 
-      {state && state.cards.length === 0 && !progress && (
+      {state && state.cards.length === 0 && (
         <div className="empty">
           <h2 style={{ marginBottom: 8 }}>
             {nextField.length >= MIN_ENTRIES ? 'הגרנד פרי הראשון עוד לא נערך' : 'האליפות עוד לא התחילה'}

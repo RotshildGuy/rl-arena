@@ -38,7 +38,7 @@ type Camera = 'track' | 'follow';
 
 export function Broadcast() {
   const { viewRaceId, go, openRace } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const now = useNow(500);
 
   const card = useMemo(() => {
@@ -54,14 +54,14 @@ export function Broadcast() {
   if (!state) {
     return (
       <div style={{ margin: 20 }}>
-        <PageSkeleton variant="race" note={progress} />
+        <PageSkeleton variant="race" />
       </div>
     );
   }
   if (!card) {
     return (
       <div className="empty" style={{ margin: 20 }}>
-        {progress ?? 'אין מרוץ להציג.'}
+        אין מרוץ להציג.
         <div style={{ marginTop: 14 }}>
           <button onClick={() => go('championship')}>חזרה לאליפות</button>
         </div>

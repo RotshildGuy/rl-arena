@@ -40,7 +40,7 @@ const SECTIONS: Array<{ kind: SlotKind; title: string; hint?: string }> = [
  */
 export function Shop() {
   const { competitor, showToast } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const [doc, setDoc] = useState<ShopDoc | null>(null);
   const [trial, setTrial] = useState<Equipped>({});
   const [busy, setBusy] = useState(false);
@@ -58,7 +58,7 @@ export function Shop() {
     return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
   }, [state, uid]);
 
-  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" note={progress} />;
+  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" />;
 
   const balance = wallet.total - spent(doc.purchases);
   const owned = new Set(doc.purchases);
