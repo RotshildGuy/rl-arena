@@ -20,7 +20,7 @@ export const app: typeof He.app = {
   guestTitle: 'You are playing as a guest: your progress is saved, but only in this browser. To keep it on another device too, tap save account.',
   guest: 'Guest',
   footer: {
-    feedback: 'Bug or idea?',
+    feedback: 'Contact',
     how: 'How it works',
     terms: 'Terms of use',
     privacy: 'Privacy',

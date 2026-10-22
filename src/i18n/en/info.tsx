@@ -100,6 +100,10 @@ export const info: typeof He.info = {
         </li>
         <li>Ties on points are broken by the number of wins, and if still tied - by second places, and so on.</li>
         <li>The drivers' points of each team add up together in the teams' table.</li>
+        <li>
+          Every season the tables start from zero. Only the points reset: your models are kept, and a car entered
+          in the championship keeps racing in the new season.
+        </li>
       </ul>
 
       <h3>5 · Play yourself</h3>
@@ -135,7 +139,7 @@ export const info: typeof He.info = {
       <ul>
         <li>
           Offensive, threatening, racist or sexual names - neither as a model name nor as a competitor name. These
-          names are shown to every user.
+          names are shown to every user. Saw one? Report it on the contact screen.
         </li>
         <li>Impersonating another person, team or organisation.</li>
         <li>Names that infringe a trademark, copyright or someone else's privacy.</li>
@@ -240,7 +244,7 @@ export const info: typeof He.info = {
           the invite link can see them.
         </li>
         <li>
-          <b>Messages you sent</b> (bug or idea): the text, the kind of message and the name of the screen it
+          <b>Messages you sent</b> (the contact screen): the text, the kind of message and the name of the screen it
           was sent from. Contact and browser details are kept only if you chose to attach them. Only you and the
           site's operators can read them.
         </li>

@@ -26,6 +26,12 @@ export const rewardEditor = {
   level: (label: string, level: number, of: number) => `${label}: ${level} מתוך ${of}`,
 };
 
+export const welcome = {
+  eyebrow: 'ברוכים הבאים',
+  title: 'איך זה עובד',
+  ok: 'הבנתי',
+};
+
 export const primer = {
   eyebrow: 'לפני שמתחילים',
   title: 'המודל לא מנסה לנהוג טוב',
@@ -48,7 +54,7 @@ export const primer = {
 export const teamNameForm = {
   label: 'שם המתחרה - זה יהיה שם הקבוצה שלכם בטבלה',
   failed: 'שמירת השם נכשלה',
-  placeholder: 'לדוגמה: גיא',
+  placeholder: 'לדוגמה: הברקים הכחולים',
   saving: 'שומר…',
   save: 'שמור',
   cancel: 'ביטול',

@@ -42,7 +42,7 @@
         try { lang = localStorage.getItem('rl-arena-lang'); } catch (e) {}
         var dark = pref === 'dark' || (pref !== 'light' && !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        if (lang !== 'he' && lang !== 'en') lang = (navigator.language || '').toLowerCase().indexOf('he') === 0 ? 'he' : 'en';
+        if (lang !== 'he' && lang !== 'en') lang = 'he';
         document.documentElement.lang = lang;
         document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
       })();

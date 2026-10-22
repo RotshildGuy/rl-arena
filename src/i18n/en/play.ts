@@ -6,7 +6,7 @@ export const raceSetup: typeof He.raceSetup = {
   offRecord: "Results here don't count in the championship table; this is a practice ground.",
   settings: (noun) => `${noun[0].toUpperCase()}${noun.slice(1)} settings`,
   oneOnOne: 'A one-on-one game: you against one model.',
-  pick: 'Pick rivals from the list - each rival is one more car on track.',
+  pick: 'With no rivals you drive alone against the clock. Each rival you pick from the list is one more car on track.',
   onTrack: (n) => `On track: you and ${n === 1 ? 'one rival' : `${n} rivals`}.`,
   rivals: 'Rivals',
   chosen: 'Chose',
@@ -19,7 +19,7 @@ export const raceSetup: typeof He.raceSetup = {
   episodes: (n) => `${n} training attempts`,
   fastLap: (lap) => `Fastest lap ${lap}`,
   noEntries: 'No model is entered in the championship yet.',
-  pickOne: 'Pick at least one rival from the list to start.',
+  solo: 'No rivals: a solo run against the clock.',
   toGarage: 'To the garage',
   go: 'Start',
 };

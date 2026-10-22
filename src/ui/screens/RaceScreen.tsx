@@ -103,7 +103,8 @@ export function RaceScreen() {
           colors.push(opp.color);
         }
         if (cancelled) return;
-        if (policies.length < 2) {
+        // No rivals picked is a time trial; rivals picked and none loaded is an error.
+        if (race.opponents.length > 0 && policies.length < 2) {
           setError(words().race.noRivals);
           return;
         }
@@ -225,7 +226,7 @@ export function RaceScreen() {
     if (now - hudTickRef.current > 120) {
       hudTickRef.current = now;
       setStandings(buildStandings());
-      let allOthersDone = true;
+      let allOthersDone = policiesRef.current.length > 1;
       for (let i = 1; i < policiesRef.current.length; i++) {
         if (!env.isAgentDone(i)) {
           allOthersDone = false;

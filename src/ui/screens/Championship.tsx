@@ -33,6 +33,7 @@ import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateText, dateTimeText, lapTime, posClass, timeText, untilText, untilWords } from '../format';
 import { googleCalendarUrl } from '../calendar';
 import { SeasonTracks } from '../components/SeasonTracks';
+import { Welcome, hasSeenWelcome, markWelcomeSeen } from '../components/Welcome';
 import { locale, useT } from '../../i18n';
 import { driverName, driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
 
@@ -67,6 +68,7 @@ export function Championship() {
   /** Whether this person has started typing a name of their own. */
   const typed = useRef(false);
   const coach = useCoachStep();
+  const [welcome, setWelcome] = useState(() => !hasSeenWelcome());
 
   /**
    * On a device this account has never been used on, the team name arrives from
@@ -144,6 +146,14 @@ export function Championship() {
 
   return (
     <>
+      {welcome && (
+        <Welcome
+          onClose={() => {
+            markWelcomeSeen();
+            setWelcome(false);
+          }}
+        />
+      )}
       <div className="page-head">
         <div className="eyebrow">{c.eyebrow(season)}</div>
         <h1 className="display">
@@ -151,9 +161,6 @@ export function Championship() {
           <br />
           {t.signin.headline2}
         </h1>
-        <p className="muted" style={{ margin: 0, maxWidth: 620 }}>
-          {c.intro}
-        </p>
       </div>
 
       {/* Not while on the way to the broadcast: the name form flashing past
