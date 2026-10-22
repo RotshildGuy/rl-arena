@@ -37,6 +37,8 @@ export type RaceStore = Pick<
   hasReplay(raceId: string): Promise<boolean>;
   /** `null`: the day did not reproduce, and has no replay. */
   putReplay(raceId: string, replay: DayReplay | null): Promise<void>;
+  /** Who owns each team name: `names/{key}` -> uid. */
+  nameOwners(): Promise<Map<string, string>>;
 };
 
 /**
@@ -52,8 +54,8 @@ export async function raceRound(store: RaceStore, round: number, house: Readonly
   const raceId = raceIdForRound(round);
   let card = await store.getCard(raceId);
   if (!card) {
-    const entries = await store.listEntries();
-    const field = eligibleEntries(entries, round);
+    const [entries, owners] = await Promise.all([store.listEntries(), store.nameOwners()]);
+    const field = eligibleEntries(entries, round, owners);
     if (field.length < MIN_ENTRIES) return 'no-field';
     const pairs = await Promise.all(
       field.map(
@@ -65,12 +67,12 @@ export async function raceRound(store: RaceStore, round: number, house: Readonly
     // As in the browser: a house car without its weights would be frozen onto
     // the card without a car to drive.
     if (weights.size < MIN_ENTRIES || field.some((e) => isHouse(e) && !weights.has(e.id))) return 'no-card';
-    card = await store.putCard(buildRaceCard(round, entries, weights), weights);
+    card = await store.putCard(buildRaceCard(round, entries, weights, owners), weights);
   }
 
   const existing = await store.getResult(raceId);
   if (existing) return replayRound(store, card, existing);
-  const weights = await store.loadRaceWeights(raceId);
+  const weights = onCard(card, await store.loadRaceWeights(raceId));
   if (weights.size < MIN_ENTRIES) return 'no-field';
   const replay: DayReplay = new Map();
   const result = runRaceDay(card, weights, replay);
@@ -87,7 +89,7 @@ export async function raceRound(store: RaceStore, round: number, house: Readonly
  */
 export async function replayRound(store: RaceStore, card: RaceCard, result: RaceResult): Promise<RaceDayOutcome> {
   if (await store.hasReplay(card.id)) return 'already';
-  const weights = await store.loadRaceWeights(card.id);
+  const weights = onCard(card, await store.loadRaceWeights(card.id));
   const replay: DayReplay = new Map();
   const again = runRaceDay(card, weights, replay);
   if (canonical(again.sessions) !== canonical(result.sessions)) {
@@ -96,6 +98,12 @@ export async function replayRound(store: RaceStore, card: RaceCard, result: Race
   }
   await store.putReplay(card.id, replay);
   return 'replayed';
+}
+
+/** Only the cars the card names: frozen weights for anything else are not part of the day. */
+function onCard(card: RaceCard, weights: Map<string, string>): Map<string, string> {
+  const ids = new Set(card.entries.map((e) => e.id));
+  return new Map([...weights].filter(([id]) => ids.has(id)));
 }
 
 /** JSON with keys sorted: Firestore hands maps back in its own key order. */

@@ -18,6 +18,10 @@ function makeArena(db) {
     async listEntries() {
       return (await db.collection('arena').get()).docs.map((d) => d.data());
     },
+    async nameOwners() {
+      const snap = await db.collection('names').get();
+      return new Map(snap.docs.map((d) => [d.id, d.data().uid]));
+    },
     async loadEntryWeights(id) {
       const snap = await db.collection('arena').doc(id).collection('data').doc('weights').get();
       return snap.exists ? (snap.data().weightsB64 ?? null) : null;

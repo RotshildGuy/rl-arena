@@ -388,39 +388,38 @@ arena/{entryId}/data/weights               המשקולות הנוכחיות (ה
 
 ### כללי Firestore לאליפות
 
-השרת כותב וקורא עם הרשאות admin ולא מושפע מהכללים. אלה הכללים לדפדפן, בתוך
-`match /databases/{database}/documents`. הם מחליפים את הכללים הקיימים לאותם נתיבים.
-**כללים ב-Firestore מצטברים:** אם כלל רחב יותר (למשל `match /arena/{entryId}/{document=**}` או
-`match /seasons/{document=**}`) מתיר קריאה, הוא גובר על החסימה כאן. צריך לוודא שאין כלל כזה.
+השרת כותב וקורא עם הרשאות admin ולא מושפע מהכללים. הדפדפן לא יכול לכתוב כרטיס, רכב, תוצאה או
+צפייה חוזרת, ולא יכול לקרוא משקולות של אף אחד חוץ משלו. אלה החלקים הרלוונטיים, בתוך
+`match /databases/{database}/documents` (הקובץ המלא, `firestore.rules`, נשמר אצל הבעלים ונבדק
+באמולטור של Firestore):
 
 ```
-function raceStarted(season, raceId) {
-  return get(/databases/$(database)/documents/seasons/$(season)/races/$(raceId)).data.startsAt
+function raceStarted(seasonId, raceId) {
+  return get(/databases/$(database)/documents/seasons/$(seasonId)/races/$(raceId)).data.startsAt
     <= request.time.toMillis();
 }
 
-match /seasons/{season}/races/{raceId} {
-  allow read: if true;
+match /seasons/{seasonId}/races/{raceId} {
+  allow read: if signedIn();
   allow write: if false;
-  match /cars/{entryId} {
-    allow read, write: if false;
-  }
-  match /result/{doc} {
-    allow read: if raceStarted(season, raceId);
-    allow write: if false;
-  }
-  match /replay/{doc} {
-    allow read: if raceStarted(season, raceId);
-    allow write: if false;
-  }
+  match /cars/{entryId} { allow read, write: if false; }
+  match /result/{docId} { allow read: if signedIn() && raceStarted(seasonId, raceId); allow write: if false; }
+  match /replay/{docId} { allow read: if signedIn() && raceStarted(seasonId, raceId); allow write: if false; }
 }
 
-match /arena/{entryId}/data/weights {
-  allow read: if request.auth != null
-    && get(/databases/$(database)/documents/arena/$(entryId)).data.uid == request.auth.uid;
-  // הכתיבה נשארת כמו בכלל הקיים.
+match /arena/{entryId}/data/{docId} {
+  allow read, delete: if signedIn() && ownsEntry();
+  allow create, update: if signedIn() && ownsEntry() && docId == 'weights'
+    && request.resource.data.keys().hasOnly(['weightsB64'])
+    && request.resource.data.weightsB64 is string && request.resource.data.weightsB64.size() < 900000;
 }
 ```
+
+ברשומת `arena/{entryId}` עצמה כל שדה מוגדר (`keys().hasOnly`), עם טיפוס ואורך מקסימלי, ותאריך
+הרישום הראשון (`createdAt`) לא זז בעדכון ולא יכול להיות בעתיד. גם `names`, `shop`, `leagues` ו-`feedback`
+בודקים שדות וגדלים. השרת בודק בנוסף, לפני שרכב עולה לכרטיס, שצורת הרשת תקינה (`validArch` ב-`card.ts`),
+ורכב שהמשקולות שלו לא נטענות נשאר בחוץ במקום להפיל את יום המרוץ. מושבים של קבוצה הולכים קודם
+לחשבון שבבעלותו שם הקבוצה (`names/{key}`), כך שרכב שרק לובש שם של מישהו אחר לא יכול לדחוק אותו.
 
 בלי Firebase מוגדר האליפות עדיין רצה - מול המודלים של הדפדפן הזה בלבד, ב-IndexedDB.
 זה מה שמאפשר לפתח את כל המערכת בלי פרויקט ענן.

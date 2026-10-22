@@ -180,11 +180,11 @@ export function runQualifying(
   const laps: QualiLap[] = [];
   for (const e of entries) {
     const w = weights.get(e.id);
-    if (!w) {
+    const policy = w ? policyOf(e, w) : null;
+    if (!policy) {
       laps.push({ entryId: e.id, bestLapMs: null, sectorsMs: [null, null, null], topSpeed: 0 });
       continue;
     }
-    const policy = Policy.fromBase64(e.arch.obsSize, e.arch.hidden, e.arch.nActions, w);
     const sim = new SessionSim(trackId, QUALI_LAPS, [{ entryId: e.id, policy }], seed, physics);
     sim.runToEnd();
     const t = sim.env.telemetry(0);
@@ -212,10 +212,22 @@ export function policiesFor(
   for (const id of ids) {
     const e = entries.get(id);
     const w = weights.get(id);
-    if (!e || !w) continue;
-    out.push({ entryId: id, policy: Policy.fromBase64(e.arch.obsSize, e.arch.hidden, e.arch.nActions, w) });
+    const policy = e && w ? policyOf(e, w) : null;
+    if (policy) out.push({ entryId: id, policy });
   }
   return out;
+}
+
+/**
+ * A car's network, or null when its weights do not fit its declared shape. One
+ * broken car is left in the garage; it must never stop the whole race day.
+ */
+function policyOf(e: ArenaEntry, weightsB64: string): Policy | null {
+  try {
+    return Policy.fromBase64(e.arch.obsSize, e.arch.hidden, e.arch.nActions, weightsB64);
+  } catch {
+    return null;
+  }
 }
 
 /** The cars of a session driven from its replay, in grid order. */

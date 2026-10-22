@@ -7,6 +7,20 @@
 - [x] (נבדק 22.10: הדומיין ברשימה) בקונסולה: Authentication ← Settings ← Authorized domains ← **Add domain** ← `rl-arena.web.app`.
   בלי זה הכניסה עם Google לא עובדת בכתובת החדשה (בישנה היא ממשיכה לעבוד).
 
+## 0.0 המרוצים עוברים לשרת - לפי הסדר הזה, באותו יום, לפני 19:55
+
+מהרגע שהגרסה הזו באוויר, הדפדפנים מפסיקים להריץ את המרוץ ורק השרת מריץ אותו. לכן הסדר חשוב:
+
+1. [ ] **לפרוס את הפונקציות:** `npm ci`, ואז `cd functions && npm install && cd ..`, ואז
+   `firebase deploy --only functions`. הפריסה בונה קודם את הקובץ שמריץ את המרוץ (`npm run build:functions`).
+2. [ ] **למזג ל-main** (האתר עולה לבד).
+3. [ ] **לפרסם את כללי Firestore** (`firebase deploy --only firestore:rules`). הכללים החדשים כבר
+   בקובץ המקומי `firestore.rules` ונבדקו באמולטור. זה הצעד שבאמת סוגר את הזיוף ומסתיר את המשקולות.
+4. [ ] **להריץ ב-GitHub את הפעולה Backfill replays** (Actions ← Backfill replays ← Run workflow).
+   היא מקליטה צפייה חוזרת לכל מרוץ שכבר נערך. אם היא נכשלת בשגיאת הרשאה, לתת לחשבון השירות שב-
+   `FIREBASE_SERVICE_ACCOUNT` את התפקיד **Cloud Datastore User** ב-IAM. מרוץ שמדווח `mismatch` יישאר
+   בלי צפייה חוזרת (התוצאה והטבלאות נשארות).
+
 ## 0.1 הרשאה לחשבון השירות של הפריסה
 
 - [ ] בקונסולה של Google Cloud: IAM ← החשבון שב-`FIREBASE_SERVICE_ACCOUNT` (בפרויקט אין

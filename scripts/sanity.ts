@@ -1768,6 +1768,7 @@ function copiesTest(): void {
 function memoryArena(
   entries: ArenaEntry[],
   weights: Map<string, string>,
+  owners: Map<string, string> = new Map(),
 ): RaceStore & { cards: Map<string, RaceCard>; results: Map<string, RaceResult>; replays: Map<string, DayReplay | null> } {
   const cards = new Map<string, RaceCard>();
   const cars = new Map<string, Map<string, string>>();
@@ -1782,6 +1783,7 @@ function memoryArena(
       replays.set(id, r);
     },
     listEntries: async () => entries,
+    nameOwners: async () => new Map(owners),
     loadEntryWeights: async (id) => weights.get(id) ?? null,
     getCard: async (id) => cards.get(id) ?? null,
     putCard: async (card, w) => {
@@ -1858,6 +1860,21 @@ async function serverRaceDayTest(): Promise<void> {
 
   const empty = memoryArena([], new Map());
   check('no cars, no race', (await raceRound(empty, round, house)) === 'no-field' && empty.cards.size === 0);
+
+  // A car is written by its owner's browser, so the server cannot trust it.
+  const broken: ArenaEntry = { ...entry, id: 'e2', uid: 'u2', team: 'שבורים', driver: 'שבור', createdAt: 0 };
+  const huge: ArenaEntry = { ...entry, id: 'e3', uid: 'u3', team: 'ענקים', driver: 'ענק', createdAt: 0, arch: { ...entry.arch, hidden: [1e9] } };
+  const hostile = memoryArena([entry, broken, huge], new Map([...weights, ['e2', 'AAAA'], ['e3', 'AAAA']]));
+  const hostileOutcome = await raceRound(hostile, round, house);
+  const hostileCard = hostile.cards.get(raceId);
+  check('weights that do not fit their network leave the car out, not the day', hostileOutcome === 'raced', hostileOutcome);
+  check('a network too big to build never makes the grid', !!hostileCard && !hostileCard.entries.some((e) => e.id === 'e3'));
+
+  // Cars wearing somebody else's team name cannot take that team's seats.
+  const owned = (id: string, updatedAt: number, uid: string): ArenaEntry => ({ ...entry, id, uid, team: 'בעלים', driver: id, createdAt: 0, updatedAt });
+  const field = [owned('mine1', 1, 'owner'), owned('mine2', 1, 'owner'), owned('fake1', 9e12, 'thief'), owned('fake2', 9e12, 'thief')];
+  const seated = eligibleEntries(field, round, new Map([[nameKey('בעלים'), 'owner']])).map((e) => e.id);
+  check("the name's owner keeps both seats", seated.includes('mine1') && seated.includes('mine2') && !seated.some((id) => id.startsWith('fake')), seated.join());
 }
 
 /** The functions carry their own copy of the calendar; it must agree with the app's. */
