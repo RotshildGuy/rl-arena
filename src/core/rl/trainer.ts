@@ -1,4 +1,5 @@
 import type { Env, RewardConfig } from '../games/types';
+import { t } from '../../i18n/dict';
 import { getGame } from '../games/registry';
 import { DqnAgent, type DqnHyper } from './dqn';
 import type { EpisodeOutcome, Learner } from './learner';
@@ -109,7 +110,7 @@ export class DqnLearner implements Learner {
   }
 
   progressNote(episodeSteps: number): string {
-    return `צעד ${episodeSteps} בניסיון`;
+    return t().algorithms.dqnNote(episodeSteps);
   }
 }
 

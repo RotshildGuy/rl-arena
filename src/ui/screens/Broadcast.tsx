@@ -18,6 +18,8 @@ import { useIsPortrait, useWakeLock } from '../device';
 import { track } from '../../storage/metrics';
 import { useTeamPaint } from '../teamLooks';
 import { Podium } from '../components/Podium';
+import { t as words, useLang, useT } from '../../i18n';
+import { driverName, grandPrixTitle, teamName } from '../../i18n/names';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -37,6 +39,7 @@ const RETIREMENT_GRACE_MS = 8000;
 type Camera = 'track' | 'follow';
 
 export function Broadcast() {
+  const b = useT().broadcast;
   const { viewRaceId, go, openRace } = useApp();
   const { state, progress } = useChampionship();
   const now = useNow(500);
@@ -61,9 +64,9 @@ export function Broadcast() {
   if (!card) {
     return (
       <div className="empty" style={{ margin: 20 }}>
-        {progress ?? 'אין מרוץ להציג.'}
+        {progress ?? b.nothing}
         <div style={{ marginTop: 14 }}>
-          <button onClick={() => go('championship')}>חזרה לאליפות</button>
+          <button onClick={() => go('championship')}>{b.backToChamp}</button>
         </div>
       </div>
     );
@@ -83,11 +86,15 @@ function BroadcastStage({
   onExit(): void;
   onHome(): void;
 }) {
+  const b = useT().broadcast;
+  const lang = useLang();
   const { state } = useChampionship();
   const goTo = useApp((st) => st.go);
   /** Somebody with no car of their own: the end of a race is the moment to offer them one. */
   const spectator = state ? !state.entries.some((e) => e.uid === state.uid && !e.retired) : false;
-  const windows = useMemo(() => sessionWindows(card), [card]);
+  // The session names are in the reader's language, so they are worked out again when it changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const windows = useMemo(() => sessionWindows(card), [card, lang]);
   const live = liveSession(card, now);
   const isLive = live !== null;
 
@@ -170,14 +177,14 @@ function BroadcastStage({
       const bought = e ? paint.get(e.uid) : undefined;
       return {
         car: i,
-        name: e?.driver ?? '-',
+        name: e ? driverName(e) : '-',
         tag: e?.tag ?? '???',
         color: shadeFor(bought?.color ?? teamColor(team), n),
         look: { ...teamLook(team, e?.driver ?? ''), ...bought?.look },
         mine: myIds.has(id),
       };
     });
-  }, [grid, entryById, myIds, paint]);
+  }, [grid, entryById, myIds, paint, lang]);
 
   const colors = towerCars.map((c) => c.color);
   const labels = towerCars.map((c) => c.tag);
@@ -290,7 +297,7 @@ function BroadcastStage({
   const drawFrame = (ctx: CanvasRenderingContext2D) => {
     let sim = simRef.current;
     if (!sim) {
-      drawPlaceholder(ctx, ['מתחבר לשידור…', card.name]);
+      drawPlaceholder(ctx, [words().broadcast.connecting, grandPrixTitle(card.trackId)]);
       return;
     }
     let ms = Math.max(0, playingRef.current ? Date.now() - anchorRef.current : headRef.current);
@@ -396,15 +403,15 @@ function BroadcastStage({
     <div className="match-fill">
       <div className="match-bar">
         <button className="small" onClick={onHome}>
-          → חזרה לאליפות
+          {b.backArrow}
         </button>
-        <strong style={{ fontSize: 13 }}>{card.name}</strong>
+        <strong style={{ fontSize: 13 }}>{grandPrixTitle(card.trackId)}</strong>
         {isLive ? (
           <span className="pill live small">
-            <span className="blip" /> חי
+            <span className="blip" /> {b.live}
           </span>
         ) : (
-          <span className="pill small">צפייה חוזרת</span>
+          <span className="pill small">{b.replay}</span>
         )}
         <span className="muted tiny">{window_?.session.name}</span>
         <div style={{ flex: 1 }} />
@@ -426,10 +433,10 @@ function BroadcastStage({
 
         <div className="segmented">
           <button className={camera === 'track' ? 'on' : ''} onClick={() => setCamera('track')}>
-            מסלול
+            {b.track}
           </button>
           <button className={camera === 'follow' ? 'on' : ''} onClick={() => setCamera('follow')}>
-            רכב
+            {b.car}
           </button>
         </div>
         {camera === 'follow' && (
@@ -441,13 +448,13 @@ function BroadcastStage({
             {towerCars.map((c, i) => (
               <option key={i} value={i}>
                 {c.name}
-                {c.mine ? ' (שלי)' : ''}
+                {c.mine ? b.mine : ''}
               </option>
             ))}
           </select>
         )}
         <button className="small" onClick={onExit}>
-          דוח
+          {b.report}
         </button>
       </div>
 
@@ -463,12 +470,12 @@ function BroadcastStage({
         {snap && !preStart && (
           <div className="stage-overlay-end" style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
             <div className="pill" style={{ fontSize: 13 }}>
-              הקפה <span className="mono">{leadLap}</span> / {totalLaps}
+              {b.lap} <span className="mono">{leadLap}</span> / {totalLaps}
             </div>
             <div className="pill mono">{raceTime(snap.raceMs)}</div>
             {snap.fastestLap && (
               <div className="pill" style={{ borderColor: 'var(--purple)', color: 'var(--purple)' }}>
-                הקפה מהירה · {towerCars[snap.fastestLap.car]?.name ?? ''} ·{' '}
+                {b.fastLap} {towerCars[snap.fastestLap.car]?.name ?? ''} ·{' '}
                 <span className="mono">{lapTime(snap.fastestLap.ms)}</span>
               </div>
             )}
@@ -477,7 +484,7 @@ function BroadcastStage({
 
         {rewinding && (
           <div className="seek-note">
-            מריץ מחדש… <span className="mono">{rewindPct}%</span>
+            {b.rewinding} <span className="mono">{rewindPct}%</span>
           </div>
         )}
 
@@ -486,8 +493,8 @@ function BroadcastStage({
             <StartLights secondsLeft={toLights / 1000} />
             <div className="word">{window_?.session.name}</div>
             <div className="muted small">
-              {isLive ? 'השידור מתחיל בעוד' : 'צפייה חוזרת מתחילה בעוד'}{' '}
-              <span className="mono">{Math.ceil(toLights / 1000)}</span> שניות
+              {isLive ? b.liveIn : b.replayIn}{' '}
+              <span className="mono">{Math.ceil(toLights / 1000)}</span> {b.seconds}
             </div>
           </div>
         )}
@@ -495,9 +502,9 @@ function BroadcastStage({
         {finished && snap && (
           <div className="done-overlay">
             <div className="checkers" style={{ width: 220 }} />
-            <h1 className="display">{towerCars[snap.order[0]]?.name ?? ''} מנצח</h1>
+            <h1 className="display">{b.wins(towerCars[snap.order[0]]?.name ?? '')}</h1>
             <div className="muted small">
-              {window_?.session.name} · {card.name} · זמן מרוץ {raceTime(snap.cars[snap.order[0]]?.totalMs ?? snap.raceMs)}
+              {window_?.session.name} · {grandPrixTitle(card.trackId)} · {b.raceTime(raceTime(snap.cars[snap.order[0]]?.totalMs ?? snap.raceMs))}
             </div>
             <Podium
               compact
@@ -507,10 +514,14 @@ function BroadcastStage({
                 return {
                   position: i + 1,
                   driver: t?.name ?? '-',
-                  team: entryById.get(grid[car] ?? '')?.team ?? '',
+                  team: teamName(entryById.get(grid[car] ?? '')?.team ?? ''),
                   color: t?.color ?? '#888',
                   look: t?.look,
-                  detail: !c?.finished ? 'פרש' : i === 0 ? raceTime(c.totalMs) : `+${((c.totalMs! - (snap.cars[snap.order[0]]?.totalMs ?? 0)) / 1000).toFixed(1)} שנ׳`,
+                  detail: !c?.finished
+                    ? b.retired
+                    : i === 0
+                      ? raceTime(c.totalMs)
+                      : b.gap(((c.totalMs! - (snap.cars[snap.order[0]]?.totalMs ?? 0)) / 1000).toFixed(1)),
                 };
               })}
             />
@@ -519,28 +530,26 @@ function BroadcastStage({
                 starts - and let the viewer read this one's result meanwhile. */}
             {isLive && nextSession && (
               <div className="pill" style={{ fontSize: 15 }}>
-                {nextSession.session.name} מתחיל בעוד{' '}
+                {b.startsIn(nextSession.session.name)}{' '}
                 <span className="mono">{untilText(nextSession.startsAt - now)}</span>
               </div>
             )}
-            {isLive && !nextSession && <div className="pill good">היום הסתיים - התוצאות פתוחות</div>}
+            {isLive && !nextSession && <div className="pill good">{b.dayOver}</div>}
             {/* Watching was the first thing they did, and a table of numbers
                 was the next - which is where a curious visitor left. So the
                 end of the race asks the obvious question instead. */}
             {spectator && (
               <div className="try-cta">
-                <b>רוצים שגם לכם יהיה רכב על הגריד?</b>
-                <span className="small muted">
-                  בוחרים איך הרכב ינהג, והוא לומד לבד מול העיניים. שתי דקות, בלי תכנות.
-                </span>
+                <b>{b.ctaTitle}</b>
+                <span className="small muted">{b.ctaBody}</span>
                 <button className="primary" onClick={() => goTo('library')}>
-                  🔧 לבנות נהג משלי
+                  {b.ctaButton}
                 </button>
               </div>
             )}
             <div className="row">
               <button className={spectator ? '' : 'primary'} onClick={onExit}>
-                {isLive && nextSession ? `תוצאות ${window_?.session.name ?? ''}` : 'לדוח המרוץ'}
+                {isLive && nextSession ? b.sessionResults(window_?.session.name ?? '') : b.toReport}
               </button>
               {/* A live broadcast cannot be rewound: everyone is watching the
                   same moment, and a replay only becomes available once the
@@ -552,10 +561,10 @@ function BroadcastStage({
                     seek(0);
                   }}
                 >
-                  צפייה חוזרת
+                  {b.replay}
                 </button>
               )}
-              {isLive && <button onClick={onHome}>חזרה לאליפות</button>}
+              {isLive && <button onClick={onHome}>{b.backToChamp}</button>}
             </div>
           </div>
         )}
@@ -570,7 +579,7 @@ function BroadcastStage({
       {isLive ? (
         <div className="match-bar" style={{ justifyContent: 'center' }}>
           <span className="dim tiny">
-            השידור רץ במהירות רגילה בלבד - כולם רואים את אותו רגע באותו זמן.
+            {b.realTime}
           </span>
         </div>
       ) : (
@@ -578,16 +587,16 @@ function BroadcastStage({
           <button
             className="icon"
             onClick={() => setPlayState(!playing)}
-            aria-label={playing ? 'השהה' : 'נגן'}
-            title={playing ? 'השהה (רווח)' : 'נגן (רווח)'}
+            aria-label={playing ? b.pause : b.play}
+            title={playing ? b.pauseKey : b.playKey}
           >
             {playing ? '❚❚' : '▶'}
           </button>
           <button
             className="icon ghost"
             onClick={() => seek(headMs - SKIP_MS)}
-            aria-label="אחורה 10 שניות"
-            title="אחורה 10 שניות"
+            aria-label={b.back10}
+            title={b.back10}
           >
             {/* Two boxes rather than one string: the arrow is a neutral character
                 and would swap sides with the digits depending on what surrounds
@@ -603,15 +612,15 @@ function BroadcastStage({
             step={100}
             value={Math.min(headMs, durationMs)}
             style={{ ['--fill' as string]: `${durationMs > 0 ? (Math.min(headMs, durationMs) / durationMs) * 100 : 0}%` }}
-            aria-label="מיקום בצפייה החוזרת"
+            aria-label={b.position}
             onChange={(e) => seek(Number(e.target.value))}
           />
           <span className="mono tiny clock dim">{raceTime(durationMs)}</span>
           <button
             className="icon ghost"
             onClick={() => seek(headMs + SKIP_MS)}
-            aria-label="קדימה 10 שניות"
-            title="קדימה 10 שניות"
+            aria-label={b.forward10}
+            title={b.forward10}
           >
             <span>10</span>
             <span>↻</span>

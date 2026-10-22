@@ -1,5 +1,6 @@
 import { seasonRotation, trackForRound } from '../../core/champ/schedule';
-import { TRACK_DEFS } from '../../core/games/racing/tracks';
+import { useT } from '../../i18n';
+import { trackName } from '../../i18n/names';
 
 /**
  * The circuits a season visits, in the order it races them. Each season draws
@@ -7,13 +8,14 @@ import { TRACK_DEFS } from '../../core/games/racing/tracks';
  * anybody knows by heart - and it is what a team trains for.
  */
 export function SeasonTracks({ season, round }: { season: number; round?: number }) {
+  const c = useT().championship;
   const current = round === undefined ? null : trackForRound(round);
   return (
     <div className="row wrap" style={{ gap: 6 }}>
-      <span className="dim tiny">מסלולי העונה:</span>
+      <span className="dim tiny">{c.seasonTracks}</span>
       {seasonRotation(season).map((id) => (
         <span key={id} className={`pill small${id === current ? ' hot' : ''}`}>
-          {TRACK_DEFS.find((t) => t.id === id)?.name ?? id}
+          {trackName(id)}
         </span>
       ))}
     </div>

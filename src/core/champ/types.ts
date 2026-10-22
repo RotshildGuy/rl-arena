@@ -51,7 +51,7 @@ export type SessionKind = 'race' | 'heat' | 'final';
 export interface SessionPlan {
   id: string;
   kind: SessionKind;
-  /** Hebrew label - "מרוץ", "מקצה 2", "חצי גמר 1", "גמר". */
+  /** In the reader's language - "Race", "Heat 2", "Semi-final 1", "Final". */
   name: string;
   /** Index of the elimination round this belongs to; the final is last. */
   round: number;

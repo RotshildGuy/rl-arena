@@ -8,6 +8,8 @@
  *
  * Drawn on a canvas, from the self-hosted fonts, with nothing fetched.
  */
+import { getLang, t } from '../i18n';
+
 export interface ShareData {
   driver: string;
   team: string;
@@ -59,7 +61,9 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData): void
   ctx.fillStyle = d.color;
   ctx.fillRect(W - 36, 0, 36, H);
 
-  ctx.direction = 'rtl';
+  const s = t().share;
+  const dir = getLang() === 'he' ? 'rtl' : 'ltr';
+  ctx.direction = dir;
   ctx.textAlign = 'right';
   const right = W - 90;
 
@@ -68,7 +72,7 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData): void
   ctx.fillText(`${d.raceName} · ${d.date}`, right, 140);
   ctx.fillStyle = '#8590a8';
   ctx.font = '600 30px Heebo, sans-serif';
-  ctx.fillText(`מסלול ${d.trackName}`, right, 186);
+  ctx.fillText(s.track(d.trackName), right, 186);
 
   // The place, huge. Latin digits, drawn left-to-right.
   ctx.direction = 'ltr';
@@ -76,7 +80,7 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData): void
   ctx.font = '900 300px "JetBrains Mono", monospace';
   ctx.fillText(placeText(d), right, 520);
 
-  ctx.direction = 'rtl';
+  ctx.direction = dir;
   ctx.fillStyle = '#e9edf7';
   ctx.font = '900 84px Heebo, sans-serif';
   ctx.fillText(d.driver, right, 660, W - 180);
@@ -87,12 +91,12 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData): void
   const stats: string[] = [];
   // Words rather than + and arrows: signs next to digits land on the wrong
   // side of the number in right-to-left text.
-  stats.push(`${d.points} נקודות`);
+  stats.push(s.points(d.points));
   if (d.gained !== null && d.gained !== 0) {
     const n = Math.abs(d.gained);
-    stats.push(`${d.gained > 0 ? 'עלה' : 'ירד'} ${n === 1 ? 'מקום אחד' : `${n} מקומות`}`);
+    stats.push(s.gained(d.gained > 0, n));
   }
-  if (d.bestLap) stats.push(`הקפה ${d.bestLap}`);
+  if (d.bestLap) stats.push(s.lap(d.bestLap));
   ctx.fillStyle = '#c8d2e4';
   ctx.font = '700 40px Heebo, sans-serif';
   ctx.fillText(stats.join('   ·   '), right, 830, W - 180);
@@ -106,10 +110,10 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData): void
   ctx.font = '600 28px Heebo, sans-serif';
   ctx.fillText(d.site.replace(/^https?:\/\//, ''), 90, H - 48);
   ctx.textAlign = 'right';
-  ctx.direction = 'rtl';
+  ctx.direction = dir;
   ctx.fillStyle = '#8590a8';
   ctx.font = '600 30px Heebo, sans-serif';
-  ctx.fillText('מודל שאומן בלמידת חיזוק נהג את זה לבד', right, H - 90);
+  ctx.fillText(s.tagline, right, H - 90);
 }
 
 export async function shareCardBlob(d: ShareData): Promise<Blob> {
@@ -136,7 +140,7 @@ export async function shareCardBlob(d: ShareData): Promise<Blob> {
 export async function shareResult(d: ShareData): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const blob = await shareCardBlob(d);
   const file = new File([blob], `rl-arena-${d.driver}.png`, { type: 'image/png' });
-  const text = `${d.driver} סיים ${d.dnf ? 'בפרישה' : `במקום ${d.position}`} ב${d.raceName} · RL Arena`;
+  const text = t().share.text(d.driver, d.dnf, d.position, d.raceName);
   const nav = navigator as Navigator & { canShare?: (data: ShareData_) => boolean };
   type ShareData_ = { files?: File[]; text?: string; url?: string; title?: string };
   if (nav.share && nav.canShare?.({ files: [file] })) {

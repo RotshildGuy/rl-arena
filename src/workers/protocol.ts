@@ -1,3 +1,4 @@
+import type { Lang } from '../i18n/lang';
 import type { DqnHyper } from '../core/rl/dqn';
 import type { GaHyper } from '../core/rl/ga';
 import type { AlgorithmId } from '../core/rl/algorithms';
@@ -49,7 +50,8 @@ export interface SlotWeights {
 }
 
 export type ToTrainer =
-  | { type: 'init'; init: TrainInit }
+  /** `lang`: the language the progress notes are written in, the page's. */
+  | { type: 'init'; init: TrainInit; lang?: Lang }
   | { type: 'play' }
   | { type: 'pause' }
   | { type: 'setSpeed'; speed: SpeedMode }

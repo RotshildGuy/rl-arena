@@ -1,11 +1,13 @@
+import { t, translated } from '../../i18n/dict';
+
 export type AlgorithmId = 'dqn' | 'ga';
 
 /**
  * How a model learns, in words anybody can choose between.
  *
  * The technical name is kept, but it is not what the button says: "DQN" tells a
- * newcomer nothing about what will happen to their car, while "לומד תוך כדי
- * נסיעה" does. The labels also keep the dashboard honest - a generation is not
+ * newcomer nothing about what will happen to their car, while "learns as it
+ * drives" does. The labels also keep the dashboard honest - a generation is not
  * an episode, and the two methods count progress differently.
  */
 export interface AlgorithmInfo {
@@ -25,27 +27,9 @@ export interface AlgorithmInfo {
 }
 
 export const ALGORITHMS: Record<AlgorithmId, AlgorithmInfo> = {
-  dqn: {
-    id: 'dqn',
-    name: 'לומד תוך כדי נסיעה',
-    technical: 'DQN',
-    blurb:
-      'רכב אחד שמתקן את עצמו אחרי כל טעות, צעד אחר צעד. לומד מהר ממעט ניסיון, אבל כל צעד דורש חישוב כבד - עדיף על מחשב.',
-    episodeLabel: 'ניסיון',
-    episodesLabel: 'ניסיונות',
-    exploreLabel: 'סקרנות',
-  },
-  ga: {
-    id: 'ga',
-    name: 'דור אחרי דור',
-    technical: 'אלגוריתם גנטי',
-    blurb:
-      'קבוצה שלמה של נהגים מתחרה, הטובים שורדים ויוצרים גרסאות מוטציה של עצמם. צריך הרבה יותר נסיעות, אבל כל נסיעה זולה - מומלץ בנייד.',
-    // The same word as the other method on purpose: reviewers met "episodes",
-    // "attempts" and "generations" on one screen and took them for three
-    // things. Under the hood one entry here is a generation.
-    episodeLabel: 'ניסיון',
-    episodesLabel: 'ניסיונות',
-    exploreLabel: 'עוצמת מוטציה',
-  },
+  dqn: translated({ id: 'dqn' as const }, () => t().algorithms.dqn),
+  // Its episode words are the same as the other method's on purpose: reviewers
+  // met "episodes", "attempts" and "generations" on one screen and took them for
+  // three things. Under the hood one entry here is a generation.
+  ga: translated({ id: 'ga' as const }, () => t().algorithms.ga),
 };

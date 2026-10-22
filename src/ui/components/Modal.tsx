@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useT } from '../../i18n';
 
 /**
  * A dialog that can be dismissed three ways - the button, the backdrop, and
@@ -24,6 +25,7 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export function Modal({
             <h2 style={{ fontSize: 19 }}>{title}</h2>
           </div>
           <div className="fill" />
-          <button ref={closeRef} className="ghost small" onClick={onClose} aria-label="סגירה">
+          <button ref={closeRef} className="ghost small" onClick={onClose} aria-label={t.misc.close}>
             ✕
           </button>
         </div>

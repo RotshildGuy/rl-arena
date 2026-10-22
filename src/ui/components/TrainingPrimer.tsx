@@ -1,4 +1,5 @@
 import { Modal } from './Modal';
+import { useT } from '../../i18n';
 
 const KEY = 'rl-arena.seen.primer';
 
@@ -34,10 +35,11 @@ export function markPrimerSeen(): void {
  * training run. Without it the button only closes, and says only that.
  */
 export function TrainingPrimer({ onClose, onStart }: { onClose(): void; onStart?(): void }) {
+  const p = useT().primer;
   return (
     <Modal
-      eyebrow="לפני שמתחילים"
-      title="המודל לא מנסה לנהוג טוב"
+      eyebrow={p.eyebrow}
+      title={p.title}
       onClose={onClose}
       footer={
         <button
@@ -47,18 +49,12 @@ export function TrainingPrimer({ onClose, onStart }: { onClose(): void; onStart?
             onStart?.();
           }}
         >
-          {onStart ? 'הבנתי, בואו נאמן' : 'הבנתי'}
+          {onStart ? p.startTraining : p.ok}
         </button>
       }
     >
-      <p>
-        המודל רק מנסה <b>לצבור כמה שיותר נקודות לפי המחוונים שקבעתם.</b> אם יש דרך קלה יותר
-        לצבור אותן מאשר לנהוג מהר - הוא ימצא אותה.
-      </p>
-      <p>
-        באליפות נמדד רק <b>זמן</b>, אז כוונו את המחוונים כך שנהיגה מהירה תשתלם. אפשר לשנות אותם
-        גם באמצע האימון.
-      </p>
+      <p>{p.body1}</p>
+      <p>{p.body2}</p>
     </Modal>
   );
 }

@@ -13,6 +13,7 @@ import {
   type SetupRecord,
   type TrainingPoint,
 } from '../storage';
+import { t } from '../i18n';
 
 export interface SaveArgs {
   id: string | null;
@@ -86,8 +87,8 @@ export async function saveModel(args: SaveArgs): Promise<ModelRecord> {
 
   const rec: ModelRecord = {
     id: args.id ?? newModelId(),
-    name: args.name.trim() || 'מודל ללא שם',
-    owner: args.owner.trim() || 'ללא שם',
+    name: args.name.trim() || t().misc.unnamedModel,
+    owner: args.owner.trim() || t().misc.unnamed,
     gameId: args.gameId,
     algorithm: args.algorithm,
     obsVersion: spec.obsVersion,

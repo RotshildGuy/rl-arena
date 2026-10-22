@@ -2,6 +2,8 @@ import type { Env, EnvSpec, RewardConfig } from './types';
 import { RACING_SPEC } from './racing/rewards';
 import { DEFAULT_RACING_CONFIG, RacingEnv, type RacingConfig } from './racing/env';
 import { TRACK_DEFS } from './racing/tracks';
+import { t, translated } from '../../i18n/dict';
+import { trackName } from '../../i18n/names';
 
 export type GameId = 'racing';
 
@@ -54,7 +56,7 @@ export interface GameModule {
   controlsHint: string;
   /** The same, for touch. */
   touchHint: string;
-  /** What one match is called, e.g. "מרוץ" or "משחק". */
+  /** What one match is called, e.g. "race" or "game". */
   matchNoun: string;
   /** How the player's seat is described in the match setup. */
   seatHint: string;
@@ -68,37 +70,31 @@ export interface GameModule {
   effort: { dqnGradSteps: number; gaEnvSteps: number };
 }
 
-const racing: GameModule = {
+const words = () => t().racing;
+
+/** The fields of a game that are words, read in the current language. */
+type GameWords = 'blurb' | 'controlsHint' | 'touchHint' | 'matchNoun' | 'seatHint';
+
+const racingBase: Omit<GameModule, GameWords> = {
   spec: RACING_SPEC,
-  blurb: 'מרוץ 2D על ארבע מפות. הרכב "רואה" דרך תשעה חיישני מרחק ובוחר גז, בלם והיגוי.',
   defaultConfig: () => ({ ...DEFAULT_RACING_CONFIG }),
   options: [
-    {
-      key: 'trackId',
-      label: 'מפה',
-      kind: 'select',
-      choices: TRACK_DEFS.map((t) => ({ value: t.id, label: t.name })),
-    },
-    {
-      key: 'nCars',
-      label: 'מספר רכבים',
-      kind: 'number',
-      min: 1,
-      max: 8,
-      trainingOnly: true,
-      hint: 'הרכבים מתחלקים בין המודלים שמתאמנים. יותר רכבים - יותר תנועה להתמודד איתה',
-    },
-    { key: 'laps', label: 'הקפות', kind: 'number', min: 1, max: 10 },
-    { key: 'carCollisions', label: 'מגע בין רכבים', kind: 'toggle', hint: 'כשכבוי, הרכבים עוברים זה דרך זה' },
+    translated({ key: 'trackId', kind: 'select' as const }, () => ({
+      ...words().options.trackId,
+      choices: TRACK_DEFS.map((d) => ({ value: d.id, label: trackName(d.id) })),
+    })),
+    translated({ key: 'nCars', kind: 'number' as const, min: 1, max: 8, trainingOnly: true }, () => words().options.nCars),
+    translated({ key: 'laps', kind: 'number' as const, min: 1, max: 10 }, () => words().options.laps),
+    translated({ key: 'carCollisions', kind: 'toggle' as const }, () => words().options.carCollisions),
   ],
   createEnv: (config, rewards) => new RacingEnv(config as unknown as RacingConfig, rewards),
   describeConfig: (config) => {
-    const track = TRACK_DEFS.find((t) => t.id === config.trackId);
+    const w = words();
     return [
-      track?.name ?? String(config.trackId ?? ''),
-      String(config.nCars ?? '?') + ' רכבים',
-      String(config.laps ?? '?') + ' הקפות',
-      config.carCollisions ? 'עם מגע' : 'ללא מגע',
+      TRACK_DEFS.some((d) => d.id === config.trackId) ? trackName(String(config.trackId)) : String(config.trackId ?? ''),
+      w.cars(String(config.nCars ?? '?')),
+      w.laps(String(config.laps ?? '?')),
+      config.carCollisions ? w.contact : w.noContact,
     ].join(' · ');
   },
   humanAction: (keys) => {
@@ -121,10 +117,6 @@ const racing: GameModule = {
     neverStuck: 0,
     maxSteps: 60 * 60 * 6,
   }),
-  controlsHint: 'חיצים או WASD · ↑ גז · ↓ בלם',
-  touchHint: 'החזיקו גז או בלם משמאל · היגוי מימין',
-  matchNoun: 'מרוץ',
-  seatHint: 'אתם נוהגים ברכב הראשון',
   // The genetic driver needs about a quarter longer since the tyres got a limit
   // (physics 2): braking for corners is one more thing to stumble on.
   effort: { dqnGradSteps: 65_000, gaEnvSteps: 1_500_000 },
@@ -133,16 +125,21 @@ const racing: GameModule = {
     // the page's writing direction, and a stacked column reads top-down, so gas
     // sits above the brake - the pedal you hold under the one you tap.
     start: [
-      { code: 'ArrowUp', glyph: '▲', caption: 'גז' },
-      { code: 'ArrowDown', glyph: '▼', caption: 'בלם' },
+      translated({ code: 'ArrowUp', glyph: '▲' }, () => ({ caption: words().gas })),
+      translated({ code: 'ArrowDown', glyph: '▼' }, () => ({ caption: words().brake })),
     ],
     end: [
-      { code: 'ArrowLeft', glyph: '◀', caption: 'שמאלה' },
-      { code: 'ArrowRight', glyph: '▶', caption: 'ימינה' },
+      translated({ code: 'ArrowLeft', glyph: '◀' }, () => ({ caption: words().left })),
+      translated({ code: 'ArrowRight', glyph: '▶' }, () => ({ caption: words().right })),
     ],
     startStacked: true,
   },
 };
+
+const racing: GameModule = translated(racingBase, (): Pick<GameModule, GameWords> => {
+  const w = words();
+  return { blurb: w.blurb, controlsHint: w.controlsHint, touchHint: w.touchHint, matchNoun: w.matchNoun, seatHint: w.seatHint };
+});
 
 export const GAMES: Record<GameId, GameModule> = { racing };
 
