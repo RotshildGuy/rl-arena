@@ -9,7 +9,7 @@
 
 חי ב-<https://rl-arena.web.app>. הכתובת הראשונה, <https://reinforcement-learning-ed0ed.web.app>, ממשיכה
 להגיש את אותו אתר: לכל כתובת אחסון משלה בדפדפן, כך שמי שנכנס בלי חשבון בכתובת הישנה מוצא את
-עצמו רק שם. שני האתרים מוגדרים ב-`firebase.json` ונפרסים יחד, והתראות פותחות את הכתובת שבה המכשיר נרשם.
+עצמו רק שם. שני האתרים מוגדרים ב-`firebase.json` ונפרסים יחד.
 
 ## המסכים
 
@@ -684,43 +684,15 @@ match /metrics/{day}/events/{id} {
 
 עד שהכלל מתפרסם, Firestore דוחה את הכתיבות והאפליקציה ממשיכה כרגיל - האירוע פשוט לא נספר.
 
-### התראות והתקנה
+### התקנה
 
 האתר ניתן להתקנה (`public/manifest.webmanifest`, אייקונים מ-`public/icon.svg` דרך
-`node scripts/og/icons.cjs`), ויש לו service worker קטן (`public/sw.js`) שלא שומר שום דבר במטמון:
-התפקידים שלו הם לאפשר התקנה ולהציג התראות.
+`node scripts/og/icons.cjs`), ויש לו service worker קטן (`public/sw.js`, נרשם ב-`ui/serviceWorker.ts`)
+שלא שומר שום דבר במטמון: התפקיד היחיד שלו הוא לאפשר התקנה.
 
-ליד "הוסף ליומן" יש **🔔 התראות לפני כל מרוץ** (`ui/push.ts`): בקשת הרשאה, אסימון של Firebase Cloud
-Messaging, ושמירה ב-`pushTokens/{token}` עם ה-uid. השליחה עצמה היא שתי פונקציות מתוזמנות
-ב-`functions/index.js`: ב-19:45 שעון ישראל "המרוץ מתחיל בעוד רבע שעה" לכל מי שהפעיל, והתוצאה של
-הרכב הטוב ביותר של כל אחד ברגע שהשידור נגמר. פונקציית התוצאה רצה כל דקה בין 20:00 ל-21:59, שולחת
-רק כשהדגל ירד על הסשן האחרון (`dayEndsAt` ב-`functions/race.js`) ורק אם התוצאה כבר פורסמה (מישהו
-צריך לפתוח את האתר כדי שהמרוץ יורץ), ומסמנת `pushSent/{raceId}` כדי לא לשלוח פעמיים. האוסף הזה
-נכתב רק מהשרת, ולכן לא צריך בשבילו כלל ב-`firestore.rules`. ההתראות נשלחות בעדיפות גבוהה, כי
-בעדיפות רגילה אנדרואיד מעכב אותן עד שהטלפון מתעורר. אסימון שכבר לא קיים נמחק. בכל טעינה, אצל מי שההתראות שלו פועלות, האתר כותב שוב את האסימון
-הנוכחי (`refreshPush`), כך שאסימון שהשרת מחק או ששירות ה-push החליף חוזר לבד. הכלל הקיים מספיק לזה. לוח הזמנים של השרת הוא העתק קטן ב-`functions/race.js`,
-ו-`npm run sanity` בודק שהוא מסכים עם האפליקציה.
-
-פונקציה שלישית, `feedbackReply`, רצה בכל פעם שפנייה ב-`feedback/{id}` מתעדכנת: כשמפעיל כותב
-תשובה או משנה סטטוס, השולח מקבל התראה בכל מכשיר שבו הפעיל התראות (הנוסח ב-`functions/feedback.js`,
-ונבדק ב-sanity). לחיצה עליה פותחת את עמוד הפניות (`?open=feedback`), גם כשהאתר כבר פתוח.
-
-- **אנדרואיד ומחשב:** עובד בלי התקנה.
-- **אייפון:** רק אחרי "הוספה למסך הבית", ולכן הכפתור פותח שם הסבר איך.
-- **מה צריך כדי שזה יעבוד:** `VITE_FIREBASE_VAPID_KEY` (מפתח Web Push מהקונסולה ← Project settings ←
-  Cloud Messaging) כמשתנה ב-GitHub, תוכנית Blaze, ו-`firebase deploy --only functions`. בלי המפתח
-  הכפתור פשוט לא מופיע.
-
-הכלל, בתוך `match /databases/{database}/documents`:
-
-```
-match /pushTokens/{token} {
-  allow create, update: if request.auth != null
-    && request.resource.data.uid == request.auth.uid
-    && request.resource.data.token == token;
-  allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
-}
-```
+פעם היו כאן התראות דחיפה (תזכורת ב-19:45 והתוצאה אחרי המרוץ), והן הוסרו: כרום באנדרואיד מעכב
+התראות כשהטלפון במצב שינה, והן הגיעו מאוחר מדי מכדי להועיל. מכשיר שהפעיל אותן בעבר מבטל את
+המינוי שלו בטעינה הבאה של האתר. התזכורת היחידה היום היא "הוסף ליומן".
 
 ### פניות: באגים ורעיונות
 
@@ -815,11 +787,6 @@ preview משלו ב-Firebase Hosting, דרך `.github/workflows/preview.yml`. ה
 הריצה בלשונית Actions ונמחקת אחרי 7 ימים. האתר החי לא משתנה. זו אותה אפליקציה על אותו פרויקט
 (אותה התחברות, אותה אליפות), רק עם הקוד של הענף. אם ההתחברות עם Google נכשלת בכתובת
 ה-preview, צריך להוסיף את הדומיין שלה ל-Authentication ← Settings ← Authorized domains.
-
-**התראת בדיקה.** בלשונית Actions ← Test push ← Run workflow, עם שם קבוצה: נשלחת התראה רק
-למכשירים של הקבוצה הזו, באותה עדיפות כמו התראות המרוץ (`functions/testPush.js`). הסימון "Only
-count the devices" רק סופר את המכשירים ולא שולח. זה משתמש ב-`FIREBASE_SERVICE_ACCOUNT`, ולכן
-החשבון צריך הרשאת קריאה ל-Firestore ושליחה ב-Cloud Messaging, לא רק Hosting.
 
 מה צריך להגדיר בריפו פעם אחת, ב-Settings ← Secrets and variables ← Actions:
 

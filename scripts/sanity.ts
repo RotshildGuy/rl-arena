@@ -41,7 +41,6 @@ import {
   dayStatus,
   liveSession,
   resultsVisible,
-  sessionEndsAt,
   sessionWindows,
   settledResults,
 } from '../src/core/champ/timing';
@@ -64,7 +63,6 @@ import { earnedCoins, COINS_PER_START } from '../src/core/champ/coins';
 import { spent, validLook, ITEM_BY_ID } from '../src/core/champ/shop';
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { Policy } from '../src/core/rl/policy';
 import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
 
@@ -1641,52 +1639,6 @@ function copiesTest(): void {
   check('one changed character is a different fingerprint', weightsFingerprint('AAAA') !== weightsFingerprint('AAAB'));
 }
 
-/** The functions carry their own copy of the calendar; it must agree with the app's. */
-function functionsCalendarTest(): void {
-  console.log(CHAPTER + 'Server calendar');
-  const server = createRequire(import.meta.url)('../functions/race.js') as {
-    startsAtForRound(r: number): number;
-    raceIdForRound(r: number): string;
-    roundOfDay(now: number): number;
-    dayEndsAt(card: RaceCard, result: RaceResult | null): number;
-  };
-  let same = true;
-  let today = true;
-  for (let r = 1; r <= 365 * 4; r++) {
-    if (server.startsAtForRound(r) !== startsAtForRound(r) || server.raceIdForRound(r) !== raceIdForRound(r)) same = false;
-    // 19:45 and 20:45 on a race day both belong to that day's round.
-    if (server.roundOfDay(startsAtForRound(r) - 15 * 60_000) !== r || server.roundOfDay(startsAtForRound(r) + 45 * 60_000) !== r) {
-      today = false;
-    }
-  }
-  check('the functions name every round the way the app does', same);
-  check('and find the round of the day at 19:45 and 20:45', today);
-
-  // The result notification waits for the flag on the last session, so the
-  // server must see the broadcast end exactly when the app does.
-  const finish = (entryId: string, laps: number[], totalMs: number | null): Finish => ({
-    entryId, position: 1, laps: laps.length, totalMs, gapMs: null, bestLapMs: null, bestSectorsMs: [],
-    lapTimesMs: laps, lapPositions: [], topSpeed: 0, overtakes: 0, wallHits: 0, carHits: 0, lapsLed: 0,
-    status: totalMs === null ? 'dnf' : 'finished', gridPos: 1,
-  });
-  let ends = true;
-  for (const n of [2, 7, 10, 11, 19, 20, 31, 64, 150]) {
-    const card = fakeCard(42, seedIds(n));
-    const last = sessionWindows(card).at(-1)!;
-    const lastId = last.session.id;
-    const results: (RaceResult | null)[] = [
-      null,
-      fakeResult(card.id, []),
-      { ...fakeResult(card.id, []), sessions: [{ sessionId: lastId, grid: [], fastestLap: null, classification: [finish('e0', [30_000, 31_500], 61_500), finish('e1', [40_000, 30_000], null)] }] },
-      { ...fakeResult(card.id, []), sessions: [{ sessionId: lastId, grid: [], fastestLap: null, classification: [finish('e0', [], 500_000)] }] },
-    ];
-    for (const result of results) {
-      if (server.dayEndsAt(card, result) !== sessionEndsAt(last, result)) ends = false;
-    }
-  }
-  check('and see the broadcast end when the app does, for any size of grid', ends);
-}
-
 function coinsTest(): void {
   console.log(CHAPTER + 'Coins and the shop');
   const c1 = fakeCard(42, ['a', 'b0', 'b1']);
@@ -1732,21 +1684,6 @@ function rivalTest(): void {
   for (let i = 0; i < 30; i++) session.step();
   check('the rival takes the last seat and the learners the rest', learnerSeats[0].join() === '0,1' && session.rivals.length === 1);
   check('and drives every step it is on track', rivalCalls >= 25, String(rivalCalls));
-}
-
-/** What a feedback sender is told when their message is answered or moves on. */
-function feedbackNoticeTest(): void {
-  console.log(CHAPTER + 'Feedback notifications');
-  const { feedbackChange } = createRequire(import.meta.url)('../functions/feedback.js') as {
-    feedbackChange(a: object, b: object): { title: string; body: string } | null;
-  };
-  const base = { uid: 'u', kind: 'bug', text: 'the broadcast froze on lap three of the final', status: 'new' };
-  const reply = feedbackChange(base, { ...base, reply: 'Fixed, thanks!' });
-  check('an answer is told, with the answer in it', !!reply && reply.body.includes('Fixed, thanks!'), reply?.title);
-  const done = feedbackChange(base, { ...base, status: 'done' });
-  check('so is a message marked done', !!done && done.title.includes('טופלה'));
-  check('an unchanged message is not', feedbackChange(base, { ...base }) === null);
-  check('nor the same answer saved twice', feedbackChange({ ...base, reply: 'ok' }, { ...base, reply: 'ok' }) === null);
 }
 
 function feedbackTest(): void {
@@ -1798,12 +1735,10 @@ houseTest();
 seasonTest();
 diagnoseTest();
 feedbackTest();
-feedbackNoticeTest();
 leagueTest();
 copiesTest();
 coinsTest();
 rivalTest();
-functionsCalendarTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
