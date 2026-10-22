@@ -3,6 +3,7 @@ import { useApp } from '../store';
 import { LEAGUE_NAME_MAX, type League } from '../../core/champ/league';
 import { createLeague, inviteLink, leaguesAvailable, leaveLeague, myLeagues } from '../../storage/leagues';
 import { useT } from '../../i18n';
+import { Name } from './Name';
 
 /** This account's leagues, re-read on demand. Empty without the cloud. */
 export function useLeagues(): { leagues: League[]; reload(): void } {
@@ -87,7 +88,7 @@ export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChang
       {leagues.map((l) => (
         <div className="row wrap" key={l.id} style={{ padding: '6px 0', borderTop: '1px solid var(--line)' }}>
           <button className={`small ${leagueId === l.id ? 'cyan' : 'ghost'}`} onClick={() => setLeague(l.id)}>
-            {l.name}
+            <Name>{l.name}</Name>
           </button>
           <span className="dim tiny">{l10n.members(l.members.length)}</span>
           <div style={{ flex: 1 }} />
@@ -105,6 +106,7 @@ export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChang
           value={name}
           maxLength={LEAGUE_NAME_MAX}
           placeholder={l10n.newName}
+          aria-label={l10n.newName}
           onChange={(e) => setName(e.target.value)}
         />
         <button className="primary" onClick={() => void create()} disabled={busy || name.trim().length < 2}>

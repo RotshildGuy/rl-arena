@@ -1,9 +1,8 @@
 /**
  * Which language the app speaks: Hebrew or English.
  *
- * A first visit takes it from the browser (Hebrew for `he`, English for
- * everything else); a choice made in the settings panel is kept on this device
- * from then on. The choice is applied as `lang` and `dir` on <html>, which is
+ * A first visit is in Hebrew, whatever the browser's language; English is a
+ * choice in the settings panel, kept on this device from then on. The choice is applied as `lang` and `dir` on <html>, which is
  * all the stylesheet reads. `index.html` does the same before the first paint,
  * so an English page never flashes right to left while the bundle loads; keep
  * the two in step.
@@ -23,9 +22,9 @@ function readLang(): Lang {
     const v = localStorage.getItem(KEY);
     if (v === 'he' || v === 'en') return v;
   } catch {
-    // Private mode: fall through to the browser's language.
+    // Private mode: fall through to the default.
   }
-  return (navigator.language || '').toLowerCase().startsWith('he') ? 'he' : 'en';
+  return 'he';
 }
 
 let lang: Lang = readLang();

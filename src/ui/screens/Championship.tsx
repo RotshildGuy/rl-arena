@@ -33,8 +33,10 @@ import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateText, dateTimeText, lapTime, posClass, timeText, untilText, untilWords } from '../format';
 import { googleCalendarUrl } from '../calendar';
 import { SeasonTracks } from '../components/SeasonTracks';
+import { Welcome, hasSeenWelcome, markWelcomeSeen } from '../components/Welcome';
 import { locale, useT } from '../../i18n';
 import { driverName, driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
+import { isolated, Name } from '../components/Name';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -61,12 +63,13 @@ export function Championship() {
   const t = useT();
   const c = t.championship;
   const { go, openRace, competitor, nameTaken } = useApp();
-  const { state, progress, error, reload } = useChampionship();
+  const { state, error, reload } = useChampionship();
   const now = useNow();
   const [editingName, setEditingName] = useState(!competitor);
   /** Whether this person has started typing a name of their own. */
   const typed = useRef(false);
   const coach = useCoachStep();
+  const [welcome, setWelcome] = useState(() => !hasSeenWelcome());
 
   /**
    * On a device this account has never been used on, the team name arrives from
@@ -144,6 +147,14 @@ export function Championship() {
 
   return (
     <>
+      {welcome && (
+        <Welcome
+          onClose={() => {
+            markWelcomeSeen();
+            setWelcome(false);
+          }}
+        />
+      )}
       <div className="page-head">
         <div className="eyebrow">{c.eyebrow(season)}</div>
         <h1 className="display">
@@ -151,9 +162,6 @@ export function Championship() {
           <br />
           {t.signin.headline2}
         </h1>
-        <p className="muted" style={{ margin: 0, maxWidth: 620 }}>
-          {c.intro}
-        </p>
       </div>
 
       {/* Not while on the way to the broadcast: the name form flashing past
@@ -190,14 +198,6 @@ export function Championship() {
         </div>
       ) : null}
 
-      {progress && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="row">
-            <span className="pill hot">{c.computing}</span>
-            <span className="muted small">{progress}</span>
-          </div>
-        </div>
-      )}
       {error && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="row">
@@ -323,7 +323,9 @@ export function Championship() {
                       <div className="driver">
                         <span className="livery" style={{ background: teamColor(team.team) }} />
                         <div className="names">
-                          <span className="who">{teamName(team.team)}</span>
+                          <span className="who">
+                            <Name>{teamName(team.team)}</Name>
+                          </span>
                           <span className="team">
                             {c.models(team.entries.length)}
                           </span>
@@ -341,7 +343,7 @@ export function Championship() {
         </div>
       )}
 
-      {state && state.cards.length === 0 && !progress && (
+      {state && state.cards.length === 0 && (
         <div className="empty">
           <h2 style={{ marginBottom: 8 }}>
             {nextField.length >= MIN_ENTRIES ? c.firstNotYet : c.notStarted}
@@ -924,13 +926,20 @@ function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen()
           {c.champions(honours.season)}
         </span>
         <span style={{ minWidth: 0, flex: '1 1 260px' }}>
-          <b>{driverName({ id: driver.entryId, driver: driver.driver })}</b> ({teamName(driver.team)})
+          <b>
+            <Name>{driverName({ id: driver.entryId, driver: driver.driver })}</Name>
+          </b>{' '}
+          (<Name>{teamName(driver.team)}</Name>)
           {c.champion(driver.points)}
-          {runnerUp ? c.ahead(driver.points - runnerUp.points, driverName({ id: runnerUp.entryId, driver: runnerUp.driver })) : ''}.
+          {runnerUp ? c.ahead(driver.points - runnerUp.points, isolated(driverName({ id: runnerUp.entryId, driver: runnerUp.driver }))) : ''}.
           {team && (
             <>
               {' '}
-              {c.teamsTitle} <b>{teamName(team.team)}</b>.
+              {c.teamsTitle}{' '}
+              <b>
+                <Name>{teamName(team.team)}</Name>
+              </b>
+              .
             </>
           )}{' '}
           {c.fresh(honours.season + 1)}

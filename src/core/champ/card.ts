@@ -1,4 +1,4 @@
-import { OBS_VERSION } from '../games/racing/rewards';
+import { OBS_SIZE, OBS_VERSION, RACING_SPEC } from '../games/racing/rewards';
 import {
   grandPrixName,
   lockAtForRound,
@@ -41,7 +41,11 @@ export const MAX_CARS_PER_TEAM = 2;
  * A thin grid is then topped up with house cars (`withHouse`), after every
  * real car has its seat.
  */
-export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntry[] {
+export function eligibleEntries(
+  entries: ArenaEntry[],
+  round: number,
+  nameOwners?: ReadonlyMap<string, string>,
+): ArenaEntry[] {
   const lock = lockAtForRound(round);
   const field = entries
     .filter(
@@ -52,6 +56,7 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
         !isHouseId(e.id) &&
         e.gameId === 'racing' &&
         e.obsVersion === OBS_VERSION &&
+        validArch(e) &&
         e.createdAt <= lock,
     )
     .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
@@ -64,8 +69,13 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
   const team = teamOf(field);
   const latest = new Map<string, number>();
   for (const e of field) latest.set(e.uid, Math.max(latest.get(e.uid) ?? 0, e.updatedAt));
+  // Before all of that, the account that owns the team's name: a car that only
+  // wears a name (`names/{key}` belongs to somebody else) can take a seat the
+  // owner leaves empty, never one of the owner's.
+  const ownsName = (e: ArenaEntry): number => (nameOwners?.get(nameKey(e.team)) === e.uid ? 0 : 1);
   const byPriority = [...field].sort(
     (a, b) =>
+      ownsName(a) - ownsName(b) ||
       (latest.get(b.uid) ?? 0) - (latest.get(a.uid) ?? 0) ||
       a.uid.localeCompare(b.uid) ||
       a.createdAt - b.createdAt ||
@@ -82,6 +92,29 @@ export function eligibleEntries(entries: ArenaEntry[], round: number): ArenaEntr
   return withHouse(
     field.filter((e) => chosen.has(e.id)),
     round,
+  );
+}
+
+/** Hidden layers a racing network may have, and how wide. A bound, not a style. */
+const MAX_LAYERS = 4;
+const MAX_WIDTH = 512;
+
+/**
+ * A network the race can actually build: the racing game's inputs and actions,
+ * and a hidden shape within bounds. An entry is written by its owner's browser,
+ * so a shape that would not load - or would not fit in memory - is a car that
+ * never makes the grid, not a race day that fails for everyone.
+ */
+function validArch(e: ArenaEntry): boolean {
+  const a = e.arch as Partial<ArenaEntry['arch']> | undefined;
+  return (
+    !!a &&
+    a.obsSize === OBS_SIZE &&
+    a.nActions === RACING_SPEC.actions.length &&
+    Array.isArray(a.hidden) &&
+    a.hidden.length >= 1 &&
+    a.hidden.length <= MAX_LAYERS &&
+    a.hidden.every((n) => Number.isInteger(n) && n >= 1 && n <= MAX_WIDTH)
   );
 }
 
@@ -118,10 +151,15 @@ function teamOf(entries: ArenaEntry[]): (e: ArenaEntry) => string {
  * Everything here is a pure function of the round number and the entry list, so
  * two clients that build the same card build exactly the same card.
  */
-export function buildRaceCard(round: number, entries: ArenaEntry[], weights: Map<string, string>): RaceCard {
+export function buildRaceCard(
+  round: number,
+  entries: ArenaEntry[],
+  weights: Map<string, string>,
+  nameOwners?: ReadonlyMap<string, string>,
+): RaceCard {
   const trackId = trackForRound(round);
   const seed = seedForRound(round);
-  const field = eligibleEntries(entries, round);
+  const field = eligibleEntries(entries, round, nameOwners);
   const physics = physicsForRound(round);
   return {
     id: raceIdForRound(round),

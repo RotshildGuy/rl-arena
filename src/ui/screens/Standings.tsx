@@ -19,6 +19,7 @@ import { LeaguePanel, useLeagues } from '../components/Leagues';
 import type { RaceCard, RaceResult } from '../../core/champ/types';
 import { useT } from '../../i18n';
 import { driverName, grandPrixTitle, teamName, trackName } from '../../i18n/names';
+import { isolated, Name } from '../components/Name';
 
 type Tab = 'drivers' | 'teams' | 'results' | 'records' | 'fame';
 
@@ -30,7 +31,7 @@ export function Standings() {
   const ROOKIES = '__rookies';
   const rookies = leagueId === ROOKIES;
   const league = leagues.find((l) => l.id === leagueId) ?? null;
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const now = useNow(5000);
   const [tab, setTab] = useState<Tab>('drivers');
   const current = displaySeason(now);
@@ -79,7 +80,7 @@ export function Standings() {
   const mine = new Set(state ? state.entries.filter((e) => e.uid === state.uid).map((e) => e.id) : []);
 
   if (!state || !standings) {
-    return <PageSkeleton variant="table" note={progress} />;
+    return <PageSkeleton variant="table" />;
   }
 
   if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !leagueId && leagues.length === 0) {
@@ -99,7 +100,7 @@ export function Standings() {
             {s.season(season)}
             {season === current ? s.currentTag : ''} · {s.rounds(seasonRange(season).first, seasonRange(season).last)}
           </div>
-          <h1 className="display">{rookies ? s.rookies : league ? league.name : s.title}</h1>
+          <h1 className="display">{rookies ? s.rookies : league ? <Name>{league.name}</Name> : s.title}</h1>
           <div style={{ marginTop: 6 }}>
             <SeasonTracks season={season} />
           </div>
@@ -232,8 +233,10 @@ export function Standings() {
                       <div className="driver">
                         <span className="livery" style={{ background: teamColor(t.team) }} />
                         <div className="names">
-                          <span className="who">{teamName(t.team)}</span>
-                          <span className="team">{drivers.map((d) => driverName({ id: d.entryId, driver: d.driver })).join(' · ')}</span>
+                          <span className="who">
+                            <Name>{teamName(t.team)}</Name>
+                          </span>
+                          <span className="team">{drivers.map((d) => isolated(driverName({ id: d.entryId, driver: d.driver }))).join(' · ')}</span>
                         </div>
                       </div>
                     </td>
@@ -424,8 +427,13 @@ function RecordCell({
       </div>
       {holder && (
         <div className="small">
-          <span style={{ fontWeight: 700 }}>{driverName({ id: holder.entryId, driver: holder.driver })}</span>
-          <span className="muted"> · {teamName(holder.team)}</span>
+          <span style={{ fontWeight: 700 }}>
+            <Name>{driverName({ id: holder.entryId, driver: holder.driver })}</Name>
+          </span>
+          <span className="muted">
+            {' · '}
+            <Name>{teamName(holder.team)}</Name>
+          </span>
           <div className="dim tiny">
             {s.round(holder.round)} · {dateText(holder.at)}
           </div>
@@ -474,7 +482,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                   <div className="small muted" style={{ marginTop: 4 }}>
                     <span className="mono">{h.driver.points}</span>
                     {s.pointsWins(h.driver.wins)}
-                    {h.runnerUp && s.ahead(h.driver.points - h.runnerUp.points, driverName({ id: h.runnerUp.entryId, driver: h.runnerUp.driver }))}
+                    {h.runnerUp && s.ahead(h.driver.points - h.runnerUp.points, isolated(driverName({ id: h.runnerUp.entryId, driver: h.runnerUp.driver })))}
                   </div>
                 </>
               ) : (
@@ -490,7 +498,9 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
                   <div className="driver">
                     <span className="livery" style={{ background: teamColor(h.team.team) }} />
                     <div className="names">
-                      <span className="who">{teamName(h.team.team)}</span>
+                      <span className="who">
+                        <Name>{teamName(h.team.team)}</Name>
+                      </span>
                     </div>
                   </div>
                   <div className="small muted" style={{ marginTop: 4 }}>

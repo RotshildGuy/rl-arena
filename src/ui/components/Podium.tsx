@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
+import { Name } from './Name';
 
 export interface PodiumPlace {
   position: number;
@@ -28,8 +29,12 @@ export function Podium({ places, compact }: { places: PodiumPlace[]; compact?: b
       {order.map((p) => (
         <div className={`podium-spot p${p.position}`} key={p.position}>
           <PodiumCar color={p.color} look={p.look} />
-          <div className="podium-name">{p.driver}</div>
-          <div className="podium-team">{p.team}</div>
+          <div className="podium-name">
+            <Name>{p.driver}</Name>
+          </div>
+          <div className="podium-team">
+            <Name>{p.team}</Name>
+          </div>
           {p.detail && <div className="podium-detail mono">{p.detail}</div>}
           <div className="podium-step">
             <span>{p.position}</span>

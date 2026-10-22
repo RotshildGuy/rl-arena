@@ -6,6 +6,7 @@ import { earnedCoins } from '../../core/champ/coins';
 import {
   ITEM_BY_ID,
   SHOP_ITEMS,
+  normalizeShop,
   paintOf,
   spent,
   type Equipped,
@@ -37,7 +38,7 @@ const SECTIONS: SlotKind[] = ['color', 'pattern', 'secondary', 'helmet', 'smoke'
 export function Shop() {
   const s = useT().shop;
   const { competitor, showToast } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const [doc, setDoc] = useState<ShopDoc | null>(null);
   const [trial, setTrial] = useState<Equipped>({});
   const [busy, setBusy] = useState(false);
@@ -46,7 +47,9 @@ export function Shop() {
 
   useEffect(() => {
     if (!uid) return;
-    void myShop(uid).then(setDoc);
+    // Through the same check every other reader uses: a document of the wrong
+    // shape is an empty shop, not a crash.
+    void myShop(uid).then((d) => setDoc(normalizeShop(d)));
   }, [uid]);
 
   const wallet = useMemo(() => {
@@ -55,7 +58,7 @@ export function Shop() {
     return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
   }, [state, uid]);
 
-  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" note={progress} />;
+  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" />;
 
   const balance = wallet.total - spent(doc.purchases);
   const owned = new Set(doc.purchases);
@@ -133,6 +136,7 @@ export function Shop() {
           <div className="eyebrow">{s.eyebrow}</div>
           <h1 className="display">{s.title}</h1>
           <div className="muted small">{s.intro}</div>
+          <div className="muted small">{s.noMoney}</div>
         </div>
         <div className="actions">
           <span className="pill" style={{ fontSize: 15 }}>

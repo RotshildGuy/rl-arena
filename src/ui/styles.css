@@ -132,6 +132,11 @@
   --glass-edge-strong: rgba(255, 255, 255, 0.16);
   --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
   --glass-blur: blur(22px) saturate(165%);
+  /* A dialog is glass in look only. Its own blur cannot reach the page - the
+     backdrop behind it is a backdrop root - so whatever it does not cover
+     itself shows through sharp, and a podium behind the settings read as
+     part of them. Nearly opaque, in both themes. */
+  --modal-surface: rgba(16, 19, 32, 0.97);
 
   /* Material-style state layers: one hover and one press tint, used by every
      control, so they all answer a finger the same way. */
@@ -201,6 +206,7 @@
   --glass-edge: rgba(22, 30, 58, 0.1);
   --glass-edge-strong: rgba(22, 30, 58, 0.18);
   --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(22, 30, 58, 0.04);
+  --modal-surface: rgba(255, 255, 255, 0.97);
 
   --state-hover: rgba(22, 30, 58, 0.05);
   --state-press: rgba(22, 30, 58, 0.09);
@@ -452,6 +458,11 @@ input[type='number'] { direction: ltr; text-align: end; }
    and <th>, and an inline-block cell drops out of its column, so every
    number below the header lands wherever its own row happens to end. */
 .num { direction: ltr; unicode-bidi: plaintext; }
+/* A typed name, and a run that always reads left to right (components/Name.tsx).
+   Spelled out rather than left to the <bdi> defaults, so a class on the same
+   element - `.mono` and its `plaintext` - cannot undo the isolation. */
+.name { unicode-bidi: isolate; }
+.ltr, .mono.ltr { direction: ltr; unicode-bidi: isolate; }
 
 /* ------------------------------------------------------------------ shell */
 
@@ -1310,6 +1321,18 @@ input[type='number'] { direction: ltr; text-align: end; }
   .segmented button { padding: 10px 14px; }
 }
 
+/* A phone's header holds the wordmark, two icon buttons, the team name and the
+   account chip. At the default spacing a 375px screen had about 70px left for
+   the name, so even a short one ("בודק UX") was cut to "בודק...", and a longer
+   chip at the far end could be pushed past the edge. A little less air between
+   and inside the pieces leaves room for a name of a dozen letters. */
+@media (max-width: 480px) {
+  .topbar { gap: 6px; padding-inline: 10px; }
+  .topbar .brand { font-size: 15px; gap: 4px; }
+  .topbar > .pill { padding-inline: 8px; gap: 5px; }
+  .topbar > button.small { padding-inline: 9px; }
+}
+
 /* --------------------------------------------------- on-screen game controls */
 
 .touchpad {
@@ -1695,7 +1718,7 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   flex-direction: column;
   border-radius: var(--radius-xl);
   padding: 20px;
-  background: var(--glass-sheen), var(--glass-tint-strong);
+  background: var(--glass-sheen), var(--modal-surface);
   border-color: var(--glass-edge-strong);
   box-shadow: var(--glass-rim), var(--elev-2);
   animation: sheet-in 0.24s var(--ease);
@@ -1797,15 +1820,26 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   animation: coach-pulse 2s ease-in-out infinite;
 }
 
+/* Its colours follow the theme: a raised dark sheet in the dark theme, where a
+   white bubble was the brightest thing on the screen, and white in the light. */
+.coach {
+  --coach-bg: #1d2336;
+  --coach-ink: var(--text);
+  --coach-faint: var(--dim);
+}
+:root[data-theme='light'] .coach {
+  --coach-bg: #fff;
+  --coach-ink: #10131c;
+  --coach-faint: #6a7085;
+}
 .coach {
   position: fixed;
   z-index: 50;
   max-width: min(280px, calc(100vw - 20px));
-  background: #fff;
-  color: #10131c;
+  background: var(--coach-bg);
+  color: var(--coach-ink);
   border-radius: var(--radius);
   padding: 11px 14px 9px;
-  padding-inline-end: 34px;
   font-size: 13.5px;
   font-weight: 600;
   line-height: 1.55;
@@ -1824,23 +1858,7 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   margin-left: -7px;
   border: 7px solid transparent;
 }
-.coach.below::before { bottom: 100%; border-bottom-color: #fff; }
-.coach .coach-x {
-  position: absolute;
-  top: 4px;
-  inset-inline-end: 4px;
-  width: 28px;
-  height: 28px;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-full);
-  background: transparent;
-  color: #4a5063;
-  font-size: 14px;
-  line-height: 1;
-}
-.coach .coach-x:hover { background: #eef0f5; color: #10131c; }
+.coach.below::before { bottom: 100%; border-bottom-color: var(--coach-bg); }
 .coach .coach-skip {
   display: block;
   margin-top: 6px;
@@ -1848,13 +1866,13 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   padding: 2px 0;
   border: 0;
   background: transparent;
-  color: #6a7085;
+  color: var(--coach-faint);
   font-size: 12px;
   font-weight: 700;
   text-decoration: underline;
 }
-.coach .coach-skip:hover { color: #10131c; background: transparent; }
-.coach.above::before { top: 100%; border-top-color: #fff; }
+.coach .coach-skip:hover { color: var(--coach-ink); background: transparent; }
+.coach.above::before { top: 100%; border-top-color: var(--coach-bg); }
 
 .nav .coach-anchor { display: flex; }
 
@@ -1936,10 +1954,12 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   :root {
     --glass-tint: #121626;
     --glass-tint-strong: #0f1220;
+    --modal-surface: #0f1220;
   }
   :root[data-theme='light'] {
     --glass-tint: #ffffff;
     --glass-tint-strong: #ffffff;
+    --modal-surface: #ffffff;
   }
   .topbar { background: var(--surface-solid); }
   .nav.bottom { background: var(--surface-solid); }

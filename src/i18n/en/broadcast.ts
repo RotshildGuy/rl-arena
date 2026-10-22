@@ -4,6 +4,7 @@ export const broadcast: typeof He.broadcast = {
   nothing: 'No race to show.',
   backToChamp: 'Back to the championship',
   backArrow: '← Back to the championship',
+  noReplay: 'This race has no replay',
   connecting: 'Connecting to the broadcast…',
   live: 'Live',
   replay: 'Replay',

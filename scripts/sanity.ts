@@ -18,7 +18,7 @@ import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../s
 import { bestBraking, drive, flatOutLoses } from './drivers';
 import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
 import { RACING_SPEC, OBS_SIZE, RACING_PRESETS } from '../src/core/games/racing/rewards';
-import { planSessions, GRID_SIZE, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
+import { lapsFor, planSessions, GRID_SIZE, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, nameKey, normalizeName, NAME_MAX } from '../src/core/champ/names';
 import { resolveCompetitor } from '../src/ui/competitorMerge';
@@ -47,7 +47,7 @@ import {
   sessionWindows,
   settledResults,
 } from '../src/core/champ/timing';
-import type { DayPlace, Finish, RaceCard, RaceResult } from '../src/core/champ/types';
+import type { ArenaEntry, DayPlace, Finish, RaceCard, RaceResult } from '../src/core/champ/types';
 import { coachStepFor, type CoachState } from '../src/ui/coachStep';
 import { summarize, dayKey, type MetricRow } from '../src/core/metrics';
 import { foldLine, googleCalendarUrl, raceCalendarIcs } from '../src/ui/calendar';
@@ -64,11 +64,16 @@ import { leagueView, newLeagueId } from '../src/core/champ/league';
 import { findCopies, weightsFingerprint } from '../src/core/champ/copies';
 import { earnedCoins, COINS_PER_START } from '../src/core/champ/coins';
 import { spent, validLook, ITEM_BY_ID } from '../src/core/champ/shop';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { raceRound, replayRound, HOUSE_IDS, type RaceStore } from '../src/server/raceDay';
+import { decodeActions, encodeActions, type DayReplay } from '../src/core/champ/replay';
+import { buildFunctions } from './buildFunctions';
 import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { Policy } from '../src/core/rl/policy';
-import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
+import { SessionSim, QUALI_LAPS, qualifyingOrder, replayDriversFor } from '../src/core/champ/sim';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -1759,11 +1764,125 @@ function copiesTest(): void {
   check('one changed character is a different fingerprint', weightsFingerprint('AAAA') !== weightsFingerprint('AAAB'));
 }
 
+/** An arena in memory, create-only like the real one, for running a race day. */
+function memoryArena(
+  entries: ArenaEntry[],
+  weights: Map<string, string>,
+  owners: Map<string, string> = new Map(),
+): RaceStore & { cards: Map<string, RaceCard>; results: Map<string, RaceResult>; replays: Map<string, DayReplay | null> } {
+  const cards = new Map<string, RaceCard>();
+  const cars = new Map<string, Map<string, string>>();
+  const results = new Map<string, RaceResult>();
+  const replays = new Map<string, DayReplay | null>();
+  return {
+    cards,
+    results,
+    replays,
+    hasReplay: async (id) => replays.has(id),
+    putReplay: async (id, r) => {
+      replays.set(id, r);
+    },
+    listEntries: async () => entries,
+    nameOwners: async () => new Map(owners),
+    loadEntryWeights: async (id) => weights.get(id) ?? null,
+    getCard: async (id) => cards.get(id) ?? null,
+    putCard: async (card, w) => {
+      if (!cards.has(card.id)) {
+        cars.set(card.id, new Map(w));
+        cards.set(card.id, card);
+      }
+      return cards.get(card.id)!;
+    },
+    loadRaceWeights: async (id) => new Map(cars.get(id) ?? []),
+    getResult: async (id) => results.get(id) ?? null,
+    putResult: async (r) => {
+      if (!results.has(r.raceId)) results.set(r.raceId, r);
+      return results.get(r.raceId)!;
+    },
+  };
+}
+
+/**
+ * The server runs the race day from a bundle of the app's own code. It has to
+ * race exactly as the source does, or the broadcast (which re-simulates in the
+ * browser) would disagree with the result the server wrote.
+ */
+async function serverRaceDayTest(): Promise<void> {
+  console.log(CHAPTER + 'Race day on the server');
+  const dir = mkdtempSync(join(tmpdir(), 'raceday-'));
+  buildFunctions(dir);
+  const load = (id: string) => (JSON.parse(readFileSync(join(dir, 'house', `${id}.json`), 'utf8')) as { weightsB64: string }).weightsB64;
+  const house = new Map(HOUSE_IDS.map((id) => [id, load(id)]));
+  check('every house driver has weights next to the bundle', HOUSE_IDS.length === HOUSE_DRIVERS.length && [...house.values()].every((w) => w.length > 0));
+
+  const round = HOUSE_FROM_ROUND + 3;
+  const entry: ArenaEntry = { ...HOUSE_DRIVERS[2], id: 'e1', uid: 'u1', team: 'בודקים', driver: 'בודק', createdAt: 0 };
+  const weights = new Map([['e1', house.get(HOUSE_DRIVERS[2].id)!]]);
+
+  const t0 = Date.now();
+  const source = memoryArena([entry], weights);
+  const outcome = await raceRound(source, round, house);
+  const ms = Date.now() - t0;
+  check('a day nobody opened is built and raced', outcome === 'raced', outcome);
+  check('and a second run leaves it as it was', (await raceRound(source, round, house)) === 'already');
+  check(`a race day takes seconds, not minutes (${(ms / 1000).toFixed(1)} s)`, ms < 60_000);
+
+  const bundled = createRequire(import.meta.url)(join(dir, 'raceDay.js')) as { raceRound: typeof raceRound };
+  const built = memoryArena([entry], weights);
+  await bundled.raceRound(built, round, house);
+
+  const raceId = raceIdForRound(round);
+  const strip = <T extends object>(x: T | undefined, key: string) => JSON.stringify({ ...x, [key]: 0 });
+  check('the bundle builds the same card', strip(source.cards.get(raceId), 'createdAt') === strip(built.cards.get(raceId), 'createdAt'));
+  check('and the same result', strip(source.results.get(raceId), 'computedAt') === strip(built.results.get(raceId), 'computedAt'));
+
+  // The replay drives the race the result records, with no weights at all.
+  const replay = source.replays.get(raceId);
+  const card = source.cards.get(raceId)!;
+  const plans = planSessions(qualifyingOrder(card.qualifying));
+  let same = !!replay && replay.size === source.results.get(raceId)!.sessions.length;
+  for (const s of source.results.get(raceId)!.sessions) {
+    const plan = plans.find((p) => p.id === s.sessionId)!;
+    const sim = new SessionSim(card.trackId, lapsFor(plan), replayDriversFor(s.grid, replay?.get(s.sessionId) ?? {}), card.seed + plan.offsetMs, card.physics);
+    sim.runToEnd();
+    if (JSON.stringify(sim.result(s.sessionId, s.grid)) !== JSON.stringify(s)) same = false;
+  }
+  check('the replay drives exactly the race on the timing sheet', same);
+  const actions = [4, 4, 4, 0, 0, 8, ...new Array<number>(300).fill(2), 4];
+  check('actions survive their encoding', Array.from(decodeActions(encodeActions(actions))).join() === actions.join());
+
+  // A day raced before replays existed gets one, if it reproduces.
+  source.replays.delete(raceId);
+  check('a day raced without a replay is given one', (await raceRound(source, round, house)) === 'replayed' && !!source.replays.get(raceId));
+  const forged = { ...source.results.get(raceId)!, sessions: source.results.get(raceId)!.sessions.slice(1) };
+  source.replays.delete(raceId);
+  check('but not one that would drive a different race', (await replayRound(source, card, forged)) === 'mismatch' && source.replays.get(raceId) === null);
+
+  const empty = memoryArena([], new Map());
+  check('no cars, no race', (await raceRound(empty, round, house)) === 'no-field' && empty.cards.size === 0);
+
+  // A car is written by its owner's browser, so the server cannot trust it.
+  const broken: ArenaEntry = { ...entry, id: 'e2', uid: 'u2', team: 'שבורים', driver: 'שבור', createdAt: 0 };
+  const huge: ArenaEntry = { ...entry, id: 'e3', uid: 'u3', team: 'ענקים', driver: 'ענק', createdAt: 0, arch: { ...entry.arch, hidden: [1e9] } };
+  const hostile = memoryArena([entry, broken, huge], new Map([...weights, ['e2', 'AAAA'], ['e3', 'AAAA']]));
+  const hostileOutcome = await raceRound(hostile, round, house);
+  const hostileCard = hostile.cards.get(raceId);
+  check('weights that do not fit their network leave the car out, not the day', hostileOutcome === 'raced', hostileOutcome);
+  check('a network too big to build never makes the grid', !!hostileCard && !hostileCard.entries.some((e) => e.id === 'e3'));
+
+  // Cars wearing somebody else's team name cannot take that team's seats.
+  const owned = (id: string, updatedAt: number, uid: string): ArenaEntry => ({ ...entry, id, uid, team: 'בעלים', driver: id, createdAt: 0, updatedAt });
+  const field = [owned('mine1', 1, 'owner'), owned('mine2', 1, 'owner'), owned('fake1', 9e12, 'thief'), owned('fake2', 9e12, 'thief')];
+  const seated = eligibleEntries(field, round, new Map([[nameKey('בעלים'), 'owner']])).map((e) => e.id);
+  check("the name's owner keeps both seats", seated.includes('mine1') && seated.includes('mine2') && !seated.some((id) => id.startsWith('fake')), seated.join());
+}
+
 /** The functions carry their own copy of the calendar; it must agree with the app's. */
 function functionsCalendarTest(): void {
   console.log(CHAPTER + 'Server calendar');
   const server = createRequire(import.meta.url)('../functions/race.js') as {
     startsAtForRound(r: number): number;
+    lockAtForRound(r: number): number;
     raceIdForRound(r: number): string;
     roundOfDay(now: number): number;
     dayEndsAt(card: RaceCard, result: RaceResult | null): number;
@@ -1772,6 +1891,7 @@ function functionsCalendarTest(): void {
   let today = true;
   for (let r = 1; r <= 365 * 4; r++) {
     if (server.startsAtForRound(r) !== startsAtForRound(r) || server.raceIdForRound(r) !== raceIdForRound(r)) same = false;
+    if (server.lockAtForRound(r) !== lockAtForRound(r)) same = false;
     // 19:45 and 20:45 on a race day both belong to that day's round.
     if (server.roundOfDay(startsAtForRound(r) - 15 * 60_000) !== r || server.roundOfDay(startsAtForRound(r) + 45 * 60_000) !== r) {
       today = false;
@@ -1826,6 +1946,25 @@ function coinsTest(): void {
   const stripe = validLook(two, 1000);
   check('a second colour goes on the stripe', stripe?.look.secondary === ITEM_BY_ID.get('second-white')!.value && stripe.look.pattern === 'stripe');
   check('and must be bought like the first', validLook({ ...two, purchases: ['color-navy', 'pattern-stripe'] }, 1000) === null);
+  const survives = (raw: unknown) => {
+    try {
+      validLook(raw, 1000);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  check('a malformed shop document never throws', [
+    { purchases: 'color-navy', equipped: { color: 'color-navy' } },
+    { purchases: { 0: 'x' }, equipped: null },
+    { purchases: ['color-navy'] },
+    { purchases: [1, null], equipped: [] },
+    { equipped: 'red' },
+    'a string',
+    42,
+  ].every(survives));
+  check('and reads as empty', validLook({ purchases: 'x', equipped: 7 }, 0)?.color === undefined
+    && validLook({ purchases: null, equipped: { color: 'color-navy' } }, 1000) === null);
   check('buying twice costs once', spent(['color-navy', 'color-navy']) === color.price);
   check('no timing colour is for sale', [...ITEM_BY_ID.values()].filter((i) => i.kind === 'color')
     .every((i) => !['#c77dff', '#3de87a', '#ffd84d'].includes(i.value.toLowerCase())));
@@ -1907,6 +2046,7 @@ copiesTest();
 coinsTest();
 rivalTest();
 functionsCalendarTest();
+await serverRaceDayTest();
 dashTest();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

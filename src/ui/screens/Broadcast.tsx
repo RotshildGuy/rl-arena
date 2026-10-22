@@ -7,7 +7,8 @@ import { TimingTower, type TowerCar } from '../components/TimingTower';
 import { StartLights } from '../components/StartLights';
 import { drawPlaceholder, renderGame } from '../gameRenderers';
 import { getArena } from '../../storage/arena';
-import { SessionSim, policiesFor } from '../../core/champ/sim';
+import { SessionSim, policiesFor, replayDriversFor, type SimCar } from '../../core/champ/sim';
+import { ReplayDriver, type DayReplay } from '../../core/champ/replay';
 import { lapsFor } from '../../core/champ/format';
 import { dayState, dayStatus, liveSession, sessionWindows } from '../../core/champ/timing';
 import { shadeFor, teamColor, teamLook } from '../../core/champ/livery';
@@ -38,10 +39,27 @@ const RETIREMENT_GRACE_MS = 8000;
 
 type Camera = 'track' | 'follow';
 
+/**
+ * What drives the cars on screen.
+ *
+ * In the cloud, the replay the server recorded: nobody's weights reach the
+ * browser. A local championship has its own weights and drives from those.
+ * Before the lights there is nothing to drive yet - the cars only sit on the
+ * grid - and `missing` is a race that has no replay at all.
+ */
+type DriveSource =
+  | { kind: 'grid' }
+  | { kind: 'replay'; replay: DayReplay }
+  | { kind: 'weights'; weights: Map<string, string> }
+  | { kind: 'missing' };
+
+/** How often to ask again for a live race's replay that is not there yet. */
+const REPLAY_RETRY_MS = 15_000;
+
 export function Broadcast() {
   const b = useT().broadcast;
   const { viewRaceId, go, openRace } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const now = useNow(500);
 
   const card = useMemo(() => {
@@ -57,14 +75,14 @@ export function Broadcast() {
   if (!state) {
     return (
       <div style={{ margin: 20 }}>
-        <PageSkeleton variant="race" note={progress} />
+        <PageSkeleton variant="race" />
       </div>
     );
   }
   if (!card) {
     return (
       <div className="empty" style={{ margin: 20 }}>
-        {progress ?? b.nothing}
+        {b.nothing}
         <div style={{ marginTop: 14 }}>
           <button onClick={() => go('championship')}>{b.backToChamp}</button>
         </div>
@@ -98,7 +116,10 @@ function BroadcastStage({
   const live = liveSession(card, now);
   const isLive = live !== null;
 
-  const [weights, setWeights] = useState<Map<string, string> | null>(null);
+  const [source, setSource] = useState<DriveSource | null>(null);
+  const started = now >= card.startsAt;
+  /** Bumped to ask again for a replay that was not there. */
+  const [attempt, setAttempt] = useState(0);
   const [sessionId, setSessionId] = useState<string>(() => live?.session.id ?? windows[windows.length - 1]?.session.id);
   const [camera, setCamera] = useState<Camera>('track');
   // A wide circuit inside a tall viewport letterboxes badly. In portrait the
@@ -141,17 +162,48 @@ function BroadcastStage({
     if (live && live.session.id !== sessionId) setSessionId(live.session.id);
   }, [live, sessionId]);
 
+  /** The race `source` belongs to. */
+  const sourceFor = useRef('');
+
+  // The replay is read from the lights: before them it does not exist for the
+  // browser (the rules keep a race's outcome sealed until it starts).
   useEffect(() => {
+    if (sourceFor.current !== card.id) {
+      // Never a moment of the previous race on screen, or driving this one.
+      sourceFor.current = card.id;
+      simRef.current = null;
+      builtFor.current = '';
+      setSource(null);
+    }
+    if (!started) {
+      setSource({ kind: 'grid' });
+      return;
+    }
     let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     void (async () => {
       const arena = await getArena();
-      const w = await arena.loadRaceWeights(card.id);
-      if (!cancelled) setWeights(w);
+      let next: DriveSource = { kind: 'missing' };
+      try {
+        const replay = await arena.loadReplay(card.id);
+        if (replay) next = { kind: 'replay', replay };
+        else if (arena.kind === 'local') {
+          const weights = await arena.loadRaceWeights(card.id);
+          if (weights.size) next = { kind: 'weights', weights };
+        }
+      } catch {
+        // Refused or offline: the same as not there yet.
+      }
+      if (cancelled) return;
+      setSource(next);
+      if (next.kind === 'missing' && isLive) retry = setTimeout(() => setAttempt((n) => n + 1), REPLAY_RETRY_MS);
     })();
     return () => {
       cancelled = true;
+      clearTimeout(retry);
     };
-  }, [card.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.id, started, attempt]);
 
   const window_ = windows.find((w) => w.session.id === sessionId) ?? windows[0];
   const result = state?.results.get(card.id) ?? null;
@@ -199,8 +251,11 @@ function BroadcastStage({
    * memory to be able to scrub back into it.
    */
   const buildSim = useCallback((): SessionSim | null => {
-    if (!weights || !window_ || grid.length === 0) return null;
-    const cars = policiesFor(grid, entryById, weights);
+    if (!source || !window_ || grid.length === 0) return null;
+    let cars: SimCar[] = [];
+    if (source.kind === 'replay') cars = replayDriversFor(grid, source.replay.get(window_.session.id) ?? {});
+    else if (source.kind === 'weights') cars = policiesFor(grid, entryById, source.weights);
+    else if (source.kind === 'grid') cars = grid.map((entryId) => ({ entryId, policy: new ReplayDriver('') }));
     if (cars.length === 0) return null;
     return new SessionSim(
       card.trackId,
@@ -209,12 +264,12 @@ function BroadcastStage({
       card.seed + window_.session.offsetMs,
       card.physics,
     );
-  }, [weights, window_, grid, entryById, card]);
+  }, [source, window_, grid, entryById, card]);
 
   // Build (or rebuild) the simulation for the selected session.
   useEffect(() => {
     if (!window_) return;
-    const key = `${card.id}:${sessionId}:${grid.length}`;
+    const key = `${card.id}:${sessionId}:${grid.length}:${source?.kind}`;
     if (builtFor.current === key) return;
     const sim = buildSim();
     if (!sim) return;
@@ -242,7 +297,7 @@ function BroadcastStage({
     setFollowIdx(mineIdx >= 0 ? mineIdx : 0);
     bump((n) => n + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weights, sessionId, card.id, grid.length]);
+  }, [source, sessionId, card.id, grid.length]);
 
   /**
    * How long the replay runs.
@@ -297,10 +352,18 @@ function BroadcastStage({
   const drawFrame = (ctx: CanvasRenderingContext2D) => {
     let sim = simRef.current;
     if (!sim) {
-      drawPlaceholder(ctx, [words().broadcast.connecting, grandPrixTitle(card.trackId)]);
+      drawPlaceholder(
+        ctx,
+        source?.kind === 'missing' && !isLive
+          ? [words().broadcast.noReplay, grandPrixTitle(card.trackId)]
+          : [words().broadcast.connecting, grandPrixTitle(card.trackId)],
+      );
       return;
     }
-    let ms = Math.max(0, playingRef.current ? Date.now() - anchorRef.current : headRef.current);
+    // Cars on the grid with nothing to drive them yet - before the lights, or
+    // while the replay is on its way - stay where they are.
+    const parked = source?.kind !== 'replay' && source?.kind !== 'weights';
+    let ms = parked ? 0 : Math.max(0, playingRef.current ? Date.now() - anchorRef.current : headRef.current);
     const target = Math.floor(ms / STEP_MS);
     if (sim.env.step_ > target) {
       // Rewind: the only way back through a simulation is forward through a new

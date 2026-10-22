@@ -21,10 +21,12 @@ import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
 import { SettingsButton } from './components/SettingsButton';
 import { CoachAnchor, useCoachStep } from './coach';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useIsNarrow } from './device';
 import { track } from '../storage/metrics';
 import { joinLeague, leaguesAvailable } from '../storage/leagues';
 import { t as words, useT } from '../i18n';
+import { Name } from './components/Name';
 
 interface Tab {
   id: 'championship' | 'standings' | 'library' | 'raceSetup' | 'shop';
@@ -228,7 +230,7 @@ function Arena() {
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
             {/* Its own direction: a Latin name inside the RTL bar was cut off
                 from its start, losing exactly the part that identifies it. */}
-            <bdi dir="auto" className="pill-name">{competitor}</bdi>
+            <Name className="pill-name">{competitor}</Name>
           </span>
         )}
         {/* A guest is told they are a guest. A green "connected" next to an
@@ -244,18 +246,22 @@ function Arena() {
 
       <main ref={contentRef} className="content" style={bare ? { padding: 0, overflow: 'hidden' } : undefined}>
         <div className="wrap" style={bare ? { maxWidth: 'none', height: '100%' } : undefined}>
-          {screen === 'championship' && <Championship />}
-          {screen === 'standings' && <Standings />}
-          {screen === 'broadcast' && <Broadcast />}
-          {screen === 'report' && <RaceReport />}
-          {screen === 'library' && <Garage />}
-          {screen === 'trainSetup' && <TrainSetup />}
-          {screen === 'training' && <TrainDashboard />}
-          {screen === 'raceSetup' && <RaceSetup />}
-          {screen === 'race' && <RaceScreen />}
-          {screen === 'info' && <Info />}
-          {screen === 'feedback' && <Feedback />}
-          {screen === 'shop' && <Shop />}
+          {/* Keyed by screen: a crash stays in the screen it happened in, and
+              moving to another tab is a fresh start. */}
+          <ErrorBoundary key={screen} onHome={() => go('championship')}>
+            {screen === 'championship' && <Championship />}
+            {screen === 'standings' && <Standings />}
+            {screen === 'broadcast' && <Broadcast />}
+            {screen === 'report' && <RaceReport />}
+            {screen === 'library' && <Garage />}
+            {screen === 'trainSetup' && <TrainSetup />}
+            {screen === 'training' && <TrainDashboard />}
+            {screen === 'raceSetup' && <RaceSetup />}
+            {screen === 'race' && <RaceScreen />}
+            {screen === 'info' && <Info />}
+            {screen === 'feedback' && <Feedback />}
+            {screen === 'shop' && <Shop />}
+          </ErrorBoundary>
           {!bare && screen !== 'info' && <Footer onOpen={openInfo} onFeedback={openFeedback} />}
         </div>
       </main>

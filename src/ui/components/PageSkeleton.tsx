@@ -4,16 +4,11 @@ import { useT } from '../../i18n';
  * The shape of a screen that is still loading, in place of a line of text.
  * Same shimmer as the first-load skeleton (`.skel` in styles.css), laid out
  * roughly like what is coming so the page does not jump when it arrives.
- *
- * `note` is for the one thing worth saying while it loads - a race being
- * simulated takes a while, and "running qualifying for round 42" is better
- * than nothing.
  */
-export function PageSkeleton({ variant, note }: { variant: 'table' | 'cards' | 'list' | 'race'; note?: string | null }) {
+export function PageSkeleton({ variant }: { variant: 'table' | 'cards' | 'list' | 'race' }) {
   const t = useT();
   return (
     <div className="grid" aria-busy aria-label={t.misc.loading}>
-      {note && <div className="small muted">{note}</div>}
       {variant === 'race' && (
         <div className="skel-card" style={{ minHeight: 300 }}>
           <span className="skel" style={{ width: '40%', height: 12 }} />

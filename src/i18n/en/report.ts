@@ -35,7 +35,6 @@ export const report: typeof He.report = {
   hitsCol: 'Hits (wall+car)',
   led: 'Led',
   pts: 'Pts',
-  lapsDown: (n) => `+${n} ${n === 1 ? 'lap' : 'laps'}`,
   ncTitle: "Not classified - didn't complete enough distance",
   ncNote: "NC - not classified: a car that didn't complete at least half the winner's distance scores no points.",
   chart: 'Race chart',

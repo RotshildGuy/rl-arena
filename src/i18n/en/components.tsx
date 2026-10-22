@@ -27,6 +27,12 @@ export const rewardEditor: typeof He.rewardEditor = {
   level: (label, level, of) => `${label}: ${level} of ${of}`,
 };
 
+export const welcome: typeof He.welcome = {
+  eyebrow: 'Welcome',
+  title: 'How it works',
+  ok: 'Got it',
+};
+
 export const primer: typeof He.primer = {
   eyebrow: 'Before you start',
   title: "The model isn't trying to drive well",
@@ -49,7 +55,7 @@ export const primer: typeof He.primer = {
 export const teamNameForm: typeof He.teamNameForm = {
   label: 'Competitor name - this will be your team name in the table',
   failed: 'Saving the name failed',
-  placeholder: 'For example: Alex',
+  placeholder: 'For example: Blue Lightning',
   saving: 'Saving…',
   save: 'Save',
   cancel: 'Cancel',

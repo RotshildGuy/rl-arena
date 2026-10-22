@@ -3,6 +3,7 @@ export const broadcast = {
   nothing: 'אין מרוץ להציג.',
   backToChamp: 'חזרה לאליפות',
   backArrow: '→ חזרה לאליפות',
+  noReplay: 'למרוץ הזה אין צפייה חוזרת',
   connecting: 'מתחבר לשידור…',
   live: 'חי',
   replay: 'צפייה חוזרת',
