@@ -48,6 +48,7 @@ export const championship: typeof He.championship = {
   inSeason: (i, of, season) => ` · ${i} of ${of} in season ${season}`,
   nextRace: '· next race',
   track: (name) => `${name} circuit`,
+  seasonTracks: 'This season:',
   lightsOut: 'Lights out in',
   entered: 'Entered',
   house: (n) => ` +${n} house`,

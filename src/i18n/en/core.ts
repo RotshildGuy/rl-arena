@@ -5,6 +5,12 @@ export const tracks: typeof He.tracks = {
   kidney: 'Kidney',
   technical: 'Technical',
   speedway: 'Speedway',
+  stadium: 'Stadium',
+  triangle: 'Triangle',
+  serpent: 'Serpent',
+  clover: 'Clover',
+  coast: 'Coast',
+  ring: 'Ring',
 };
 
 export const champ: typeof He.champ = {

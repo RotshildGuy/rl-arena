@@ -1,13 +1,14 @@
 import { RACE_LAPS } from './format';
 import { TRACK_DEFS } from '../games/racing/tracks';
+import { seasonNumber, seasonRange, trackForRound } from './schedule';
 import type { RaceCard, RaceResult } from './types';
 
 /**
  * All-time records, per circuit.
  *
- * The calendar rotates through the four tracks, so each one comes round every
- * few days - which is what turns a lap record into something to aim at rather
- * than a trivium. Everything here is derived from race cards and results that
+ * The calendar rotates through four tracks a season, so each one comes round
+ * every few days - which is what turns a lap record into something to aim at
+ * rather than a trivium. Everything here is derived from race cards and results that
  * are already loaded; no extra reads, and no separate record to keep in step.
  */
 export interface RecordHolder {
@@ -86,16 +87,14 @@ export function trackRecords(cards: RaceCard[], results: Map<string, RaceResult>
 }
 
 /**
- * The next round that will be held on a given circuit. The calendar cycles
- * through the tracks in order, so this is arithmetic rather than a lookup.
+ * The next round that will be held on a given circuit, looking as far as the
+ * end of the next season - beyond that its calendar is only a draw nobody has
+ * seen yet. Null for a circuit that is not coming back that soon.
  */
 export function nextRoundOnTrack(trackId: string, afterRound: number): number | null {
-  const index = TRACK_DEFS.findIndex((t) => t.id === trackId);
-  if (index < 0) return null;
-  const n = TRACK_DEFS.length;
-  // Rounds are 1-based and round r runs track (r - 1) % n.
-  const offset = ((index - afterRound % n) % n + n) % n;
-  return afterRound + 1 + offset;
+  const horizon = seasonRange(seasonNumber(afterRound + 1) + 1).last;
+  for (let r = afterRound + 1; r <= horizon; r++) if (trackForRound(r) === trackId) return r;
+  return null;
 }
 
 /**

@@ -47,6 +47,7 @@ export const championship = {
   inSeason: (i: number, of: number, season: number) => ` · ${i} מתוך ${of} בעונה ${season}`,
   nextRace: '· המרוץ הבא',
   track: (name: string) => `מסלול ${name}`,
+  seasonTracks: 'מסלולי העונה:',
   lightsOut: 'כיבוי האורות בעוד',
   entered: 'רשומים',
   house: (n: number) => ` +${n} בית`,

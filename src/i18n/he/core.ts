@@ -10,6 +10,12 @@ export const tracks: Record<string, string> = {
   kidney: 'כליה',
   technical: 'טכני',
   speedway: 'מהיר',
+  stadium: 'אצטדיון',
+  triangle: 'משולש',
+  serpent: 'נחש',
+  clover: 'תלתן',
+  coast: 'חוף',
+  ring: 'טבעת',
 };
 
 export const champ = {

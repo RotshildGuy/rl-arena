@@ -11,6 +11,7 @@ import { DriverCell } from '../components/Livery';
 import { dateText, lapTime, posClass, raceTime } from '../format';
 import { trackRecords, nextRoundOnTrack, type RecordHolder } from '../../core/champ/records';
 import { RACE_LAPS } from '../../core/champ/format';
+import { SeasonTracks } from '../components/SeasonTracks';
 import { currentRound, displaySeason, seasonNumber, seasonRange, startsAtForRound } from '../../core/champ/schedule';
 import { hallOfFame, rookieUids, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { leagueView } from '../../core/champ/league';
@@ -99,6 +100,9 @@ export function Standings() {
             {season === current ? s.currentTag : ''} · {s.rounds(seasonRange(season).first, seasonRange(season).last)}
           </div>
           <h1 className="display">{rookies ? s.rookies : league ? league.name : s.title}</h1>
+          <div style={{ marginTop: 6 }}>
+            <SeasonTracks season={season} />
+          </div>
         </div>
         <div className="actions">
           {tab !== 'fame' && tab !== 'records' && (
@@ -340,9 +344,9 @@ export function Standings() {
 }
 
 /**
- * The record book. With four circuits on a four-day rotation, every track comes
- * back within the week - which is what makes a lap record worth chasing rather
- * than just worth reading.
+ * The record book. Four circuits a season on a four-day rotation, so every
+ * track in it comes back within the week - which is what makes a lap record
+ * worth chasing rather than just worth reading.
  */
 function Records({
   cards,
@@ -356,11 +360,14 @@ function Records({
   const s = useT().standings;
   const records = useMemo(() => trackRecords(cards, results), [cards, results]);
   const round = currentRound(now);
+  // A circuit with no race behind it and none coming up is just a name.
+  const shown = records
+    .map((r) => ({ r, next: nextRoundOnTrack(r.trackId, round) }))
+    .filter(({ r, next }) => r.races > 0 || next !== null);
 
   return (
     <div className="grid">
-      {records.map((r) => {
-        const next = nextRoundOnTrack(r.trackId, round);
+      {shown.map(({ r, next }) => {
         return (
           <div className="card notched" key={r.trackId}>
             <div className="head">

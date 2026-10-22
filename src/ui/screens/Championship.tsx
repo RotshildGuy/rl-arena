@@ -32,6 +32,7 @@ import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateText, dateTimeText, lapTime, posClass, timeText, untilText, untilWords } from '../format';
 import { googleCalendarUrl } from '../calendar';
+import { SeasonTracks } from '../components/SeasonTracks';
 import { locale, useT } from '../../i18n';
 import { driverName, driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
 
@@ -524,8 +525,11 @@ function NextRace({
         <h1 className="display" style={{ margin: '8px 0 4px' }}>
           {grandPrixTitle(trackId)}
         </h1>
-        <div className="muted small" style={{ marginBottom: 16 }}>
+        <div className="muted small" style={{ marginBottom: 8 }}>
           {dateTimeText(startsAt)} · {c.track(trackName(trackId))}
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <SeasonTracks season={seasonNumber(round)} round={round} />
         </div>
 
         <div className="dim small" style={{ marginBottom: 2 }}>
