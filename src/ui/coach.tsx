@@ -5,6 +5,7 @@ import { useApp } from './store';
 import { useChampionship } from './useChampionship';
 import { coachStepFor, type CoachStep } from './coachStep';
 import { useT } from '../i18n';
+import { useDialogOpen } from './components/Modal';
 
 export type { CoachStep };
 
@@ -262,10 +263,12 @@ export function CoachAnchor({
   children: React.ReactNode;
 }) {
   const [el, setEl] = useState<HTMLSpanElement | null>(null);
+  // A dialog comes first: the bubble waits until it is closed.
+  const shown = useDialogOpen() ? null : step;
   return (
-    <span ref={setEl} className={`coach-anchor ${step ? 'lit' : ''} ${className}`.trim()}>
+    <span ref={setEl} className={`coach-anchor ${shown ? 'lit' : ''} ${className}`.trim()}>
       {children}
-      {step && el && <CoachBubble anchor={el} text={text} />}
+      {shown && el && <CoachBubble anchor={el} text={text} />}
     </span>
   );
 }

@@ -1,6 +1,20 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useT } from '../../i18n';
+
+/** How many dialogs are on screen, for anything that must stay out of their way. */
+let openDialogs = 0;
+const dialogListeners = new Set<() => void>();
+
+function subscribeDialogs(fn: () => void): () => void {
+  dialogListeners.add(fn);
+  return () => dialogListeners.delete(fn);
+}
+
+/** True while any dialog is open. The guide hides its bubbles then: a dialog comes first. */
+export function useDialogOpen(): boolean {
+  return useSyncExternalStore(subscribeDialogs, () => openDialogs > 0);
+}
 
 /**
  * A dialog that can be dismissed three ways - the button, the backdrop, and
@@ -27,6 +41,15 @@ export function Modal({
 }) {
   const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    openDialogs++;
+    dialogListeners.forEach((fn) => fn());
+    return () => {
+      openDialogs--;
+      dialogListeners.forEach((fn) => fn());
+    };
+  }, []);
 
   useEffect(() => {
     closeRef.current?.focus();
