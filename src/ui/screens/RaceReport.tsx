@@ -188,11 +188,15 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
       team: teamOf(e) ?? '-',
       color: bought?.color ?? colorOf.get(f.entryId) ?? '#888',
       look: { ...teamLook(e?.team ?? '', e?.driver ?? ''), ...bought?.look },
-      detail: f.status === 'dnf' ? r.retired : f.position === 1 ? raceTime(f.totalMs) : f.gapMs !== null ? gapTime(f.gapMs) : undefined,
+      detail: f.status === 'dnf' ? r.retired : f.position === 1 ? raceTime(f.totalMs) : gapText(timeGapMs(f, session.classification[0])),
     };
   });
   const mostOvertakes = [...session.classification].sort((a, b) => b.overtakes - a.overtakes)[0];
   const mostLed = [...session.classification].sort((a, b) => b.lapsLed - a.lapsLed)[0];
+  // A car that retired was not clean, however few walls it touched first.
+  const cleanest = session.classification
+    .filter((f) => f.status !== 'dnf')
+    .sort((a, b) => a.wallHits + a.carHits - (b.wallHits + b.carHits))[0];
   const fastestTop = [...session.classification].sort((a, b) => b.topSpeed - a.topSpeed)[0];
   const sessionBest = session.fastestLap?.ms ?? null;
   const laps = plan ? lapsFor(plan) : Math.max(...session.classification.map((f) => f.laps), 1);
@@ -304,12 +308,8 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                         <span className="muted">{r.retired}</span>
                       ) : f.position === 1 ? (
                         raceTime(f.totalMs)
-                      ) : f.laps < (session.classification[0]?.laps ?? f.laps) ? (
-                        // A lapped car's time gap is measured at a different
-                        // line crossing and reads as smaller than it is.
-                        r.lapsDown(session.classification[0].laps - f.laps)
                       ) : (
-                        gapTime(f.gapMs)
+                        gapText(timeGapMs(f, session.classification[0]))
                       )}
                     </td>
                     <td className={`mono num ${lapClass(f.bestLapMs, sessionBest, f.bestLapMs)}`}>
@@ -360,10 +360,8 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
           <Headline label={r.topSpeed} who={entries.get(fastestTop?.entryId ?? '')} value={speedText(fastestTop?.topSpeed ?? 0)} />
           <Headline
             label={r.cleanest}
-            who={entries.get(
-              [...session.classification].sort((a, b) => a.wallHits + a.carHits - (b.wallHits + b.carHits))[0]?.entryId ?? '',
-            )}
-            value={r.wallHits([...session.classification].sort((a, b) => a.wallHits + a.carHits - (b.wallHits + b.carHits))[0]?.wallHits ?? 0)}
+            who={entries.get(cleanest?.entryId ?? '')}
+            value={cleanest ? r.wallHits(cleanest.wallHits) : '-'}
           />
           <Headline
             label={r.dnfs}
@@ -376,6 +374,24 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
       <LapTimes session={session} entries={entries} colorOf={colorOf} />
     </>
   );
+}
+
+/**
+ * How far behind the winner a car was, always as time. For a car that finished
+ * on the winner's lap this is the gap at the flag. A lapped car crossed the line
+ * fewer times, so its own finish time is not comparable with the winner's;
+ * instead it is measured at the last line both crossed - the car's final lap
+ * against the winner's same lap.
+ */
+function timeGapMs(f: Finish, winner: Finish | undefined): number | null {
+  if (!winner || f.laps === 0) return null;
+  if (f.laps >= winner.laps) return f.gapMs;
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  return sum(f.lapTimesMs.slice(0, f.laps)) - sum(winner.lapTimesMs.slice(0, f.laps));
+}
+
+function gapText(ms: number | null): string {
+  return ms === null ? '-' : gapTime(ms);
 }
 
 function Headline({ label, who, value }: { label: string; who?: ArenaEntry; value: string }) {

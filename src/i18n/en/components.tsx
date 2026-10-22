@@ -55,7 +55,7 @@ export const primer: typeof He.primer = {
 export const teamNameForm: typeof He.teamNameForm = {
   label: 'Competitor name - this will be your team name in the table',
   failed: 'Saving the name failed',
-  placeholder: 'For example: Alex',
+  placeholder: 'For example: Blue Lightning',
   saving: 'Saving…',
   save: 'Save',
   cancel: 'Cancel',
