@@ -165,13 +165,13 @@ export function RaceSetup() {
       <div className="row wrap" style={{ marginTop: 18, justifyContent: 'flex-end' }}>
         {race.opponents.length === 0 && (
           <span className="small muted" role="status" style={{ marginInlineEnd: 'auto' }}>
-            {r.pickOne}
+            {r.solo}
           </span>
         )}
         <button className="ghost" onClick={() => go('library')}>
           {r.toGarage}
         </button>
-        <button className="primary" onClick={() => go('race')} disabled={race.opponents.length === 0}>
+        <button className="primary" onClick={() => go('race')}>
           {r.go}
         </button>
       </div>
