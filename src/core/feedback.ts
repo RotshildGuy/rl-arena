@@ -1,3 +1,5 @@
+import { t } from '../i18n/dict';
+
 /**
  * Bug reports and ideas, sent from inside the app.
  *
@@ -30,14 +32,12 @@ export interface Feedback {
   reply?: string;
 }
 
-export const KIND_LABEL: Record<FeedbackKind, string> = { bug: 'באג', idea: 'הצעה לשיפור', other: 'אחר' };
-export const STATUS_LABEL: Record<FeedbackStatus, string> = { new: 'התקבלה', seen: 'נקראה', done: 'טופלה' };
-
-/** A Hebrew explanation of what is wrong, or null. */
+/** An explanation of what is wrong, in the reader's language, or null. */
 export function feedbackProblem(text: string, contact = ''): string | null {
-  const t = text.trim();
-  if (t.length < FEEDBACK_MIN) return `כתבו לפחות ${FEEDBACK_MIN} תווים - מה קרה, או מה הייתם רוצים`;
-  if (t.length > FEEDBACK_MAX) return `עד ${FEEDBACK_MAX} תווים`;
-  if (contact.trim().length > CONTACT_MAX) return `פרטי הקשר ארוכים מדי`;
+  const body = text.trim();
+  const f = t().feedbackCore;
+  if (body.length < FEEDBACK_MIN) return f.tooShort(FEEDBACK_MIN);
+  if (body.length > FEEDBACK_MAX) return f.tooLong(FEEDBACK_MAX);
+  if (contact.trim().length > CONTACT_MAX) return f.contactTooLong;
   return null;
 }

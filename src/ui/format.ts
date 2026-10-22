@@ -1,3 +1,5 @@
+import { locale, t } from '../i18n';
+
 /**
  * Time formatting, motorsport conventions.
  *
@@ -43,13 +45,14 @@ export function untilWords(ms: number): string {
     const days = Math.floor(totalMin / (24 * 60));
     const hours = Math.floor((totalMin % (24 * 60)) / 60);
     const mins = totalMin % 60;
-    const parts = [days > 0 ? `${days} ימ׳` : '', hours > 0 ? `${hours} שע׳` : '', `${mins} דק׳`].filter(Boolean);
+    const f = t().format;
+    const parts = [days > 0 ? f.days(days) : '', hours > 0 ? f.hours(hours) : '', f.minutes(mins)].filter(Boolean);
     return parts.join(' ');
   }
   return untilText(ms);
 }
 
-/** Countdown to a moment, as `d ימים hh:mm:ss`. */
+/** Countdown to a moment, as `d days hh:mm:ss`. */
 export function untilText(ms: number): string {
   if (ms <= 0) return '00:00:00';
   const s = Math.floor(ms / 1000);
@@ -58,23 +61,24 @@ export function untilText(ms: number): string {
   const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
   const ss = String(s % 60).padStart(2, '0');
   const clock = `${hh}:${mm}:${ss}`;
-  return days > 0 ? `${days} ימים ${clock}` : clock;
+  return days > 0 ? t().format.daysClock(days, clock) : clock;
 }
 
 export function dateText(ms: number): string {
-  return new Date(ms).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+  return new Date(ms).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' });
 }
 
 export function timeText(ms: number): string {
-  return new Date(ms).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 }
 
-/** "היום 20:00", "מחר 19:55", or a date - a bare clock time reads as today. */
+/** "today at 20:00", "tomorrow at 19:55", or a date - a bare clock time reads as today. */
 export function whenText(ms: number, now = Date.now()): string {
   const day = (t: number) => new Date(t).toLocaleDateString('en-CA');
   const tomorrow = now + 24 * 60 * 60 * 1000;
-  const which = day(ms) === day(now) ? 'היום' : day(ms) === day(tomorrow) ? 'מחר' : `ב-${dateText(ms)}`;
-  return `${which} ב-${timeText(ms)}`;
+  const f = t().format;
+  const which = day(ms) === day(now) ? f.today : day(ms) === day(tomorrow) ? f.tomorrow : f.onDate(dateText(ms));
+  return f.at(which, timeText(ms));
 }
 
 export function dateTimeText(ms: number): string {
@@ -85,9 +89,10 @@ export function durationText(ms: number): string {
   const s = Math.floor(ms / 1000);
   const m = Math.floor(s / 60);
   const h = Math.floor(m / 60);
-  if (h > 0) return `${h} שע׳ ${m % 60} דק׳`;
-  if (m > 0) return `${m}:${String(s % 60).padStart(2, '0')} דק׳`;
-  return `${s} שנ׳`;
+  const f = t().format;
+  if (h > 0) return f.durationHours(h, m % 60);
+  if (m > 0) return f.durationMinutes(`${m}:${String(s % 60).padStart(2, '0')}`);
+  return f.durationSeconds(s);
 }
 
 export function posClass(position: number, dnf = false): string {
@@ -116,7 +121,7 @@ export function lapClass(ms: number | null, sessionBest: number | null, personal
  * is drawn as 320 km/h, the figure a real single-seater tops out near.
  */
 export function speedText(simSpeed: number): string {
-  return `${Math.round((simSpeed / SIM_MAX_SPEED) * 320)} קמ״ש`;
+  return t().format.kmh(Math.round((simSpeed / SIM_MAX_SPEED) * 320));
 }
 
 /** `MAX_SPEED` in the racing environment. */

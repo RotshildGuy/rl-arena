@@ -1,6 +1,7 @@
 import { firebaseConfigured } from './firebase';
 import { cloudDisabled } from './cloudStatus';
 import { nameKey } from '../core/champ/names';
+import { t } from '../i18n';
 
 /**
  * One team name, one account.
@@ -22,7 +23,7 @@ import { nameKey } from '../core/champ/names';
  */
 export class NameTakenError extends Error {
   constructor() {
-    super('השם הזה כבר תפוס על ידי מתחרה אחר. בחרו שם אחר.');
+    super(t().authErrors.nameTaken);
   }
 }
 

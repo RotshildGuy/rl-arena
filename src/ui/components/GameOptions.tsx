@@ -1,4 +1,5 @@
 import type { GameOption } from '../../core/games/registry';
+import { useT } from '../../i18n';
 
 interface Props {
   options: GameOption[];
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function GameOptions({ options, value, onChange, disabledKeys = [], minima = {}, hiddenKeys = [] }: Props) {
+  const t = useT();
   const set = (key: string, v: unknown) => onChange({ ...value, [key]: v });
 
   return (
@@ -57,7 +59,7 @@ export function GameOptions({ options, value, onChange, disabledKeys = [], minim
                   checked={Boolean(value[o.key])}
                   onChange={(e) => set(o.key, e.target.checked)}
                 />
-                {Boolean(value[o.key]) ? 'מופעל' : 'כבוי'}
+                {Boolean(value[o.key]) ? t.misc.on : t.misc.off}
               </label>
             )}
             {o.hint && <div className="small muted">{o.hint}</div>}

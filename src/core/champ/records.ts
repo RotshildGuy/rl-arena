@@ -114,6 +114,8 @@ export function nextRoundOnTrack(trackId: string, afterRound: number): number | 
 export interface TrainingTarget {
   kind: 'pole' | 'record';
   ms: number;
+  /** Whose lap it is: the entry, so a house driver's name can be shown in the reader's language. */
+  entryId: string;
   driver: string;
   round: number;
   raceName: string;
@@ -139,6 +141,7 @@ export function trainingTarget(
     return {
       kind: 'pole',
       ms: q.bestLapMs,
+      entryId: q.entryId,
       driver: e?.driver ?? '-',
       round: c.round,
       raceName: c.name,
@@ -153,6 +156,7 @@ export function trainingTarget(
     return {
       kind: 'record',
       ms: best.ms,
+      entryId: best.entryId,
       driver: best.driver,
       round: best.round,
       raceName: card?.name ?? '',

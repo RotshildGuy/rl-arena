@@ -19,26 +19,26 @@ import { Feedback } from './screens/Feedback';
 import { Shop } from './screens/Shop';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
-import { ThemeButton } from './components/ThemeButton';
+import { SettingsButton } from './components/SettingsButton';
 import { CoachAnchor, useCoachStep } from './coach';
 import { useIsNarrow } from './device';
 import { track } from '../storage/metrics';
 import { joinLeague, leaguesAvailable } from '../storage/leagues';
+import { t as words, useT } from '../i18n';
 
 interface Tab {
-  id: Screen;
-  label: string;
+  id: 'championship' | 'standings' | 'library' | 'raceSetup' | 'shop';
   glyph: string;
   /** Other screens that should keep this tab lit. */
   also?: Screen[];
 }
 
 const TABS: Tab[] = [
-  { id: 'championship', label: 'אליפות', glyph: '🏁', also: ['broadcast', 'report'] },
-  { id: 'standings', label: 'טבלאות', glyph: '📊' },
-  { id: 'library', label: 'המוסך', glyph: '🔧', also: ['trainSetup', 'training'] },
-  { id: 'raceSetup', label: 'לשחק', glyph: '🎮', also: ['race'] },
-  { id: 'shop', label: 'חנות', glyph: '🛒' },
+  { id: 'championship', glyph: '🏁', also: ['broadcast', 'report'] },
+  { id: 'standings', glyph: '📊' },
+  { id: 'library', glyph: '🔧', also: ['trainSetup', 'training'] },
+  { id: 'raceSetup', glyph: '🎮', also: ['race'] },
+  { id: 'shop', glyph: '🛒' },
 ];
 
 /**
@@ -63,6 +63,8 @@ const TABS: Tab[] = [
  * device and lands in an empty garage that is not theirs.
  */
 export function App() {
+  // Here, at the root, so a change of language redraws everything under it.
+  useT();
   const screen = useApp((s) => s.screen);
   const auth = useSyncExternalStore(subscribeAuth, getAuthView);
 
@@ -76,6 +78,7 @@ export function App() {
 }
 
 function Arena() {
+  const t = useT();
   const screen = useApp((s) => s.screen);
   const adoptCompetitor = useApp((s) => s.adoptCompetitor);
   const toast = useApp((s) => s.toast);
@@ -139,9 +142,9 @@ function Arena() {
       .then((league) => {
         setLeague(league.id);
         go('standings');
-        showToast(`הצטרפתם לליגה "${league.name}"`);
+        showToast(words().app.joinedLeague(league.name));
       })
-      .catch(() => showToast('הקישור לליגה לא עבד - אולי הליגה נמחקה'));
+      .catch(() => showToast(words().app.leagueLinkFailed));
   }, [go, setLeague, showToast]);
 
   // The team name lives with the account, not with the browser, so the first
@@ -175,30 +178,26 @@ function Arena() {
   // lands behind a bottom browser toolbar or the phone's navigation buttons.
   const narrow = useIsNarrow();
   const nav = (
-    <nav className={narrow ? 'nav bottom' : 'nav'} aria-label="ניווט ראשי">
-      {TABS.map((t) => {
+    <nav className={narrow ? 'nav bottom' : 'nav'} aria-label={t.app.mainNav}>
+      {TABS.map((tab) => {
         // The garage is the only tab the guide ever points at, and it does
         // so for two different reasons: nothing built yet, or something
         // built that never made it onto the grid.
-        const nudge = t.id === 'library' && (coach === 'garage' || coach === 'unregistered');
+        const nudge = tab.id === 'library' && (coach === 'garage' || coach === 'unregistered');
         return (
           <CoachAnchor
-            key={t.id}
+            key={tab.id}
             step={nudge ? coach : null}
-            text={
-              coach === 'garage'
-                ? 'עכשיו למוסך - שם מאמנים את המודל שינהג בשבילכם.'
-                : 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.'
-            }
+            text={coach === 'garage' ? t.app.coachGarage : t.app.coachUnregistered}
           >
             <button
-              className={screen === t.id || t.also?.includes(screen) ? 'on' : ''}
-              aria-label={t.label}
-              aria-current={screen === t.id || t.also?.includes(screen) ? 'page' : undefined}
-              onClick={() => go(t.id)}
+              className={screen === tab.id || tab.also?.includes(screen) ? 'on' : ''}
+              aria-label={t.app.tabs[tab.id]}
+              aria-current={screen === tab.id || tab.also?.includes(screen) ? 'page' : undefined}
+              onClick={() => go(tab.id)}
             >
-              <span className="glyph" aria-hidden="true">{t.glyph}</span>
-              <span>{t.label}</span>
+              <span className="glyph" aria-hidden="true">{tab.glyph}</span>
+              <span>{t.app.tabs[tab.id]}</span>
             </button>
           </CoachAnchor>
         );
@@ -219,13 +218,13 @@ function Arena() {
 
         <div className="spacer" />
 
-        <button className="ghost small info-link" onClick={() => openInfo('how')} title="הוראות, תנאי שימוש ופרטיות">
-          מידע
+        <button className="ghost small info-link" onClick={() => openInfo('how')} title={t.app.infoTitle}>
+          {t.app.info}
         </button>
-        <ThemeButton />
+        <SettingsButton />
         <AccountButton />
         {competitor && (
-          <span className="pill" title="שם המתחרה שלכם - הקבוצה שהמודלים שלכם מתחרים בשמה">
+          <span className="pill" title={t.app.competitorTitle}>
             <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
             {/* Its own direction: a Latin name inside the RTL bar was cut off
                 from its start, losing exactly the part that identifies it. */}
@@ -235,11 +234,8 @@ function Arena() {
         {/* A guest is told they are a guest. A green "connected" next to an
             anonymous identity read as "signed in, my progress is safe". */}
         {auth.anonymous && cloud.state === 'ok' ? (
-          <span
-            className="pill small"
-            title="אתם משחקים כאורחים: ההתקדמות שמורה, אבל רק בדפדפן הזה. כדי לשמור אותה גם במכשיר אחר, לחצו על שמירת החשבון."
-          >
-            👤 אורח
+          <span className="pill small" title={t.app.guestTitle}>
+            👤 {t.app.guest}
           </span>
         ) : (
           <CloudBadge state={cloud.state} message={cloud.message} />
@@ -285,7 +281,7 @@ function Arena() {
  */
 function Splash() {
   return (
-    <div className="skel-app" aria-busy aria-label="טוען">
+    <div className="skel-app" aria-busy aria-label={words().misc.loading}>
       <div className="skel-top">
         <span className="brand"><span className="mark">RL</span> <span>ARENA</span></span>
         <span className="skel pill wide-only" style={{ width: '300px', height: '34px' }}></span>
@@ -343,29 +339,30 @@ function Footer({
   onOpen: (tab: 'how' | 'terms' | 'privacy' | 'notices') => void;
   onFeedback(): void;
 }) {
+  const f = useT().app.footer;
   return (
     <footer className="site-foot">
       <button className="ghost small" onClick={onFeedback}>
-        🐞 באג או רעיון?
+        🐞 {f.feedback}
       </button>
       <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('how')}>
-        איך זה עובד
+        {f.how}
       </button>
       <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('terms')}>
-        תנאי שימוש
+        {f.terms}
       </button>
       <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('privacy')}>
-        פרטיות
+        {f.privacy}
       </button>
       <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('notices')}>
-        חשבון ונתונים
+        {f.notices}
       </button>
       <div className="grow" />
-      <span className="dim tiny">פרויקט חובבים · ללא קשר לשום סדרת מרוצים אמיתית</span>
+      <span className="dim tiny">{f.disclaimer}</span>
     </footer>
   );
 }
@@ -375,30 +372,31 @@ function Footer({
  * while sync is silently failing is worse than showing no cloud icon at all.
  */
 function CloudBadge({ state, message }: { state: string; message: string | null }) {
+  const c = useT().app.cloud;
   if (state === 'local') {
     return (
-      <span className="pill small" title="אין חיבור ענן - האליפות רצה מול המודלים של הדפדפן הזה בלבד">
-        💾 מקומי
+      <span className="pill small" title={c.localTitle}>
+        💾 {c.local}
       </span>
     );
   }
   if (state === 'connecting') {
     return (
-      <span className="pill small" title="מתחבר ל-Firestore">
-        ☁ מתחבר…
+      <span className="pill small" title={c.connectingTitle}>
+        ☁ {c.connecting}
       </span>
     );
   }
   if (state === 'ok') {
     return (
-      <span className="pill small good" title="המודלים והאליפות מסונכרנים עם השרת. זה לא אומר שיש חשבון - את זה מראה כפתור החשבון.">
-        ☁ מסונכרן
+      <span className="pill small good" title={c.okTitle}>
+        ☁ {c.ok}
       </span>
     );
   }
   return (
-    <span className="pill small warn" title={message ?? 'סנכרון הענן נכשל'}>
-      ⚠ ענן לא זמין
+    <span className="pill small warn" title={message ?? c.failed}>
+      ⚠ {c.unavailable}
     </span>
   );
 }

@@ -7,6 +7,7 @@ import { getCompetitor } from './identity';
 import { claimName, NameTakenError } from '../storage/teamNames';
 import { invalidateChampionship } from './useChampionship';
 import { track } from '../storage/metrics';
+import { t } from '../i18n';
 
 export class EntryError extends Error {}
 
@@ -33,16 +34,16 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   // a team is the account, and a model trained before a rename is still ours.
   const team = normalizeName(getCompetitor());
   const driver = normalizeName(model.name);
-  if (!team) throw new EntryError('צריך להגדיר שם מתחרה לפני רישום לאליפות');
-  if (model.gameId !== 'racing') throw new EntryError('האליפות מתקיימת במרוץ מכוניות בלבד');
+  if (!team) throw new EntryError(t().entry.noTeam);
+  if (model.gameId !== 'racing') throw new EntryError(t().entry.racingOnly);
 
   // Both names go onto a public leaderboard, so they are checked here rather
   // than at the keyboard: a model can be renamed at any time, and this is the
   // one moment the name becomes everybody else's problem.
   const teamIssue = teamNameProblem(team);
-  if (teamIssue) throw new EntryError(`שם המתחרה - ${teamIssue}`);
+  if (teamIssue) throw new EntryError(t().entry.teamIssue(teamIssue));
   const driverIssue = nameProblem(driver);
-  if (driverIssue) throw new EntryError(`שם המודל - ${driverIssue}`);
+  if (driverIssue) throw new EntryError(t().entry.driverIssue(driverIssue));
 
   // The name goes public here, so this is where it has to be ours. It is also
   // how a name chosen before names were unique gets claimed.
@@ -55,7 +56,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
 
   const [arena, store] = await Promise.all([getArena(), getStore()]);
   const rec = await store.load(model.id);
-  if (!rec) throw new EntryError('לא הצלחתי לטעון את המשקולות של המודל');
+  if (!rec) throw new EntryError(t().entry.noWeights);
 
   const uid = await arena.uid();
   // Strict: an entry list that came back empty because the read failed would
@@ -86,9 +87,7 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
   if (!existing || existing.retired) {
     const onGrid = mine.filter((e) => !e.retired).length;
     if (onGrid >= MAX_ENTRIES_PER_TEAM) {
-      throw new EntryError(
-        `לכל קבוצה מותרים ${MAX_ENTRIES_PER_TEAM} רכבים על המסלול. הסירו רכב קיים כדי לרשום אחר במקומו`,
-      );
+      throw new EntryError(t().entry.teamFull(MAX_ENTRIES_PER_TEAM));
     }
   }
 
@@ -135,11 +134,6 @@ export function entryDrift(entry: ArenaEntry, model: ModelMeta): EntryDrift {
   return 'none';
 }
 
-export const DRIFT_LABEL: Record<Exclude<EntryDrift, 'none'>, string> = {
-  name: 'שם ישן על המסלול',
-  weights: 'גרסה ישנה על המסלול',
-  both: 'שם וגרסה ישנים על המסלול',
-};
 
 /** The car on the grid that came from this model, if there is one. */
 export async function myEntryFor(modelId: string): Promise<ArenaEntry | null> {
@@ -163,7 +157,7 @@ export async function myEntryFor(modelId: string): Promise<ArenaEntry | null> {
 export async function renameEntry(entry: ArenaEntry, driver: string): Promise<void> {
   const name = normalizeName(driver);
   const issue = nameProblem(name);
-  if (issue) throw new EntryError(`שם המודל - ${issue}`);
+  if (issue) throw new EntryError(t().entry.driverIssue(issue));
   const arena = await getArena();
   await arena.putEntry({ ...entry, driver: name, tag: driverTag(name), updatedAt: Date.now() }, null);
   invalidateChampionship();

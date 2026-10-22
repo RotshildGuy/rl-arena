@@ -8,6 +8,8 @@ import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
 import { getArena, type ArenaStore } from '../storage/arena';
 import { getChampCache } from '../storage/champCache';
 import type { FromChamp, ToChamp, WeightPairs } from '../workers/champProtocol';
+import { t } from '../i18n';
+import { grandPrixTitle } from '../i18n/names';
 
 /**
  * Runs the championship forward.
@@ -36,7 +38,7 @@ function ensureWorker(): Worker | null {
       else (p.resolve as (v: RaceResult) => void)(msg.result);
     };
     worker.onerror = () => {
-      for (const p of pending.values()) p.reject(new Error('חישוב המרוץ נכשל'));
+      for (const p of pending.values()) p.reject(new Error(t().misc.raceFailed));
       pending.clear();
     };
   } catch {
@@ -57,7 +59,7 @@ function ask<T>(msg: Untagged<ToChamp>): Promise<T> {
     w.postMessage({ ...msg, tag } as ToChamp);
     // A day that cannot be simulated in a minute is a day something is wrong.
     setTimeout(() => {
-      if (pending.delete(tag)) reject(new Error('חישוב המרוץ לקח יותר מדי זמן'));
+      if (pending.delete(tag)) reject(new Error(t().misc.raceTooSlow));
     }, 60_000);
   });
 }
@@ -163,7 +165,7 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
       if (!card && buildable.has(round)) {
         const field = eligibleEntries(entries, round);
         if (field.length >= MIN_ENTRIES) {
-          onProgress(`מריץ מוקדמות לסבב ${round}…`);
+          onProgress(t().misc.runningQuali(round));
           const weights = await weightsForEntries(arena, field);
           // A house car whose file did not load would be frozen onto the card
           // without a car to drive; better to leave the card to the next visit.
@@ -190,7 +192,7 @@ export async function syncChampionship(onProgress: SyncProgress = () => {}): Pro
       }
 
       if (!result && runnable.has(round)) {
-        onProgress(`מריץ את ${card.name}…`);
+        onProgress(t().misc.runningRace(grandPrixTitle(card.trackId)));
         const weights = await arena.loadRaceWeights(raceId);
         if (weights.size >= MIN_ENTRIES) {
           result = await arena.putResult(await runDay(card, [...weights.entries()]));

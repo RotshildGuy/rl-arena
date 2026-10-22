@@ -1,6 +1,7 @@
 import type { CarLook } from '../../core/games/racing/render';
 import type { RacingSnapshot } from '../../core/games/racing/env';
 import { lapTime, shortGap } from '../format';
+import { useT } from '../../i18n';
 
 export interface TowerCar {
   /** Grid slot, which is also the index into the snapshot. */
@@ -29,6 +30,7 @@ export function TimingTower({
   cars: TowerCar[];
   mode?: 'interval' | 'gap';
 }) {
+  const t = useT();
   return (
     <div className="tower">
       {snap.order.map((carIdx, i) => {
@@ -43,11 +45,11 @@ export function TimingTower({
             <span className="who">{meta.name}</span>
             <span className="gap">
               {retired
-                ? 'פרש'
+                ? t.misc.retired
                 : c.finished
                   ? lapTime(c.totalMs)
                   : i === 0
-                    ? 'מוביל'
+                    ? t.misc.leader
                     : shortGap(mode === 'gap' ? c.gapMs : c.intervalMs)}
             </span>
           </div>

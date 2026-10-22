@@ -4,6 +4,7 @@ import { getStore } from '../storage';
 import { useApp } from './store';
 import { useChampionship } from './useChampionship';
 import { coachStepFor, type CoachStep } from './coachStep';
+import { useT } from '../i18n';
 
 export type { CoachStep };
 
@@ -128,6 +129,7 @@ const MAX_WIDTH = 280;
  * the arrow slides along it to go on pointing at the right place.
  */
 function CoachBubble({ anchor, text, step }: { anchor: HTMLElement; text: string; step: Exclude<CoachStep, null> }) {
+  const t = useT();
   const [bubble, setBubble] = useState<HTMLDivElement | null>(null);
   const [, bump] = useState(0);
 
@@ -250,12 +252,12 @@ function CoachBubble({ anchor, text, step }: { anchor: HTMLElement; text: string
 
   return createPortal(
     <div ref={setBubble} className={`coach ${below ? 'below' : 'above'}`} style={style} role="status" aria-live="polite">
-      <button className="coach-x" onClick={() => dismissCoach(step)} aria-label="סגירת ההסבר">
+      <button className="coach-x" onClick={() => dismissCoach(step)} aria-label={t.misc.coachClose}>
         ✕
       </button>
       <div className="coach-text">{text}</div>
       <button className="coach-skip" onClick={skipCoach}>
-        דלגו על ההדרכה
+        {t.misc.coachSkip}
       </button>
     </div>,
     document.body,

@@ -1,4 +1,5 @@
 import type { SessionPlan } from './types';
+import { t } from '../../i18n/dict';
 
 /** Cars the track can take at once. Four grid rows is as much as these circuits fit. */
 export const GRID_SIZE = 10;
@@ -34,11 +35,12 @@ function roundShapes(n: number): RoundShape[] {
   return shapes;
 }
 
-/** "חצי גמר" when the next round is the final, "רבע גמר" one before that. */
+/** "Semi-final" when the next round is the final, "Quarter-final" one before that. */
 function roundName(roundsLeftAfterThis: number): string {
-  if (roundsLeftAfterThis === 0) return 'חצי גמר';
-  if (roundsLeftAfterThis === 1) return 'רבע גמר';
-  return 'מוקדמות';
+  const c = t().champ;
+  if (roundsLeftAfterThis === 0) return c.semiFinal;
+  if (roundsLeftAfterThis === 1) return c.quarterFinal;
+  return c.heats;
 }
 
 /**
@@ -83,7 +85,7 @@ export function planSessions(qualiOrder: string[]): SessionPlan[] {
   sessions.push({
     id: shapes.length ? 'final' : 'race',
     kind: shapes.length ? 'final' : 'race',
-    name: shapes.length ? 'גמר' : 'מרוץ',
+    name: shapes.length ? t().champ.final : t().champ.race,
     round: shapes.length,
     grid: shapes.length ? [] : qualiOrder,
     advance: 0,
