@@ -4,7 +4,7 @@
 
 ## 0. הכתובת החדשה rl-arena.web.app
 
-- [ ] בקונסולה: Authentication ← Settings ← Authorized domains ← **Add domain** ← `rl-arena.web.app`.
+- [x] (נבדק 22.10: הדומיין ברשימה) בקונסולה: Authentication ← Settings ← Authorized domains ← **Add domain** ← `rl-arena.web.app`.
   בלי זה הכניסה עם Google לא עובדת בכתובת החדשה (בישנה היא ממשיכה לעבוד).
 
 ## 0.1 הרשאה לחשבון השירות של הפריסה
@@ -17,14 +17,16 @@
 
 ## 1. לפני יום ראשון 25.10 (סבב 42)
 
-- [ ] **לבדוק שהכללים של `seasons` לא נעולים ל-`S1`.** מסבב 42 המרוצים נשמרים תחת `seasons/S2/...`.
+- [x] (נבדק 22.10: הכלל הוא `seasons/{seasonId}/...`) **לבדוק שהכללים של `seasons` לא נעולים ל-`S1`.** מסבב 42 המרוצים נשמרים תחת `seasons/S2/...`.
   אם ב-`firestore.rules` כתוב `match /seasons/S1/...` במפורש, צריך להחליף ל-`match /seasons/{season}/...`.
   בלי זה לא יישמר אף מרוץ מיום ראשון.
-- [ ] **לבדוק שהכללים של כרטיס מרוץ לא מגבילים שדות.** כרטיס חדש מכיל שני שדות שלא היו קודם:
+- [x] (נבדק 22.10: אין `hasOnly` בכלל של `races`) **לבדוק שהכללים של כרטיס מרוץ לא מגבילים שדות.** כרטיס חדש מכיל שני שדות שלא היו קודם:
   `physics` (מסבב 42) ו-`fingerprints` (זיהוי העתקות). אם יש בכלל של `races/{raceId}` בדיקת
   `keys().hasOnly([...])`, צריך להוסיף אליה את שניהם.
 
-## 2. כללי Firestore חדשים לפרסום
+## 2. כללי Firestore חדשים לפרסום (בוצע)
+
+נבדק 22.10: הכללים הפרוסים כוללים את כל הבלוקים שלמטה, והמזהה שלך ב-`admins()`.
 
 כל אחד מתועד גם ב-README ליד הפיצ'ר שלו. בלי הכלל הפיצ'ר פשוט לא עובד (בלי להפיל שום דבר אחר).
 להוסיף בתוך `match /databases/{database}/documents`:
@@ -82,7 +84,7 @@ match /shop/{uid} {
 }
 ```
 
-- [ ] **להוסיף את המזהה שלך ל-`admins()`** (אם עוד לא שם). המזהה מופיע באתר תחת מידע ← קרדיטים.
+- [x] (נבדק 22.10) **להוסיף את המזהה שלך ל-`admins()`** (אם עוד לא שם). המזהה מופיע באתר תחת מידע ← קרדיטים.
   רק כך תראה את מדדי השימור (מידע ← קרדיטים) ואת כל הפניות (עמוד "באג או רעיון?").
 
 ## 3. הסרת התראות הדחיפה (2.3)
@@ -90,14 +92,14 @@ match /shop/{uid} {
 ההתראות הוסרו מהאתר (הכפתור, הקוד בדפדפן, והפונקציות ב-`functions/index.js`). הפונקציות שכבר
 פרוסות ממשיכות לשלוח עד שמוחקים אותן, ולכן:
 
-- [ ] לפרוס את הפונקציות ממחשב עם firebase-tools, אחרי שהמיזוג ב-`main`:
+- [x] (בוצע 22.10: שלוש הפונקציות נמחקו, ואין יותר פונקציות פרוסות) לפרוס את הפונקציות ממחשב עם firebase-tools, אחרי שהמיזוג ב-`main`:
   ```bash
   cd functions && npm install && cd ..
   firebase deploy --only functions
   ```
   הפריסה תשאל אם למחוק את `raceReminder`, `raceResult` ו-`feedbackReply` - לענות כן.
   (או ישירות: `firebase functions:delete raceReminder raceResult feedbackReply --region me-west1`.)
-- [ ] ב-`firestore.rules`: למחוק את הבלוק `match /pushTokens/{token}` ולפרסם.
+- [x] (בוצע 22.10) ב-`firestore.rules`: למחוק את הבלוק `match /pushTokens/{token}` ולפרסם.
 - [ ] בקונסולה ← Firestore: למחוק את האוספים `pushTokens` ו-`pushSent`.
 - [ ] ב-GitHub ← Settings ← Secrets and variables ← Actions: אפשר למחוק את `VITE_FIREBASE_VAPID_KEY`.
 
