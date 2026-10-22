@@ -8,14 +8,15 @@ import { getStore, type ModelMeta } from '../../storage';
 import { isTouchDevice } from '../device';
 import { useChampionship } from '../useChampionship';
 import { ARENA_PREFIX } from '../opponents';
+import { HOUSE_DRIVERS } from '../../core/champ/house';
 import { lapTime } from '../format';
 
 /**
  * Setting up a race against models.
  *
- * Two pools, deliberately: your own garage, and the cars actually racing in the
- * championship. Lining up against the current points leader is the most direct
- * answer the game can give to "is my model any good".
+ * Two pools: your own garage, and championship cars - your own entries and the
+ * house team. Other teams' cars are not on the list: their weights stay with
+ * their owners, and only the server races them.
  */
 export function RaceSetup() {
   const { gameId, race, patchRace, go, competitor: team } = useApp();
@@ -34,7 +35,11 @@ export function RaceSetup() {
 
   const arenaEntries = useMemo(() => {
     if (!champ.state) return [];
-    return champ.state.entries.filter((e) => !e.retired && e.gameId === 'racing' && e.obsVersion === game.spec.obsVersion);
+    const uid = champ.state.uid;
+    const mine = champ.state.entries.filter(
+      (e) => e.uid === uid && !e.retired && e.gameId === 'racing' && e.obsVersion === game.spec.obsVersion,
+    );
+    return [...mine, ...HOUSE_DRIVERS.filter((h) => h.obsVersion === game.spec.obsVersion)];
   }, [champ.state, gameId, game.spec.obsVersion]);
 
   /** Best qualifying lap each entry has set this season - a rough form guide. */
@@ -106,7 +111,7 @@ export function RaceSetup() {
                 המודלים שלי
               </button>
             <button style={{ flex: 1 }} className={pool === 'arena' ? 'on' : ''} onClick={() => setPool('arena')}>
-              רשת האליפות
+              מהאליפות
             </button>
           </div>
 
@@ -154,6 +159,9 @@ export function RaceSetup() {
                   onToggle={toggle}
                 />
               ))}
+              <div className="small muted" style={{ marginTop: 8 }}>
+                הרכבים שלכם וקבוצת הבית. רכבים של קבוצות אחרות פוגשים רק במרוץ עצמו.
+              </div>
             </>
           )}
         </div>

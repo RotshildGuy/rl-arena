@@ -6,9 +6,10 @@
  *                      who turned reminders on;
  *   from 19:55         the day's race. From the moment the entry list closes,
  *                      every minute to 21:59, the job makes sure the round has
- *                      its card and its result, running them itself
- *                      (`raceDay.js`) when no browser has yet - so the race
- *                      happens even if nobody opens the site. Browsers only
+ *                      its card, its replay and its result, running them
+ *                      itself (`raceDay.js`). This is the only place the
+ *                      championship is raced: browsers cannot read anybody
+ *                      else's weights, and watch from the replay. They only
  *                      read a result once the lights are out, at 20:00.
  *   after the race     how each person's best car finished, the minute the
  *                      broadcast ends, from that same job.
@@ -35,6 +36,7 @@ const { getMessaging } = require('firebase-admin/messaging');
 const { dayEndsAt, lockAtForRound, raceIdForRound, roundOfDay } = require('./race');
 const { feedbackChange } = require('./feedback');
 const { raceRound, HOUSE_IDS } = require('./raceDay');
+const { makeArena } = require('./arena');
 
 initializeApp();
 const db = getFirestore();
@@ -47,67 +49,8 @@ const REGION = 'me-west1';
 // The house cars, from the copies of public/house/ the build puts here.
 const HOUSE = new Map(HOUSE_IDS.map((id) => [id, require(`./house/${id}.json`).weightsB64]));
 
-function raceRef(raceId) {
-  return db.collection('seasons').doc(raceId.split('-')[0]).collection('races').doc(raceId);
-}
-
-/*
- * The arena, the way `FirestoreArena` (src/storage/arena.ts) reads and writes
- * it - only what a race day needs. Cards, their cars and results are created,
- * never overwritten: admin writes skip the security rules, so `create` is what
- * keeps the server to the same "first record stands" rule as the browsers.
- */
-const arena = {
-  async listEntries() {
-    return (await db.collection('arena').get()).docs.map((d) => d.data());
-  },
-  async loadEntryWeights(id) {
-    const snap = await db.collection('arena').doc(id).collection('data').doc('weights').get();
-    return snap.exists ? (snap.data().weightsB64 ?? null) : null;
-  },
-  async getCard(raceId) {
-    const snap = await raceRef(raceId).get();
-    return snap.exists ? snap.data() : null;
-  },
-  async putCard(card, cars) {
-    const race = raceRef(card.id);
-    try {
-      // Cars first: a card without its weights would be an unraceable record.
-      const all = [...cars];
-      for (let i = 0; i < all.length; i += 20) {
-        const batch = db.batch();
-        for (const [entryId, weightsB64] of all.slice(i, i + 20)) batch.create(race.collection('cars').doc(entryId), { entryId, weightsB64 });
-        await batch.commit();
-      }
-      await race.create(card);
-      return card;
-    } catch (err) {
-      // A browser got there first. Its card stands; if it has not landed yet,
-      // the next minute's run finds it.
-      const landed = await arena.getCard(card.id);
-      if (landed) return landed;
-      throw err;
-    }
-  },
-  async loadRaceWeights(raceId) {
-    const snap = await raceRef(raceId).collection('cars').get();
-    return new Map(snap.docs.map((d) => [d.data().entryId, d.data().weightsB64]));
-  },
-  async getResult(raceId) {
-    const snap = await raceRef(raceId).collection('result').doc('final').get();
-    return snap.exists ? snap.data() : null;
-  },
-  async putResult(result) {
-    try {
-      await raceRef(result.raceId).collection('result').doc('final').create(result);
-      return result;
-    } catch (err) {
-      const landed = await arena.getResult(result.raceId);
-      if (landed) return landed;
-      throw err;
-    }
-  },
-};
+const arena = makeArena(db);
+const { raceRef } = arena;
 
 async function allTokens() {
   const snap = await db.collection('pushTokens').get();

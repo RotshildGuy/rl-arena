@@ -10,13 +10,13 @@ import { getChampCache } from '../storage/champCache';
 import type { FromChamp, ToChamp, WeightPairs } from '../workers/champProtocol';
 
 /**
- * Runs the championship forward.
+ * Brings the championship up to date.
  *
- * Whoever opens the app does the work: any round whose lights have gone out but
- * that nobody has simulated yet gets built, raced and written back, create-only,
- * so the first record to land is the record. The server runs today's round at
- * 20:00 the same way (`src/server/raceDay.ts`); this is what catches anything
- * it missed, and what runs the championship without a cloud at all.
+ * In the cloud the server races every day (`src/server/raceDay.ts`) and this
+ * only reads: the browser cannot read anybody else's weights, so it could not
+ * race the day if it tried. Without a cloud, the championship is this
+ * browser's own models, and this is what races it: any round whose lights have
+ * gone out gets built, raced and written back.
  */
 
 let worker: Worker | null = null;
@@ -127,6 +127,7 @@ export async function syncChampionship(): Promise<ChampionshipState> {
   const arena = await getArena();
   const [entries, uid] = await Promise.all([arena.listEntries(), arena.uid()]);
   const cache = getChampCache(arena.kind);
+  const raceHere = arena.kind === 'local';
 
   const cards = new Map<string, RaceCard>();
   const results = new Map<string, RaceResult>();
@@ -157,7 +158,7 @@ export async function syncChampionship(): Promise<ChampionshipState> {
         if (card) await cache.putCard(card);
       }
 
-      if (!card && buildable.has(round)) {
+      if (!card && raceHere && buildable.has(round)) {
         const field = eligibleEntries(entries, round);
         if (field.length >= MIN_ENTRIES) {
           const weights = await weightsForEntries(arena, field);
@@ -187,7 +188,7 @@ export async function syncChampionship(): Promise<ChampionshipState> {
         if (result) await cache.putResult(result);
       }
 
-      if (!result && runnable.has(round)) {
+      if (!result && raceHere && runnable.has(round)) {
         const weights = await arena.loadRaceWeights(raceId);
         if (weights.size >= MIN_ENTRIES) {
           result = await arena.putResult(await runDay(card, [...weights.entries()]));

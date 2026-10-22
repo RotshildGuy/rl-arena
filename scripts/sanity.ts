@@ -18,7 +18,7 @@ import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../s
 import { bestBraking, drive, flatOutLoses } from './drivers';
 import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
 import { RACING_SPEC, OBS_SIZE, RACING_PRESETS } from '../src/core/games/racing/rewards';
-import { planSessions, GRID_SIZE, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
+import { lapsFor, planSessions, GRID_SIZE, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, nameKey, normalizeName, NAME_MAX } from '../src/core/champ/names';
 import { resolveCompetitor } from '../src/ui/competitorMerge';
@@ -65,12 +65,13 @@ import { spent, validLook, ITEM_BY_ID } from '../src/core/champ/shop';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { raceRound, HOUSE_IDS, type RaceStore } from '../src/server/raceDay';
+import { raceRound, replayRound, HOUSE_IDS, type RaceStore } from '../src/server/raceDay';
+import { decodeActions, encodeActions, type DayReplay } from '../src/core/champ/replay';
 import { buildFunctions } from './buildFunctions';
 import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { Policy } from '../src/core/rl/policy';
-import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
+import { SessionSim, QUALI_LAPS, qualifyingOrder, replayDriversFor } from '../src/core/champ/sim';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -1646,13 +1647,22 @@ function copiesTest(): void {
 }
 
 /** An arena in memory, create-only like the real one, for running a race day. */
-function memoryArena(entries: ArenaEntry[], weights: Map<string, string>): RaceStore & { cards: Map<string, RaceCard>; results: Map<string, RaceResult> } {
+function memoryArena(
+  entries: ArenaEntry[],
+  weights: Map<string, string>,
+): RaceStore & { cards: Map<string, RaceCard>; results: Map<string, RaceResult>; replays: Map<string, DayReplay | null> } {
   const cards = new Map<string, RaceCard>();
   const cars = new Map<string, Map<string, string>>();
   const results = new Map<string, RaceResult>();
+  const replays = new Map<string, DayReplay | null>();
   return {
     cards,
     results,
+    replays,
+    hasReplay: async (id) => replays.has(id),
+    putReplay: async (id, r) => {
+      replays.set(id, r);
+    },
     listEntries: async () => entries,
     loadEntryWeights: async (id) => weights.get(id) ?? null,
     getCard: async (id) => cards.get(id) ?? null,
@@ -1705,6 +1715,28 @@ async function serverRaceDayTest(): Promise<void> {
   const strip = <T extends object>(x: T | undefined, key: string) => JSON.stringify({ ...x, [key]: 0 });
   check('the bundle builds the same card', strip(source.cards.get(raceId), 'createdAt') === strip(built.cards.get(raceId), 'createdAt'));
   check('and the same result', strip(source.results.get(raceId), 'computedAt') === strip(built.results.get(raceId), 'computedAt'));
+
+  // The replay drives the race the result records, with no weights at all.
+  const replay = source.replays.get(raceId);
+  const card = source.cards.get(raceId)!;
+  const plans = planSessions(qualifyingOrder(card.qualifying));
+  let same = !!replay && replay.size === source.results.get(raceId)!.sessions.length;
+  for (const s of source.results.get(raceId)!.sessions) {
+    const plan = plans.find((p) => p.id === s.sessionId)!;
+    const sim = new SessionSim(card.trackId, lapsFor(plan), replayDriversFor(s.grid, replay?.get(s.sessionId) ?? {}), card.seed + plan.offsetMs, card.physics);
+    sim.runToEnd();
+    if (JSON.stringify(sim.result(s.sessionId, s.grid)) !== JSON.stringify(s)) same = false;
+  }
+  check('the replay drives exactly the race on the timing sheet', same);
+  const actions = [4, 4, 4, 0, 0, 8, ...new Array<number>(300).fill(2), 4];
+  check('actions survive their encoding', Array.from(decodeActions(encodeActions(actions))).join() === actions.join());
+
+  // A day raced before replays existed gets one, if it reproduces.
+  source.replays.delete(raceId);
+  check('a day raced without a replay is given one', (await raceRound(source, round, house)) === 'replayed' && !!source.replays.get(raceId));
+  const forged = { ...source.results.get(raceId)!, sessions: source.results.get(raceId)!.sessions.slice(1) };
+  source.replays.delete(raceId);
+  check('but not one that would drive a different race', (await replayRound(source, card, forged)) === 'mismatch' && source.replays.get(raceId) === null);
 
   const empty = memoryArena([], new Map());
   check('no cars, no race', (await raceRound(empty, round, house)) === 'no-field' && empty.cards.size === 0);

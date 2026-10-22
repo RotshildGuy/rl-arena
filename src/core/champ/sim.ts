@@ -4,6 +4,7 @@ import { defaultRewards } from '../games/types';
 import { Policy } from '../rl/policy';
 import { lapsFor, planSessions, snakeSeed } from './format';
 import { awardPoints } from './points';
+import { encodeActions, RecordingDriver, ReplayDriver, type DayReplay } from './replay';
 import type {
   ArenaEntry,
   DayPlace,
@@ -32,9 +33,14 @@ function maxStepsFor(laps: number): number {
  */
 const RACE_REWARDS = defaultRewards(RACING_SPEC);
 
+/** Whatever chooses a car's action each step: a network, or a recording of one. */
+export interface Driver {
+  act(obs: Float32Array): number;
+}
+
 export interface SimCar {
   entryId: string;
-  policy: Policy;
+  policy: Driver;
 }
 
 /**
@@ -211,6 +217,17 @@ export function policiesFor(
   return out;
 }
 
+/** The cars of a session driven from its replay, in grid order. */
+export function replayDriversFor(ids: string[], replay: Record<string, string>): SimCar[] {
+  const out: SimCar[] = [];
+  for (const id of ids) {
+    const actions = replay[id];
+    if (actions === undefined) continue;
+    out.push({ entryId: id, policy: new ReplayDriver(actions) });
+  }
+  return out;
+}
+
 /** Grid for a session, resolving the heats that are fed by an earlier round. */
 export function gridFor(session: SessionPlan, resolved: Map<string, string[]>): string[] {
   return session.grid.length ? session.grid : (resolved.get(session.id) ?? []);
@@ -248,10 +265,12 @@ export function roundsOf(sessions: SessionPlan[]): Map<number, SessionPlan[]> {
 
 /**
  * Run a whole race day and classify it. Deterministic: the same card and the
- * same weights always produce the same result, which is what lets anyone replay
- * a race and watch exactly what the timing sheet recorded.
+ * same weights always produce the same result.
+ *
+ * Given `replay`, it also records every session's actions into it, so the day
+ * can be watched again without anybody's weights (`replay.ts`).
  */
-export function runRaceDay(card: RaceCard, weights: Map<string, string>): RaceResult {
+export function runRaceDay(card: RaceCard, weights: Map<string, string>, replay?: DayReplay): RaceResult {
   const entries = new Map(card.entries.map((e) => [e.id, e]));
   const order = qualifyingOrder(card.qualifying);
   const sessions = planSessions(order);
@@ -267,8 +286,13 @@ export function runRaceDay(card: RaceCard, weights: Map<string, string>): RaceRe
       const grid = gridFor(session, resolved);
       const cars = policiesFor(grid, entries, weights);
       if (cars.length === 0) continue;
-      const sim = new SessionSim(card.trackId, lapsFor(session), cars, card.seed + session.offsetMs, card.physics);
+      const recorders = replay ? cars.map((c) => new RecordingDriver(c.policy)) : null;
+      const driven = recorders ? cars.map((c, i) => ({ ...c, policy: recorders[i] })) : cars;
+      const sim = new SessionSim(card.trackId, lapsFor(session), driven, card.seed + session.offsetMs, card.physics);
       sim.runToEnd();
+      if (replay && recorders) {
+        replay.set(session.id, Object.fromEntries(cars.map((c, i) => [c.entryId, encodeActions(recorders[i].actions)])));
+      }
       const res = sim.result(session.id, grid);
       results.set(session.id, res);
       sessionResults.push(res);
