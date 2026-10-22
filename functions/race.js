@@ -29,6 +29,13 @@ function startsAtForRound(round) {
   return Date.UTC(y, m, d, 20 - israelOffsetAt20(y, m, d));
 }
 
+/** The entry list closes this long before the lights (LOCK_BEFORE_MS in schedule.ts). */
+const LOCK_BEFORE_MS = 5 * 60 * 1000;
+
+function lockAtForRound(round) {
+  return startsAtForRound(round) - LOCK_BEFORE_MS;
+}
+
 /** The round whose lights go out on the Israeli calendar day of `now`. */
 function roundOfDay(now) {
   let round = Math.floor((now - startsAtForRound(1)) / DAY_MS) + 1;
@@ -79,4 +86,4 @@ function dayEndsAt(card, result) {
   return max > 0 ? Math.min(slotEnd, startsAt + Math.ceil(max / 1000) * 1000) : slotEnd;
 }
 
-module.exports = { startsAtForRound, roundOfDay, seasonNumber, raceIdForRound, dayEndsAt };
+module.exports = { startsAtForRound, lockAtForRound, roundOfDay, seasonNumber, raceIdForRound, dayEndsAt };

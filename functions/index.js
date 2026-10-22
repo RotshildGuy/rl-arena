@@ -4,10 +4,12 @@
  *
  *   19:45 Israel time  "the race starts in a quarter of an hour", to everyone
  *                      who turned reminders on;
- *   from 20:00         the day's race. Every minute from 20:00 to 21:59 the
- *                      job makes sure the round has its card and its result,
- *                      running them itself (`raceDay.js`) when no browser has
- *                      yet - so the race happens even if nobody opens the site.
+ *   from 19:55         the day's race. From the moment the entry list closes,
+ *                      every minute to 21:59, the job makes sure the round has
+ *                      its card and its result, running them itself
+ *                      (`raceDay.js`) when no browser has yet - so the race
+ *                      happens even if nobody opens the site. Browsers only
+ *                      read a result once the lights are out, at 20:00.
  *   after the race     how each person's best car finished, the minute the
  *                      broadcast ends, from that same job.
  *                      pushSent/{raceId} records that a day's results went out.
@@ -30,7 +32,7 @@ const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
-const { dayEndsAt, raceIdForRound, roundOfDay, startsAtForRound } = require('./race');
+const { dayEndsAt, lockAtForRound, raceIdForRound, roundOfDay } = require('./race');
 const { feedbackChange } = require('./feedback');
 const { raceRound, HOUSE_IDS } = require('./raceDay');
 
@@ -152,24 +154,26 @@ exports.raceReminder = onSchedule({ schedule: '45 19 * * *', timeZone: 'Asia/Jer
 /*
  * A six-car day simulates in under a second; a full grid with heats takes a
  * few. The timeout is room for that on a cold start, not an expectation.
+ *
+ * Cron cannot say "19:55 to 21:59", so it runs from 19:00 and the ticks before
+ * the lock return at once, without touching Firestore.
  */
-const RACE_OPTIONS = { schedule: '* 20-21 * * *', timeZone: 'Asia/Jerusalem', region: REGION, memory: '512MiB', timeoutSeconds: 300 };
+const RACE_OPTIONS = { schedule: '* 19-21 * * *', timeZone: 'Asia/Jerusalem', region: REGION, memory: '512MiB', timeoutSeconds: 300 };
 
 exports.raceResult = onSchedule(RACE_OPTIONS, async () => {
   const now = Date.now();
   const round = roundOfDay(now);
+  // Not while the entry list is open: the field is only final from the lock.
+  if (now < lockAtForRound(round)) return;
   const raceId = raceIdForRound(round);
   const sent = db.collection('pushSent').doc(raceId);
   if ((await sent.get()).exists) return;
-  // Never before the lights: a tick that fires a moment early must not race.
-  if (now >= startsAtForRound(round)) {
-    try {
-      const outcome = await raceRound(arena, round, HOUSE);
-      if (outcome !== 'already') console.log(`${raceId}: ${outcome}`);
-    } catch (err) {
-      // Next minute tries again, and a browser may yet run it.
-      console.error(`${raceId}: race day failed`, err);
-    }
+  try {
+    const outcome = await raceRound(arena, round, HOUSE);
+    if (outcome !== 'already') console.log(`${raceId}: ${outcome}`);
+  } catch (err) {
+    // Next minute tries again, and a browser may yet run it.
+    console.error(`${raceId}: race day failed`, err);
   }
   const race = raceRef(raceId);
   const [cardSnap, resultSnap] = await Promise.all([race.get(), race.collection('result').doc('final').get()]);

@@ -10,7 +10,9 @@ import type { ArenaStore } from '../storage/arena';
  *
  * The same thing `syncChampionship` does for one round when somebody opens the
  * site - build the card if it is missing, then run the day if its result is -
- * so the race happens at 20:00 whether or not anyone is watching. Bundled into
+ * so the race happens whether or not anyone is watching. The server runs it
+from the lock at 19:55, ahead of the browsers; they only read a result once
+the lights are out at 20:00. Bundled into
  * `functions/raceDay.js` by `npm run build:functions` and called every minute
  * of the race window by `raceResult` in `functions/index.js`.
  *

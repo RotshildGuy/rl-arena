@@ -1715,6 +1715,7 @@ function functionsCalendarTest(): void {
   console.log(CHAPTER + 'Server calendar');
   const server = createRequire(import.meta.url)('../functions/race.js') as {
     startsAtForRound(r: number): number;
+    lockAtForRound(r: number): number;
     raceIdForRound(r: number): string;
     roundOfDay(now: number): number;
     dayEndsAt(card: RaceCard, result: RaceResult | null): number;
@@ -1723,6 +1724,7 @@ function functionsCalendarTest(): void {
   let today = true;
   for (let r = 1; r <= 365 * 4; r++) {
     if (server.startsAtForRound(r) !== startsAtForRound(r) || server.raceIdForRound(r) !== raceIdForRound(r)) same = false;
+    if (server.lockAtForRound(r) !== lockAtForRound(r)) same = false;
     // 19:45 and 20:45 on a race day both belong to that day's round.
     if (server.roundOfDay(startsAtForRound(r) - 15 * 60_000) !== r || server.roundOfDay(startsAtForRound(r) + 45 * 60_000) !== r) {
       today = false;

@@ -180,7 +180,9 @@ export async function syncChampionship(): Promise<ChampionshipState> {
       cards.set(raceId, card);
 
       let result = await cache.getResult(raceId);
-      if (!result) {
+      // Not before the lights: the server races the day from the lock, five
+      // minutes early, and its result must not reach the screens before 20:00.
+      if (!result && runnable.has(round)) {
         result = await arena.getResult(raceId);
         if (result) await cache.putResult(result);
       }
