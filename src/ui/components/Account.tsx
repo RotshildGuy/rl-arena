@@ -12,6 +12,7 @@ import {
   subscribeAuth,
   switchAccount,
 } from '../auth';
+import { t, useT } from '../../i18n';
 
 const MIN_PASSWORD = 6;
 
@@ -25,6 +26,7 @@ const MIN_PASSWORD = 6;
  * header has room for about three things.
  */
 export function AccountButton() {
+  const a = useT().account;
   const auth = useSyncExternalStore(subscribeAuth, getAuthView);
   const [open, setOpen] = useState(false);
   if (auth.phase !== 'in') return null;
@@ -35,14 +37,10 @@ export function AccountButton() {
       <button
         className={`ghost small account-btn${linked ? '' : ' unlinked'}`}
         onClick={() => setOpen(true)}
-        title={
-          linked
-            ? `מחובר${auth.email ? ` כ-${auth.email}` : ''}`
-            : 'החשבון שלכם אנונימי וחי בדפדפן הזה בלבד. אפשר לקשר אותו ל-Google או למייל - או להתחבר לחשבון שכבר יש לכם'
-        }
+        title={linked ? a.signedInAs(auth.email) : a.anonymousTitle}
       >
         <span className="glyph">{linked ? '👤' : '🔗'}</span>
-        <span className="txt">{linked ? 'החשבון שלי' : 'שמירת החשבון'}</span>
+        <span className="txt">{linked ? a.mine : a.save}</span>
       </button>
       {open && <AccountModal onClose={() => setOpen(false)} />}
     </>
@@ -60,6 +58,7 @@ type Conflict = { kind: 'google' } | { kind: 'password'; email: string; password
  * exactly where they were, and the account simply gains a second door.
  */
 export function AccountModal({ onClose }: { onClose(): void }) {
+  const a = useT().account;
   const auth = useSyncExternalStore(subscribeAuth, getAuthView);
   const showToast = useApp((s) => s.showToast);
   const [email, setEmail] = useState('');
@@ -82,7 +81,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
     setConflict(null);
     try {
       await fn();
-      showToast('החשבון קושר - אפשר להתחבר איתו מכל מכשיר');
+      showToast(t().account.linkedToast);
       onClose();
     } catch (e) {
       const err = authError(e);
@@ -96,8 +95,8 @@ export function AccountModal({ onClose }: { onClose(): void }) {
 
   const linkEmail = (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return setError('צריך להקליד כתובת מייל.');
-    if (password.length < MIN_PASSWORD) return setError(`הסיסמה קצרה מדי - לפחות ${MIN_PASSWORD} תווים.`);
+    if (!email.trim()) return setError(a.needEmail);
+    if (password.length < MIN_PASSWORD) return setError(a.shortPassword(MIN_PASSWORD));
     void attempt('email', () => link.password(email, password), { kind: 'password', email, password });
   };
 
@@ -120,8 +119,8 @@ export function AccountModal({ onClose }: { onClose(): void }) {
    */
   const enter = async (how: 'google' | 'email') => {
     if (how === 'email') {
-      if (!inEmail.trim()) return setError('צריך להקליד כתובת מייל.');
-      if (!inPassword) return setError('צריך להקליד סיסמה.');
+      if (!inEmail.trim()) return setError(a.needEmail);
+      if (!inPassword) return setError(a.needPassword);
     }
     setBusy(how === 'google' ? 'in-google' : 'in-email');
     setError(null);
@@ -150,34 +149,20 @@ export function AccountModal({ onClose }: { onClose(): void }) {
   };
 
   return (
-    <Modal eyebrow="החשבון שלי" title={linked ? 'החשבון מקושר' : 'החשבון שלכם אנונימי'} onClose={onClose}>
+    <Modal eyebrow={a.mine} title={linked ? a.linkedTitle : a.anonymousHeading} onClose={onClose}>
       {linked ? (
         <>
           <p className="small">
-            {auth.email ? (
-              <>
-                מחוברים כ-<b className="mono">{auth.email}</b>.
-              </>
-            ) : (
-              'החשבון מקושר.'
-            )}{' '}
-            אפשר להתחבר איתו מכל מכשיר ולמצוא את אותם מודלים, אותם רכבים ואותן נקודות.
+            {auth.email ? a.connectedAs(auth.email) : a.linked} {a.anyDevice}
           </p>
           <p className="small muted">
-            דרכי כניסה: {auth.providers.map(providerLabel).join(' · ')}
+            {a.ways} {auth.providers.map(providerLabel).join(' · ')}
           </p>
         </>
       ) : (
         <>
-          <p className="small">
-            הזהות שלכם נוצרה אוטומטית וחיה <b>בדפדפן הזה בלבד</b>. הכל עובד איתה כרגיל, אבל אם
-            תנקו את נתוני האתר, תחליפו מכשיר או תפתחו חלון פרטי - אין דרך לחזור אליה, והרכבים
-            והנקודות שלכם באליפות יישארו מאחור.
-          </p>
-          <p className="small muted">
-            קישור לחשבון <b>לא מעביר כלום ולא מתחיל מחדש</b>: אותו מזהה, אותם מודלים, אותם רכבים
-            על הגריד ואותן נקודות - רק עם דרך חזרה. אפשר גם להמשיך בלי לקשר, ושום דבר לא ישתנה.
-          </p>
+          <p className="small">{a.anonymousBody}</p>
+          <p className="small muted">{a.linkBody}</p>
 
           <button
             className="provider"
@@ -185,16 +170,16 @@ export function AccountModal({ onClose }: { onClose(): void }) {
             onClick={() => void attempt('google', link.google, { kind: 'google' })}
           >
             <GoogleMark />
-            {busy === 'google' ? 'מקשר…' : 'קשר לחשבון Google'}
+            {busy === 'google' ? a.linking : a.linkGoogle}
           </button>
 
           <div className="auth-or">
-            <span>או</span>
+            <span>{a.or}</span>
           </div>
 
           <form onSubmit={linkEmail}>
             <div className="field">
-              <label htmlFor="link-email">מייל</label>
+              <label htmlFor="link-email">{a.email}</label>
               <input
                 id="link-email"
                 type="email"
@@ -206,7 +191,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
               />
             </div>
             <div className="field">
-              <label htmlFor="link-password">סיסמה חדשה</label>
+              <label htmlFor="link-password">{a.newPassword}</label>
               <input
                 id="link-password"
                 type="password"
@@ -217,24 +202,20 @@ export function AccountModal({ onClose }: { onClose(): void }) {
               />
             </div>
             <button className="primary wide" type="submit" disabled={busy !== null}>
-              {busy === 'email' ? 'מקשר…' : 'קשר מייל וסיסמה'}
+              {busy === 'email' ? a.linking : a.linkEmail}
             </button>
           </form>
 
-          <h3 style={{ margin: '18px 0 6px' }}>כבר יש לי חשבון</h3>
+          <h3 style={{ margin: '18px 0 6px' }}>{a.haveAccount}</h3>
           {entering ? (
             <>
-              <p className="small">
-                התחברות לחשבון קיים <b>מחליפה</b> את הזהות שיושבת עכשיו בדפדפן הזה - היא לא
-                מתמזגת איתה. הרכבים שלה על הגריד והנקודות שצברה יישארו שלה, ואין דרך לחזור
-                אליה. המודלים השמורים בדפדפן הזה יעברו איתכם.
-              </p>
+              <p className="small">{a.switchWarning}</p>
               <button className="provider" disabled={busy !== null} onClick={() => void enter('google')}>
                 <GoogleMark />
-                {busy === 'in-google' ? 'מתחבר…' : 'התחברות עם Google'}
+                {busy === 'in-google' ? a.signingIn : a.signInGoogle}
               </button>
               <div className="auth-or">
-                <span>או</span>
+                <span>{a.or}</span>
               </div>
               <form
                 onSubmit={(e) => {
@@ -243,7 +224,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
                 }}
               >
                 <div className="field">
-                  <label htmlFor="in-email">מייל</label>
+                  <label htmlFor="in-email">{a.email}</label>
                   <input
                     id="in-email"
                     type="email"
@@ -255,7 +236,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="in-password">סיסמה</label>
+                  <label htmlFor="in-password">{a.password}</label>
                   <input
                     id="in-password"
                     type="password"
@@ -266,7 +247,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
                   />
                 </div>
                 <button className="primary wide" type="submit" disabled={busy !== null}>
-                  {busy === 'in-email' ? 'מתחבר…' : 'התחברות'}
+                  {busy === 'in-email' ? a.signingIn : a.signIn}
                 </button>
               </form>
               <button
@@ -275,15 +256,12 @@ export function AccountModal({ onClose }: { onClose(): void }) {
                 disabled={busy !== null}
                 onClick={() => setEntering(false)}
               >
-                ביטול
+                {a.cancel}
               </button>
             </>
           ) : (
             <>
-              <p className="small muted">
-                קישרתם חשבון במכשיר אחר? הדפדפן הזה נכנס אוטומטית לזהות שכבר יש לו, אז כדי
-                להגיע לחשבון שלכם צריך להתחבר אליו כאן במפורש.
-              </p>
+              <p className="small muted">{a.otherDevice}</p>
               <button
                 className="wide"
                 disabled={busy !== null}
@@ -293,7 +271,7 @@ export function AccountModal({ onClose }: { onClose(): void }) {
                   setConflict(null);
                 }}
               >
-                התחברות לחשבון קיים
+                {a.signInExisting}
               </button>
             </>
           )}
@@ -309,36 +287,32 @@ export function AccountModal({ onClose }: { onClose(): void }) {
       {conflict && (
         <div className="auth-note" style={{ marginTop: 10 }}>
           <p className="small" style={{ margin: '0 0 8px' }}>
-            אפשר להתחבר לחשבון הקיים במקום - אבל <b>הזהות האנונימית הנוכחית תישאר מאחור</b>:
-            הרכבים שלה על הגריד והנקודות שצברה יישארו שלה, ואין דרך לחזור אליה. המודלים
-            השמורים בדפדפן הזה יעברו איתכם.
+            {a.conflict}
           </p>
           <button className="small" disabled={busy !== null} onClick={() => void takeOver()}>
-            התחבר לחשבון הקיים
+            {a.takeOver}
           </button>
         </div>
       )}
 
-      <h3 style={{ margin: '16px 0 6px' }}>יציאה</h3>
+      <h3 style={{ margin: '16px 0 6px' }}>{a.leave}</h3>
       {leaving ? (
         <>
           <p className="small">
-            {linked
-              ? 'אפשר להתחבר בחזרה בכל רגע עם אותו חשבון.'
-              : 'לזהות אנונימית אין דרך חזרה. אחרי יציאה לא תוכלו לחזור אליה, והרכבים והנקודות שלה באליפות יישארו שלה. המודלים השמורים בדפדפן הזה יישארו כאן.'}
+            {linked ? a.leaveLinked : a.leaveAnonymous}
           </p>
           <div className="row wrap">
             <button className="danger" disabled={busy !== null} onClick={() => void leave()}>
-              {busy === 'out' ? 'יוצאים…' : 'כן, לצאת'}
+              {busy === 'out' ? a.leaving : a.confirmLeave}
             </button>
             <button className="ghost" disabled={busy !== null} onClick={() => setLeaving(false)}>
-              ביטול
+              {a.cancel}
             </button>
           </div>
         </>
       ) : (
         <button className="ghost small" onClick={() => setLeaving(true)}>
-          יציאה מהחשבון
+          {a.signOut}
         </button>
       )}
     </Modal>

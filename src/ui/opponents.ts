@@ -3,6 +3,8 @@ import { teamColor } from '../core/champ/livery';
 import { HOUSE_DRIVERS, houseWeightsUrl, isHouseId } from '../core/champ/house';
 import { getArena } from '../storage/arena';
 import { getStore } from '../storage';
+import { t } from '../i18n';
+import { driverName, teamName } from '../i18n/names';
 
 /**
  * Opponent ids carry their own source.
@@ -46,8 +48,8 @@ export async function loadOpponent(id: string): Promise<LoadedOpponent | null> {
     if (!weights) return null;
     return {
       policy: Policy.fromBase64(entry.arch.obsSize, entry.arch.hidden, entry.arch.nActions, weights),
-      name: entry.driver,
-      team: entry.team,
+      name: driverName(entry),
+      team: teamName(entry.team),
       color: teamColor(entry.team),
     };
   }
@@ -58,7 +60,8 @@ export async function loadOpponent(id: string): Promise<LoadedOpponent | null> {
   return {
     policy: Policy.fromBase64(rec.arch.obsSize, rec.arch.hidden, rec.arch.nActions, rec.weightsB64),
     name: rec.name,
-    team: rec.owner || 'המוסך שלי',
+    team: rec.owner || t().misc.myGarage,
+    // The colour is seeded by the name the garage always had, so it stays the same in every language.
     color: teamColor(rec.owner || 'המוסך שלי'),
   };
 }

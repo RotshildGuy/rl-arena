@@ -17,6 +17,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { firebaseConfig, firebaseConfigured } from './firebase';
+import { t } from '../i18n';
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
@@ -108,7 +109,7 @@ export function watchUser(fn: Watcher): () => void {
  */
 export function currentUser(): Promise<User> {
   if (user) return Promise.resolve(user);
-  if (abandoned) return Promise.reject(new Error('(auth/no-user) אין חשבון מחובר'));
+  if (abandoned) return Promise.reject(new Error(`(auth/no-user) ${t().authErrors.noUser}`));
   observe();
   return new Promise<User>((resolve, reject) => {
     waiting.push({ resolve, reject });
@@ -125,7 +126,7 @@ export function currentUser(): Promise<User> {
  */
 export function abandonCloud(): void {
   abandoned = true;
-  const err = new Error('(auth/no-user) אין חשבון מחובר');
+  const err = new Error(`(auth/no-user) ${t().authErrors.noUser}`);
   while (waiting.length) waiting.pop()!.reject(err);
 }
 
@@ -205,7 +206,7 @@ export async function signOutUser(): Promise<void> {
  */
 export async function linkGoogle(): Promise<User> {
   const { auth } = ensureApp();
-  if (!auth.currentUser) throw new Error('(auth/no-user) אין חשבון מחובר');
+  if (!auth.currentUser) throw new Error(`(auth/no-user) ${t().authErrors.noUser}`);
   const cred = await linkWithPopup(auth.currentUser, googleProvider());
   refresh();
   return cred.user;
@@ -213,7 +214,7 @@ export async function linkGoogle(): Promise<User> {
 
 export async function linkPassword(email: string, password: string): Promise<User> {
   const { auth } = ensureApp();
-  if (!auth.currentUser) throw new Error('(auth/no-user) אין חשבון מחובר');
+  if (!auth.currentUser) throw new Error(`(auth/no-user) ${t().authErrors.noUser}`);
   const cred = await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password));
   refresh();
   return cred.user;

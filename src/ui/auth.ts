@@ -1,6 +1,7 @@
 import { firebaseConfigured } from '../storage/firebase';
 import { disableCloud, setCloudError } from '../storage/cloudStatus';
 import { forgetThisBrowser } from './forgetLocal';
+import { t } from '../i18n';
 
 /**
  * The account, as the interface needs to know it.
@@ -167,7 +168,7 @@ export function isLinked(v: AuthView): boolean {
 
 export function providerLabel(id: string): string {
   if (id === 'google.com') return 'Google';
-  if (id === 'password') return 'מייל וסיסמה';
+  if (id === 'password') return t().authErrors.password;
   return id;
 }
 
@@ -197,33 +198,34 @@ export function authError(err: unknown): AuthError {
 
 function explain(code: string, raw: string): string {
   const is = (...names: string[]) => names.some((n) => code.includes(n));
+  const e = t().authErrors;
 
-  if (is('invalid-email')) return 'כתובת המייל אינה תקינה.';
-  if (is('missing-password')) return 'צריך להקליד סיסמה.';
-  if (is('weak-password')) return 'הסיסמה קצרה מדי - לפחות 6 תווים.';
-  if (is('email-already-in-use')) return 'כבר יש חשבון עם המייל הזה. התחברו אליו במקום להירשם.';
+  if (is('invalid-email')) return e.invalidEmail;
+  if (is('missing-password')) return e.missingPassword;
+  if (is('weak-password')) return e.weakPassword;
+  if (is('email-already-in-use')) return e.emailInUse;
   if (is('invalid-credential', 'wrong-password', 'user-not-found', 'invalid-login'))
-    return 'המייל או הסיסמה אינם נכונים.';
-  if (is('user-disabled')) return 'החשבון הזה חסום.';
-  if (is('too-many-requests')) return 'יותר מדי ניסיונות מהמכשיר הזה. נסו שוב בעוד כמה דקות.';
+    return e.wrongCredentials;
+  if (is('user-disabled')) return e.disabled;
+  if (is('too-many-requests')) return e.tooMany;
   if (is('popup-closed-by-user', 'cancelled-popup-request', 'user-cancelled'))
-    return 'ההתחברות בוטלה.';
+    return e.cancelled;
   if (is('popup-blocked'))
-    return 'הדפדפן חסם את חלון ההתחברות. אפשרו חלונות קופצים לאתר, או התחברו עם מייל וסיסמה.';
+    return e.popupBlocked;
   if (is('credential-already-in-use', 'account-exists-with-different-credential'))
-    return 'החשבון הזה כבר שייך למשתמש אחר כאן.';
-  if (is('provider-already-linked')) return 'החשבון כבר מקושר.';
-  if (is('requires-recent-login')) return 'מטעמי אבטחה צריך להתחבר מחדש לפני הפעולה הזאת.';
-  if (is('network-request-failed')) return 'אין חיבור לרשת כרגע.';
+    return e.credentialInUse;
+  if (is('provider-already-linked')) return e.alreadyLinked;
+  if (is('requires-recent-login')) return e.recentLogin;
+  if (is('network-request-failed')) return e.network;
   if (is('api-key-not-valid', 'invalid-api-key'))
-    return 'מפתח ה-API של Firebase אינו תקין. בדקו את הערכים ב-.env.local.';
+    return e.apiKey;
   if (is('configuration-not-found'))
-    return 'Authentication לא הופעל בפרויקט. Firebase Console ← Authentication ← Get started.';
+    return e.notConfigured;
   if (is('operation-not-allowed', 'admin-restricted-operation'))
-    return 'שיטת ההתחברות הזאת כבויה בפרויקט. Firebase Console ← Authentication ← Sign-in method.';
+    return e.methodOff;
   if (is('unauthorized-domain'))
-    return 'הדומיין הזה לא מורשה. Firebase Console ← Authentication ← Settings ← Authorized domains.';
-  if (is('operation-not-supported')) return 'הדפדפן הזה לא תומך בהתחברות עם Google. נסו מייל וסיסמה.';
+    return e.domain;
+  if (is('operation-not-supported')) return e.noGoogle;
   return raw;
 }
 
@@ -293,30 +295,16 @@ export function resetPassword(email: string): Promise<void> {
  * a new one is added; a reload cannot.
  */
 export async function signOutNow(): Promise<void> {
-  // While still signed in: the device's push token is filed under this
-  // account, and the next person here should not get its race results.
-  await stopPushQuietly();
   await run((s) => s.signOutUser());
   await forgetThisBrowser();
   location.reload();
-}
-
-/** Turn notifications off if they were on, giving up after a couple of seconds. */
-async function stopPushQuietly(): Promise<void> {
-  try {
-    const push = await import('./push');
-    if (push.pushState() !== 'on') return;
-    await Promise.race([push.disablePush(), new Promise((r) => setTimeout(r, 2500))]);
-  } catch {
-    // Signing out matters more than a notification switch.
-  }
 }
 
 /**
  * Leave this browser's identity behind and open an account that already exists.
  *
  * The way *in* to a second device: Firebase restores whatever session a browser
- * already has, so somebody who once tapped "כניסה מהירה" here never sees the door again
+ * already has, so somebody who once tapped "quick entry" here never sees the door again
  * and would otherwise have no way to say "that account is mine".
  *
  * Signing in is enough on its own - it replaces the current user - and the

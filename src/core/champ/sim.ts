@@ -1,4 +1,5 @@
 import { RacingEnv, STEP_MS, type RacingSnapshot } from '../games/racing/env';
+import { hasTrack } from '../games/racing/tracks';
 import { OBS_SIZE, RACING_SPEC } from '../games/racing/rewards';
 import { defaultRewards } from '../games/types';
 import { Policy } from '../rl/policy';
@@ -271,6 +272,10 @@ export function roundsOf(sessions: SessionPlan[]): Map<number, SessionPlan[]> {
  * can be watched again without anybody's weights (`replay.ts`).
  */
 export function runRaceDay(card: RaceCard, weights: Map<string, string>, replay?: DayReplay): RaceResult {
+  // Code that does not know the circuit would race the card on the fallback
+  // track and write a wrong result. Refuse instead; the round is retried by
+  // code that knows the circuit.
+  if (!hasTrack(card.trackId)) throw new Error(`unknown track ${card.trackId}`);
   const entries = new Map(card.entries.map((e) => [e.id, e]));
   const order = qualifyingOrder(card.qualifying);
   const sessions = planSessions(order);

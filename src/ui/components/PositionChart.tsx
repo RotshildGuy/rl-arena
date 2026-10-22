@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { t } from '../../i18n';
 
 export interface PositionLine {
   label: string;
@@ -70,7 +71,7 @@ export function PositionChart({
     const stride = laps > 12 ? Math.ceil(laps / 10) : 1;
     for (let lap = 0; lap <= laps; lap += stride) {
       ctx.fillStyle = '#5b657d';
-      ctx.fillText(lap === 0 ? 'זינוק' : String(lap), X(lap), pad.top + plotH + 6);
+      ctx.fillText(lap === 0 ? t().misc.start : String(lap), X(lap), pad.top + plotH + 6);
     }
 
     for (const line of lines) {

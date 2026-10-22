@@ -2,6 +2,8 @@ import { useState, useSyncExternalStore, type FormEvent } from 'react';
 import { useApp } from '../store';
 import { authError, continueOffline, getAuthView, resetPassword, signIn, subscribeAuth } from '../auth';
 import { GoogleMark } from '../components/GoogleMark';
+import { SettingsButton } from '../components/SettingsButton';
+import { useT } from '../../i18n';
 
 /**
  * The door.
@@ -26,6 +28,8 @@ type Busy = null | 'google' | 'email' | 'anon' | 'reset';
 const MIN_PASSWORD = 6;
 
 export function SignIn() {
+  const t = useT();
+  const s = t.signin;
   const openInfo = useApp((s) => s.openInfo);
   /** True when an unchosen identity is already sitting in this browser. */
   const inherited = useSyncExternalStore(subscribeAuth, getAuthView).needsDoor;
@@ -72,18 +76,18 @@ export function SignIn() {
 
   const submitEmail = (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return setError('צריך להקליד כתובת מייל.');
-    if (password.length < MIN_PASSWORD) return setError(`הסיסמה קצרה מדי - לפחות ${MIN_PASSWORD} תווים.`);
+    if (!email.trim()) return setError(s.needEmail);
+    if (password.length < MIN_PASSWORD) return setError(s.shortPassword(MIN_PASSWORD));
     void attempt('email', () =>
       mode === 'in' ? signIn.password(email, password) : signIn.register(email, password),
     );
   };
 
   const forgot = () => {
-    if (!email.trim()) return setError('הקלידו קודם את כתובת המייל, ואז לחצו שוב.');
+    if (!email.trim()) return setError(s.emailFirst);
     void attempt('reset', async () => {
       await resetPassword(email);
-      setNote('נשלח מייל לאיפוס סיסמה. בדקו גם בספאם.');
+      setNote(s.resetSent);
       setBusy(null);
     });
   };
@@ -91,20 +95,25 @@ export function SignIn() {
   return (
     <div className="signin">
       <div className="signin-card card notched">
-        <div className="brand">
-          <span className="mark">RL</span>
-          <span>ARENA</span>
-          <span className="sub">CHAMPIONSHIP</span>
+        <div className="row">
+          <div className="brand">
+            <span className="mark">RL</span>
+            <span>ARENA</span>
+            <span className="sub">CHAMPIONSHIP</span>
+          </div>
+          <div style={{ flex: 1 }} />
+          {/* Language and theme, before anything else is asked: a newcomer
+              whose browser guessed the wrong language has to be able to fix it. */}
+          <SettingsButton />
         </div>
 
         <h1 className="display" style={{ margin: '10px 0 8px' }}>
-          מרוץ אחד ביום.
+          {s.headline1}
           <br />
-          המודלים נוהגים, אתם בונים אותם.
+          {s.headline2}
         </h1>
         <p className="muted small" style={{ margin: '0 0 18px' }}>
-          מאמנים מודל בדפדפן, רושמים אותו לאליפות, ופעם ביום כל המודלים הרשומים מתחרים ביניהם.
-          אין צורך לדעת תכנות - בוחרים איך הרכב ינהג, והוא לומד לבד.
+          {s.intro}
         </p>
 
         {/* Playing first. Most people arrive to try the thing, not to open an
@@ -119,43 +128,31 @@ export function SignIn() {
           disabled={busy !== null}
           onClick={() => void attempt('anon', signIn.anonymous)}
         >
-          {busy === 'anon' ? 'נכנס…' : inherited ? 'המשך בלי חשבון' : '🏁 שחקו עכשיו - בלי חשבון'}
+          {busy === 'anon' ? s.entering : inherited ? s.continueNoAccount : s.playNow}
         </button>
         <p className="small muted" style={{ margin: '8px 0 0' }}>
-          {inherited ? (
-            <>
-              בדפדפן הזה כבר יושבת זהות אנונימית, והכפתור הזה ממשיך <b>איתה</b> - עם המודלים,
-              הרכבים והנקודות שצברה. אם יש לכם חשבון, התחברו אליו למטה במקום.
-            </>
-          ) : (
-            <>
-              בלי הרשמה ובלי פרטים. ההתקדמות נשמרת בדפדפן הזה, ואפשר לחבר אותה ל-Google או למייל
-              מתי שרוצים בלי לאבד כלום.
-            </>
-          )}
+          {inherited ? s.inherited : s.noSignup}
         </p>
 
         <div className="auth-or">
-          <span>או</span>
+          <span>{s.or}</span>
         </div>
 
         <h2 style={{ fontSize: 17, margin: '0 0 4px' }}>
-          {mode === 'up' ? 'רוצים לשמור את ההתקדמות בחשבון?' : 'התחברות לחשבון קיים'}
+          {mode === 'up' ? s.saveProgress : s.signInExisting}
         </h2>
         <p className="small muted" style={{ margin: '0 0 10px' }}>
-          {mode === 'up'
-            ? 'עם חשבון המודלים והנקודות שלכם זמינים מכל מכשיר.'
-            : 'המודלים והנקודות שלכם יחכו לכם בדיוק איפה שעזבתם.'}
+          {mode === 'up' ? s.anyDevice : s.waiting}
         </p>
         <>
             <button className="provider" disabled={busy !== null} onClick={() => void attempt('google', signIn.google)}>
               <GoogleMark />
-              {busy === 'google' ? 'מתחבר…' : 'המשך עם Google'}
+              {busy === 'google' ? s.connecting : s.google}
             </button>
 
             <form onSubmit={submitEmail} style={{ marginTop: 12 }}>
               <div className="field">
-                <label htmlFor="auth-email">מייל</label>
+                <label htmlFor="auth-email">{s.email}</label>
                 <input
                   id="auth-email"
                   type="email"
@@ -167,7 +164,7 @@ export function SignIn() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="auth-password">סיסמה</label>
+                <label htmlFor="auth-password">{s.password}</label>
                 <input
                   id="auth-password"
                   type="password"
@@ -178,7 +175,7 @@ export function SignIn() {
                 />
               </div>
               <button className="wide" type="submit" disabled={busy !== null}>
-                {busy === 'email' ? 'רגע…' : mode === 'in' ? 'התחברות' : 'יצירת חשבון'}
+                {busy === 'email' ? s.moment : mode === 'in' ? s.signIn : s.createAccount}
               </button>
             </form>
 
@@ -192,12 +189,12 @@ export function SignIn() {
                   setNote(null);
                 }}
               >
-                {mode === 'in' ? 'אין לי חשבון - הרשמה' : 'כבר יש לי חשבון - התחברות'}
+                {mode === 'in' ? s.toSignUp : s.toSignIn}
               </button>
               <div style={{ flex: 1 }} />
               {mode === 'in' && (
                 <button className="ghost small" disabled={busy !== null} onClick={forgot}>
-                  {busy === 'reset' ? 'שולח…' : 'שכחתי סיסמה'}
+                  {busy === 'reset' ? s.sending : s.forgot}
                 </button>
               )}
             </div>
@@ -213,26 +210,25 @@ export function SignIn() {
         {stuck && (
           <div className="auth-note" style={{ marginTop: 14 }}>
             <p style={{ margin: '0 0 8px' }} className="small">
-              אפשר גם להיכנס בלי ענן. האימון, המוסך והמשחק עובדים במלואם; מה שלא יעבוד הוא
-              האליפות המשותפת, והמודלים יישמרו בדפדפן הזה בלבד.
+              {s.offline}
             </p>
             <button className="small" onClick={continueOffline}>
-              המשך בלי ענן
+              {s.continueOffline}
             </button>
           </div>
         )}
 
         <div className="auth-foot">
           <button className="ghost small" onClick={() => openInfo('how')}>
-            איך זה עובד
+            {t.app.footer.how}
           </button>
           <span className="dim">·</span>
           <button className="ghost small" onClick={() => openInfo('terms')}>
-            תנאי שימוש
+            {t.app.footer.terms}
           </button>
           <span className="dim">·</span>
           <button className="ghost small" onClick={() => openInfo('privacy')}>
-            פרטיות
+            {t.app.footer.privacy}
           </button>
         </div>
       </div>

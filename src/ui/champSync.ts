@@ -8,6 +8,7 @@ import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
 import { getArena, type ArenaStore } from '../storage/arena';
 import { getChampCache } from '../storage/champCache';
 import type { FromChamp, ToChamp, WeightPairs } from '../workers/champProtocol';
+import { t } from '../i18n';
 
 /**
  * Brings the championship up to date.
@@ -37,7 +38,7 @@ function ensureWorker(): Worker | null {
       else (p.resolve as (v: RaceResult) => void)(msg.result);
     };
     worker.onerror = () => {
-      for (const p of pending.values()) p.reject(new Error('חישוב המרוץ נכשל'));
+      for (const p of pending.values()) p.reject(new Error(t().misc.raceFailed));
       pending.clear();
     };
   } catch {
@@ -58,7 +59,7 @@ function ask<T>(msg: Untagged<ToChamp>): Promise<T> {
     w.postMessage({ ...msg, tag } as ToChamp);
     // A day that cannot be simulated in a minute is a day something is wrong.
     setTimeout(() => {
-      if (pending.delete(tag)) reject(new Error('חישוב המרוץ לקח יותר מדי זמן'));
+      if (pending.delete(tag)) reject(new Error(t().misc.raceTooSlow));
     }, 60_000);
   });
 }

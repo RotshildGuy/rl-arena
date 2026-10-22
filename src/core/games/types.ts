@@ -34,7 +34,7 @@ export interface EnvSpec {
   obsVersion: number;
   /** Human-readable labels, one per discrete action. */
   actions: string[];
-  /** What score() measures, e.g. "הקפות". Shown on the training dashboard. */
+  /** What score() measures, e.g. "laps". Shown on the training dashboard. */
   scoreLabel: string;
   rewardChannels: RewardChannelDef[];
   /** Ready-made tables, one tap each, for anyone who does not want ten sliders. */

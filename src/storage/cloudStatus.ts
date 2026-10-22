@@ -1,4 +1,5 @@
 import { firebaseConfigured } from './firebase';
+import { t } from '../i18n';
 
 export type CloudState = 'local' | 'connecting' | 'ok' | 'error';
 
@@ -70,27 +71,28 @@ export function setCloudError(err: unknown): void {
 function explain(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   const code = /\(([\w-]+\/[\w-]+)\)/.exec(raw)?.[1] ?? raw;
+  const e = t().authErrors;
 
   if (/configuration-not-found/i.test(code)) {
-    return 'Authentication לא הופעל בפרויקט. פתח את Firebase Console ← Authentication ← Get started.';
+    return e.notConfiguredOpen;
   }
   if (/admin-restricted-operation|operation-not-allowed/i.test(code)) {
-    return 'שיטת ההתחברות הזאת כבויה בפרויקט. Firebase Console ← Authentication ← Sign-in method.';
+    return e.methodOff;
   }
   if (/no-user/i.test(code)) {
-    return 'אין חשבון מחובר - המודלים נשמרים בדפדפן הזה בלבד.';
+    return e.noUserLocal;
   }
   if (/unauthorized-domain/i.test(code)) {
-    return 'הדומיין הזה לא מורשה. Firebase Console ← Authentication ← Settings ← Authorized domains.';
+    return e.domain;
   }
   if (/permission-denied/i.test(code)) {
-    return 'כללי האבטחה של Firestore חוסמים את הגישה. פרוס את firestore.rules שבריפו.';
+    return e.rules;
   }
   if (/not-found|failed-precondition/i.test(code)) {
-    return 'מסד הנתונים של Firestore עוד לא נוצר. Firebase Console ← Firestore Database ← Create database.';
+    return e.noDb;
   }
   if (/network|unavailable|offline/i.test(code)) {
-    return 'אין חיבור ל-Firestore כרגע.';
+    return e.offline;
   }
   return raw;
 }

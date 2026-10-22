@@ -37,15 +37,44 @@ export interface Track {
 const WORLD_CX = 500;
 const WORLD_CY = 350;
 
-function radial(base: number, harmonics: Array<[number, number, number]>) {
+function radial(base: number, harmonics: Array<[number, number, number]>, squash = 0.78) {
   return (t: number): [number, number] => {
     let r = 1;
     for (const [amp, freq, phase] of harmonics) r += amp * Math.cos(freq * t + phase);
     const rr = base * r;
-    return [WORLD_CX + rr * Math.cos(t), WORLD_CY + rr * Math.sin(t) * 0.78];
+    return [WORLD_CX + rr * Math.cos(t), WORLD_CY + rr * Math.sin(t) * squash];
   };
 }
 
+/** A rounded rectangle, |x/a|^p + |y/b|^p = 1: straights joined by corners that tighten as p grows. */
+function superellipse(a: number, b: number, p: number) {
+  return (t: number): [number, number] => {
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    return [WORLD_CX + a * Math.sign(c) * Math.abs(c) ** (2 / p), WORLD_CY + b * Math.sign(s) * Math.abs(s) ** (2 / p)];
+  };
+}
+
+/** A shape moved across the world, to centre one that is lopsided. */
+function shifted(shape: (t: number) => [number, number], dx: number, dy: number) {
+  return (t: number): [number, number] => {
+    const [x, y] = shape(t);
+    return [x + dx, y + dy];
+  };
+}
+
+/**
+ * Every circuit there has ever been. A track is never removed from this list,
+ * nor its shape changed: a race card names its track by id, and a replay of a
+ * race from any season has to find exactly the circuit it was run on. Which of
+ * them a season races on is the calendar's business (`trackForRound`), drawn
+ * from `TRACK_POOLS` in `core/champ/schedule.ts`.
+ *
+ * The first four are the original rotation. The rest were added for season 3,
+ * each checked by `scripts/driverCheck.ts` (flat out must lose to braking, and
+ * the braking driver must stay off the walls) and kept wide enough that the
+ * house cars see the flag in most races.
+ */
 export const TRACK_DEFS: TrackDef[] = [
   {
     id: 'oval',
@@ -84,6 +113,72 @@ export const TRACK_DEFS: TrackDef[] = [
       [0.1, 2, 0.6],
       [0.045, 6, 0],
     ]),
+  },
+  // Mixed: four straights and four square corners, where braking is everything.
+  {
+    id: 'stadium',
+    name: 'אצטדיון',
+    width: 125,
+    samples: 280,
+    shape: superellipse(390, 240, 3.4),
+  },
+  // Fast: three long sweepers.
+  {
+    id: 'triangle',
+    name: 'משולש',
+    width: 140,
+    samples: 260,
+    shape: shifted(radial(340, [[0.11, 3, Math.PI / 2]]), 0, -25),
+  },
+  // Technical: a narrow road that never stops turning.
+  {
+    id: 'serpent',
+    name: 'נחש',
+    width: 100,
+    samples: 320,
+    shape: radial(310, [
+      [0.06, 7, 0],
+      [0.08, 2, 0.5],
+    ]),
+  },
+  // Technical: four lobes, four pairs of corners.
+  {
+    id: 'clover',
+    name: 'תלתן',
+    width: 110,
+    samples: 300,
+    shape: radial(320, [[0.14, 4, Math.PI / 4]]),
+  },
+  // Mixed: a long open side and a tight, twisting one.
+  {
+    id: 'coast',
+    name: 'חוף',
+    width: 120,
+    samples: 280,
+    shape: shifted(
+      radial(320, [
+        [0.2, 1, 0],
+        [0.08, 3, 0.8],
+        [0.04, 5, 2.4],
+      ]),
+      -70,
+      0,
+    ),
+  },
+  // Fast: wide, nearly round, flat out almost everywhere - almost.
+  {
+    id: 'ring',
+    name: 'טבעת',
+    width: 150,
+    samples: 260,
+    shape: radial(
+      370,
+      [
+        [0.04, 5, 0.3],
+        [0.06, 2, 1.7],
+      ],
+      0.74,
+    ),
   },
 ];
 
@@ -189,6 +284,11 @@ export function buildTrack(def: TrackDef): Track {
     length,
     bounds: { minX, minY, maxX, maxY },
   };
+}
+
+/** Whether this build knows a circuit - a race card from newer code may not be. */
+export function hasTrack(id: string): boolean {
+  return TRACK_DEFS.some((d) => d.id === id);
 }
 
 const cache = new Map<string, Track>();

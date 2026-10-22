@@ -224,8 +224,12 @@ html { -webkit-tap-highlight-color: transparent; }
 html, body, #root { height: 100%; }
 /* Nothing is ever wider than the screen. A single row that overflows would
    make a phone zoom the whole page out or let it slide sideways, and a page
-   that slides sideways pushes the bottom navigation off the screen with it. */
-html, body { overflow-x: hidden; }
+   that slides sideways pushes the bottom navigation off the screen with it.
+   Not vertically either: `overflow-x: hidden` alone quietly makes the page
+   scrollable up and down, and in the installed app on an iPhone a hard pull at
+   the top of `.content` handed the scroll on to the page, which carried the
+   bottom navigation off the screen until the list was scrolled to its end. */
+html, body { overflow: hidden; overscroll-behavior: none; }
 /* The visible height, which with a browser toolbar at the bottom or the phone's
    own navigation buttons is less than the screen. */
 body { height: 100dvh; }
@@ -552,7 +556,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 12px -6px rgba(0, 0, 0, 0.8);
 }
 
-.content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px 20px 40px; }
+.content { flex: 1; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; padding: 22px 20px 40px; }
 .wrap { max-width: 1280px; margin: 0 auto; }
 
 /* ------------------------------------------------------------------ panels */
@@ -697,8 +701,9 @@ input[type='number'] { direction: ltr; text-align: end; }
 .toast {
   position: fixed;
   inset-block-end: 22px;
-  inset-inline-start: 50%;
-  transform: translateX(50%);
+  /* Centred on the physical axis, so it sits in the middle in either direction. */
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--glass-sheen), var(--glass-tint-strong);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -713,8 +718,8 @@ input[type='number'] { direction: ltr; text-align: end; }
   animation: toast-in 0.24s var(--ease);
 }
 @keyframes toast-in {
-  from { opacity: 0; transform: translate(50%, 10px) scale(0.96); }
-  to { opacity: 1; transform: translate(50%, 0) scale(1); }
+  from { opacity: 0; transform: translate(-50%, 10px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 /* Checkered strip, for race-finished headers. */
@@ -1119,7 +1124,8 @@ input[type='number'] { direction: ltr; text-align: end; }
  * is the width of the first, which is why that width is pinned down here too.
  * The divider is a shadow rather than a border: a collapsed table's borders
  * belong to the grid, not to the cell, and do not travel with a sticky one.
- * The page is `dir="rtl"`, so the edge to shade is the physical left.
+ * In Hebrew the page is `dir="rtl"`, so the edge to shade is the physical left;
+ * in English it is the right (the `[dir='ltr']` block at the end).
  */
 .scroll-x .timing.pin-1 th:first-child,
 .scroll-x .timing.pin-1 td:first-child,
@@ -1706,6 +1712,13 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
 }
 .modal .modal-foot button { flex: 1 1 auto; }
 
+/* The settings dialog: a label over each choice, the choices full width. */
+.settings { display: grid; gap: 16px; }
+.settings-row { display: grid; gap: 6px; }
+.settings-row .label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.settings-row .segmented { display: flex; }
+.settings-row .segmented button { flex: 1; }
+
 /* ------------------------------------------------------------------ prose */
 
 /*
@@ -2118,6 +2131,23 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
 .segmented { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .segmented::-webkit-scrollbar { display: none; }
 .segmented button { white-space: nowrap; flex-shrink: 0; }
+
+/* ------------------------------------------------------------ left to right
+   The stylesheet is written for Hebrew first. In English (`dir="ltr"` on
+   <html>, see i18n/lang.ts) the few rules that name a physical side, or that
+   pin a direction so Hebrew reads right, are turned around here. */
+[dir='ltr'] .stat .v { text-align: left; }
+[dir='ltr'] .countdown-big { direction: ltr; }
+[dir='ltr'] .reward-row .ends > span { direction: ltr; }
+[dir='ltr'] .podium-spot { direction: ltr; }
+[dir='ltr'] .scroll-x .timing.pin-1 th:first-child,
+[dir='ltr'] .scroll-x .timing.pin-1 td:first-child,
+[dir='ltr'] .scroll-x .timing.pin-2 th:nth-child(2),
+[dir='ltr'] .scroll-x .timing.pin-2 td:nth-child(2) { box-shadow: 1px 0 0 var(--line-2); }
+[dir='ltr'] .scroll-x.more {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 36px);
+  mask-image: linear-gradient(to right, transparent 0, #000 36px);
+}
 
 /* Touch targets: on a phone everything tappable is at least 40px tall. */
 @media (pointer: coarse) {

@@ -1,4 +1,5 @@
 import { israelOffsetAt20, startsAtForRound } from '../core/champ/schedule';
+import { t } from '../i18n';
 
 const TZID = 'Asia/Jerusalem';
 
@@ -18,8 +19,6 @@ const TZID = 'Asia/Jerusalem';
 export const RACE_EVENT_MINUTES = 30;
 export const REMINDER_MINUTES = 15;
 
-const TITLE = 'RL Arena - המרוץ היומי';
-const DETAILS = 'גרנד פרי של מודלים מאומנים, בשידור חי. המוקדמות כבר נערכו והגריד נעול.';
 
 /** `20260914T170000Z` */
 function stamp(at: number): string {
@@ -93,6 +92,7 @@ export function foldLine(line: string): string {
 export function raceCalendarIcs(round: number, url: string, now = Date.now()): string {
   const start = startsAtForRound(round);
   const end = start + RACE_EVENT_MINUTES * 60_000;
+  const { title: TITLE, details: DETAILS } = t().calendar;
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -129,6 +129,7 @@ export function raceCalendarIcs(round: number, url: string, now = Date.now()): s
 export function googleCalendarUrl(round: number, url: string): string {
   const start = startsAtForRound(round);
   const end = start + RACE_EVENT_MINUTES * 60_000;
+  const { title: TITLE, details: DETAILS } = t().calendar;
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: TITLE,

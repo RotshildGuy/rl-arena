@@ -30,14 +30,21 @@
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <title>RL Arena - אליפות מודלים</title>
-    <!-- Light or dark before the first paint, so a light-mode phone never sees
-         the dark page flash while the bundle loads. Mirrors ui/theme.ts. -->
+    <!-- Light or dark, and the page's language and direction, before the first
+         paint: a light-mode phone never sees the dark page flash, and an English
+         page never starts right to left, while the bundle loads. Mirrors
+         ui/theme.ts and i18n/lang.ts. -->
     <script>
       (function () {
         var pref = null;
+        var lang = null;
         try { pref = localStorage.getItem('rl-arena-theme'); } catch (e) {}
+        try { lang = localStorage.getItem('rl-arena-lang'); } catch (e) {}
         var dark = pref === 'dark' || (pref !== 'light' && !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        if (lang !== 'he' && lang !== 'en') lang = (navigator.language || '').toLowerCase().indexOf('he') === 0 ? 'he' : 'en';
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
       })();
     </script>
   </head>

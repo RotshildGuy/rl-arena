@@ -1,4 +1,4 @@
-import { OBS_SIZE, OBS_VERSION, ACTION_LABELS } from '../games/racing/rewards';
+import { OBS_SIZE, OBS_VERSION, ACTION_COUNT } from '../games/racing/rewards';
 import { PHYSICS_V2_ROUND } from './schedule';
 import type { ArenaEntry } from './types';
 
@@ -38,7 +38,7 @@ function houseEntry(id: string, driver: string, tag: string, episodes: number): 
     team: HOUSE_TEAM,
     gameId: 'racing',
     algorithm: 'ga',
-    arch: { obsSize: OBS_SIZE, hidden: HOUSE_HIDDEN, nActions: ACTION_LABELS.length },
+    arch: { obsSize: OBS_SIZE, hidden: HOUSE_HIDDEN, nActions: ACTION_COUNT },
     obsVersion: OBS_VERSION,
     tag,
     createdAt: 0,
