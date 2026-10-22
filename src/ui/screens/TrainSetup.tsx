@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
 import {
+  chooseTimeLimit,
   MAX_TRAIN_SLOTS,
   nextGrandPrixTrack,
   TIME_LIMITS,
@@ -22,6 +23,7 @@ import { CoachAnchor, useCoachStep } from '../coach';
 import { TeamNameForm } from '../components/TeamNameForm';
 import { locale, useT } from '../../i18n';
 import { trackName } from '../../i18n/names';
+import { Name } from '../components/Name';
 
 export function TrainSetup() {
   const s = useT().trainSetup;
@@ -186,7 +188,9 @@ export function TrainSetup() {
               <div className="field">
                 <label>{s.teamLabel}</label>
                 <div className="row">
-                  <b>{competitor}</b>
+                  <b>
+                    <Name>{competitor}</Name>
+                  </b>
                   <button className="ghost small" onClick={() => setEditingName(true)}>
                     {s.rename}
                   </button>
@@ -286,6 +290,7 @@ function SlotCard({
   // being continued cannot switch either without throwing the training away.
   const locked = slot.modelId !== null && !slot.restart;
   const s = useT().trainSetup;
+  const nameId = useId();
 
   return (
     <div className="slot-card">
@@ -310,13 +315,16 @@ function SlotCard({
       {slot.modelId ? (
         <div className="field">
           <label>{s.continueTraining}</label>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{slot.name}</div>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>
+            <Name>{slot.name}</Name>
+          </div>
         </div>
       ) : (
       <div className="cols-2">
         <div className="field">
-          <label>{s.nameLabel}</label>
+          <label htmlFor={nameId}>{s.nameLabel}</label>
           <input
+            id={nameId}
             type="text"
             value={slot.name}
             placeholder={placeholder}
@@ -452,7 +460,14 @@ function TimeLimit() {
       <div className="eyebrow">{s.autoStop}</div>
       <div className="segmented">
         {TIME_LIMITS.map((m) => (
-          <button key={m} className={draft.timeLimitMin === m ? 'on' : ''} onClick={() => patchDraft({ timeLimitMin: m })}>
+          <button
+            key={m}
+            className={draft.timeLimitMin === m ? 'on' : ''}
+            onClick={() => {
+              chooseTimeLimit(m);
+              patchDraft({ timeLimitMin: m });
+            }}
+          >
             {m === 0 ? s.noLimit : s.minutes(m)}
           </button>
         ))}

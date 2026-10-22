@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useApp } from '../store';
 import { changeTeamName } from '../teamName';
 import { useT } from '../../i18n';
@@ -29,6 +29,7 @@ export function TeamNameForm({
   const f = useT().teamNameForm;
   const competitor = useApp((s) => s.competitor);
   const setCompetitor = useApp((s) => s.setCompetitor);
+  const id = useId();
   const [name, setName] = useState(competitor);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +51,9 @@ export function TeamNameForm({
 
   const field = (
     <div className="field" style={{ marginBottom: 0, flex: '1 1 220px' }}>
-      <label>{label ?? f.label}</label>
+      <label htmlFor={id}>{label ?? f.label}</label>
       <input
+        id={id}
         type="text"
         value={name}
         autoFocus={autoFocus}

@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore, type FormEvent } from 'react';
+import { useId, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { useApp } from '../store';
 import { authError, continueOffline, getAuthView, resetPassword, signIn, subscribeAuth } from '../auth';
 import { GoogleMark } from '../components/GoogleMark';
@@ -39,6 +39,8 @@ export function SignIn() {
    * already holds an identity is likelier to belong to somebody returning.
    */
   const [mode, setMode] = useState<Mode>(() => (getAuthView().needsDoor ? 'in' : 'up'));
+  // Ids of its own, so a label names its field even beside another copy of the form.
+  const id = useId();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<Busy>(null);
@@ -152,9 +154,9 @@ export function SignIn() {
 
             <form onSubmit={submitEmail} style={{ marginTop: 12 }}>
               <div className="field">
-                <label htmlFor="auth-email">{s.email}</label>
+                <label htmlFor={`${id}-email`}>{s.email}</label>
                 <input
-                  id="auth-email"
+                  id={`${id}-email`}
                   type="email"
                   autoComplete="email"
                   dir="ltr"
@@ -164,9 +166,9 @@ export function SignIn() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="auth-password">{s.password}</label>
+                <label htmlFor={`${id}-password`}>{s.password}</label>
                 <input
-                  id="auth-password"
+                  id={`${id}-password`}
                   type="password"
                   autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
                   dir="ltr"

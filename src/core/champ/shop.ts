@@ -79,6 +79,27 @@ export interface ShopDoc {
   updatedAt: number;
 }
 
+const KINDS = ['color', 'secondary', 'pattern', 'helmet', 'smoke'] as const;
+
+/**
+ * A shop document as read: anybody can write their own, so its shape is not
+ * trusted either. A `purchases` that is not a list, an `equipped` that is not
+ * an object, a field of the wrong type - each reads as empty rather than
+ * throwing somewhere in the middle of drawing a grid.
+ */
+export function normalizeShop(raw: unknown): ShopDoc {
+  const d = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const purchases = Array.isArray(d.purchases) ? d.purchases.filter((p): p is string => typeof p === 'string') : [];
+  const src = d.equipped && typeof d.equipped === 'object' && !Array.isArray(d.equipped) ? (d.equipped as Record<string, unknown>) : {};
+  const equipped: Equipped = {};
+  for (const kind of KINDS) {
+    const id = src[kind];
+    if (typeof id === 'string') equipped[kind] = id;
+  }
+  if (typeof src.number === 'number' && Number.isFinite(src.number)) equipped.number = src.number;
+  return { purchases, equipped, updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0 };
+}
+
 export function spent(purchases: string[]): number {
   return [...new Set(purchases)].reduce((s, id) => s + (ITEM_BY_ID.get(id)?.price ?? 0), 0);
 }
@@ -91,12 +112,13 @@ export function spent(purchases: string[]): number {
  * has earned. If either fails, the whole look is ignored - not just the bad
  * item - because a forged purchase list says nothing trustworthy about any of it.
  */
-export function validLook(doc: ShopDoc | null | undefined, earned: number): { look: CarLook; color?: string } | null {
-  if (!doc) return null;
+export function validLook(raw: unknown, earned: number): { look: CarLook; color?: string } | null {
+  if (!raw) return null;
+  const doc = normalizeShop(raw);
   const owned = new Set(doc.purchases);
   if (spent(doc.purchases) > earned) return null;
   const e = doc.equipped;
-  for (const kind of ['color', 'secondary', 'pattern', 'helmet', 'smoke'] as const) {
+  for (const kind of KINDS) {
     const id = e[kind];
     if (!id) continue;
     const it = ITEM_BY_ID.get(id);

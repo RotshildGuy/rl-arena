@@ -23,6 +23,7 @@ import { useChampionship } from '../useChampionship';
 import { trainingTarget, type TrainingTarget } from '../../core/champ/records';
 import { locale, t as words, useT } from '../../i18n';
 import { driverName, grandPrixTitle, teamName, trackName } from '../../i18n/names';
+import { isolated, Ltr, Name } from '../components/Name';
 
 /** Finish and go, a checkpoint from the button, or one taken because the page was hidden. */
 type SaveMode = 'leave' | 'checkpoint' | 'quiet';
@@ -370,7 +371,7 @@ export function TrainDashboard() {
             {booting && <span className="pill">{d.booting}</span>}
             {draft.rival && (
               <span className="pill" title={d.rivalTitle}>
-                {d.rival(draft.rival.driver, teamName(draft.rival.team))}
+                {d.rival(isolated(draft.rival.driver), isolated(teamName(draft.rival.team)))}
               </span>
             )}
             {remainingMs !== null && !limitHit.current && (
@@ -651,7 +652,11 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
         {raceTime(snap.raceMs)}
       </div>
       <div className="pill" title={d.leaderLap}>
-        {d.lap} <span className="mono">{leader.lap + 1}</span>/{snap.laps} ·{' '}
+        {d.lap}{' '}
+        <Ltr className="mono">
+          {leader.lap + 1}/{snap.laps}
+        </Ltr>{' '}
+        ·{' '}
         <span className="mono">{lapTime(leader.currentLapMs)}</span>
       </div>
       {snap.fastestLap && (
@@ -685,7 +690,10 @@ function TargetLine({ target, trackId, lap }: { target: TrainingTarget; trackId:
     <div className="small" style={{ marginTop: 10 }}>
       <div>
         {label}: <span className="mono" style={{ color: 'var(--purple)' }}>{lapTime(target.ms)}</span>
-        <span className="dim"> · {driverName({ id: target.entryId, driver: target.driver })}</span>
+        <span className="dim">
+          {' · '}
+          <Name>{driverName({ id: target.entryId, driver: target.driver })}</Name>
+        </span>
         {' · '}
         {d.yours} <span className="mono">{lapTime(lap)}</span>
         {gap !== null && (
@@ -745,7 +753,7 @@ function UnderTheHood({
           {d.method} <b>{algo.name}</b> <span className="muted">({algo.technical})</span>
         </div>
         <div>
-          {d.network} <span className="mono" dir="ltr">{[obsSize, ...hidden, actions.length].join(' → ')}</span>
+          {d.network} <Ltr className="mono">{[obsSize, ...hidden, actions.length].join(' → ')}</Ltr>
         </div>
         <div>
           {d.input} <span className="mono">{obsSize}</span> {d.inputBody}

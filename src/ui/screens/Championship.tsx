@@ -36,6 +36,7 @@ import { SeasonTracks } from '../components/SeasonTracks';
 import { Welcome, hasSeenWelcome, markWelcomeSeen } from '../components/Welcome';
 import { locale, useT } from '../../i18n';
 import { driverName, driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
+import { isolated, Name } from '../components/Name';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -330,7 +331,9 @@ export function Championship() {
                       <div className="driver">
                         <span className="livery" style={{ background: teamColor(team.team) }} />
                         <div className="names">
-                          <span className="who">{teamName(team.team)}</span>
+                          <span className="who">
+                            <Name>{teamName(team.team)}</Name>
+                          </span>
                           <span className="team">
                             {c.models(team.entries.length)}
                           </span>
@@ -931,13 +934,20 @@ function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen()
           {c.champions(honours.season)}
         </span>
         <span style={{ minWidth: 0, flex: '1 1 260px' }}>
-          <b>{driverName({ id: driver.entryId, driver: driver.driver })}</b> ({teamName(driver.team)})
+          <b>
+            <Name>{driverName({ id: driver.entryId, driver: driver.driver })}</Name>
+          </b>{' '}
+          (<Name>{teamName(driver.team)}</Name>)
           {c.champion(driver.points)}
-          {runnerUp ? c.ahead(driver.points - runnerUp.points, driverName({ id: runnerUp.entryId, driver: runnerUp.driver })) : ''}.
+          {runnerUp ? c.ahead(driver.points - runnerUp.points, isolated(driverName({ id: runnerUp.entryId, driver: runnerUp.driver }))) : ''}.
           {team && (
             <>
               {' '}
-              {c.teamsTitle} <b>{teamName(team.team)}</b>.
+              {c.teamsTitle}{' '}
+              <b>
+                <Name>{teamName(team.team)}</Name>
+              </b>
+              .
             </>
           )}{' '}
           {c.fresh(honours.season + 1)}
