@@ -16,6 +16,7 @@ export const shop: typeof He.shop = {
   eyebrow: 'Shop',
   title: 'Looks, not speed.',
   intro: 'Coins buy looks. Nothing here changes how the car drives.',
+  noMoney: 'No real money here: coins are earned only from race results, and cannot be bought.',
   coins: 'coins',
   trying: 'Trying on the car:',
   cancel: 'Cancel',

@@ -136,6 +136,7 @@ export function Shop() {
           <div className="eyebrow">{s.eyebrow}</div>
           <h1 className="display">{s.title}</h1>
           <div className="muted small">{s.intro}</div>
+          <div className="muted small">{s.noMoney}</div>
         </div>
         <div className="actions">
           <span className="pill" style={{ fontSize: 15 }}>
