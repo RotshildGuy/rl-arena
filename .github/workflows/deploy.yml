@@ -93,3 +93,8 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || 'reinforcement-learning-ed0ed' }}
           channelId: live
+          # Pinned: 15.34.1 (21.10.2026) first asks the Service Usage API whether
+          # Hosting is enabled, which the deploy service account may not do, and
+          # every deploy failed with a 403. Unpin once the account has the
+          # "Service Usage Viewer" role (OWNER_TODO.md).
+          firebaseToolsVersion: 15.34.0
