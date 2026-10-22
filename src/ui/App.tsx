@@ -93,6 +93,28 @@ function Arena() {
     contentRef.current?.scrollTo({ top: 0, left: 0 });
     window.scrollTo(0, 0);
   }, [screen, viewRaceId, infoTab]);
+  // And it stays at its top. An iPhone still moves the page itself now and then
+  // (a pull past the top of a list, or the keyboard lifting a field into view
+  // and leaving the page where it was when it closes), and a moved page takes
+  // the bottom navigation off the screen. While a field is being typed into
+  // the move is left alone, so the keyboard does not cover it.
+  useEffect(() => {
+    const typing = () => {
+      const el = document.activeElement;
+      return el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+    };
+    const settle = () => {
+      if ((window.scrollY !== 0 || window.scrollX !== 0) && !typing()) window.scrollTo(0, 0);
+    };
+    // After focus leaves a field, the next field may already have it.
+    const afterBlur = () => setTimeout(settle, 50);
+    window.addEventListener('scroll', settle, { passive: true });
+    document.addEventListener('focusout', afterBlur);
+    return () => {
+      window.removeEventListener('scroll', settle);
+      document.removeEventListener('focusout', afterBlur);
+    };
+  }, []);
   const cloud = useSyncExternalStore(subscribeCloudStatus, getCloudStatus);
   const auth = useSyncExternalStore(subscribeAuth, getAuthView);
   const competitor = useApp((s) => s.competitor);

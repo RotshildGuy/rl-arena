@@ -224,8 +224,12 @@ html { -webkit-tap-highlight-color: transparent; }
 html, body, #root { height: 100%; }
 /* Nothing is ever wider than the screen. A single row that overflows would
    make a phone zoom the whole page out or let it slide sideways, and a page
-   that slides sideways pushes the bottom navigation off the screen with it. */
-html, body { overflow-x: hidden; }
+   that slides sideways pushes the bottom navigation off the screen with it.
+   Not vertically either: `overflow-x: hidden` alone quietly makes the page
+   scrollable up and down, and in the installed app on an iPhone a hard pull at
+   the top of `.content` handed the scroll on to the page, which carried the
+   bottom navigation off the screen until the list was scrolled to its end. */
+html, body { overflow: hidden; overscroll-behavior: none; }
 /* The visible height, which with a browser toolbar at the bottom or the phone's
    own navigation buttons is less than the screen. */
 body { height: 100dvh; }
@@ -552,7 +556,7 @@ input[type='number'] { direction: ltr; text-align: end; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 12px -6px rgba(0, 0, 0, 0.8);
 }
 
-.content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px 20px 40px; }
+.content { flex: 1; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; padding: 22px 20px 40px; }
 .wrap { max-width: 1280px; margin: 0 auto; }
 
 /* ------------------------------------------------------------------ panels */
