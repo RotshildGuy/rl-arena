@@ -12,7 +12,6 @@ import {
   renameEntry,
   removeEntry,
   entryDrift,
-  DRIFT_LABEL,
   EntryError,
   MAX_ENTRIES_PER_TEAM,
 } from '../enterChampionship';
@@ -24,7 +23,6 @@ import {
   currentRound,
   startsAtForRound,
   trackForRound,
-  grandPrixName,
 } from '../../core/champ/schedule';
 import { eligibleEntries } from '../../core/champ/card';
 import { RACE_LAPS } from '../../core/champ/format';
@@ -35,8 +33,12 @@ import { TeamNameForm } from '../components/TeamNameForm';
 import { TrainingPrimer, hasSeenPrimer, markPrimerSeen } from '../components/TrainingPrimer';
 import { exportModel, importModel, ModelFileError } from '../modelFile';
 import { CoachAnchor, modelsChanged, useCoachStep } from '../coach';
+import { locale, useT } from '../../i18n';
+import { grandPrixTitle, trackName } from '../../i18n/names';
 
 export function Garage() {
+  const t = useT();
+  const g = t.garage;
   const { gameId, go, newDraft, draftFromModel, patchRace, showToast, competitor: team } = useApp();
   const game = getGame(gameId);
   const champ = useChampionship();
@@ -120,8 +122,8 @@ export function Garage() {
     const store = await getStore();
     const rec = await store.load(m.id);
     if (!rec) return;
-    await store.save({ ...rec, id: newModelId(), name: m.name + ' (עותק)', createdAt: Date.now(), updatedAt: Date.now() });
-    showToast('המודל שוכפל');
+    await store.save({ ...rec, id: newModelId(), name: m.name + g.copySuffix, createdAt: Date.now(), updatedAt: Date.now() });
+    showToast(g.duplicated);
     void refresh();
   };
 
@@ -136,7 +138,7 @@ export function Garage() {
     try {
       if (entry) await renameEntry(entry, name);
     } catch (e) {
-      showToast(e instanceof EntryError ? e.message : 'שינוי השם באליפות נכשל');
+      showToast(e instanceof EntryError ? e.message : g.renameFailed);
       return;
     }
 
@@ -144,7 +146,7 @@ export function Garage() {
     const rec = await store.load(m.id);
     if (!rec) return;
     await store.save({ ...rec, name, updatedAt: Date.now() });
-    showToast(entry ? 'השם עודכן, גם על המסלול' : 'השם עודכן');
+    showToast(entry ? g.renamedBoth : g.renamed);
     if (entry) champ.reload();
     void refresh();
   };
@@ -159,7 +161,7 @@ export function Garage() {
     await store.remove(m.id);
     setConfirmDelete(null);
     setSelected(null);
-    showToast(entry ? 'המודל נמחק והוסר מהאליפות' : 'המודל נמחק');
+    showToast(entry ? g.deletedBoth : g.deleted);
     if (entry) champ.reload();
     void refresh();
   };
@@ -176,11 +178,11 @@ export function Garage() {
       await enterChampionship(m);
       // Say when it races: "registered" alone left people asking which race, and when.
       const round = Date.now() >= lockAtForRound(currentRound() + 1) ? currentRound() + 2 : currentRound() + 1;
-      const when = `סבב ${round}, ${whenText(startsAtForRound(round))}`;
-      showToast(wasEntered ? `הרכב עודכן - יתחרה בגרסה החדשה ב${when}` : `⁨${m.name}⁩ נרשם - יתחרה ב${when}`);
+      const when = g.when(round, whenText(startsAtForRound(round)));
+      showToast(wasEntered ? g.updated(when) : g.entered(m.name, when));
       champ.reload();
     } catch (e) {
-      showToast(e instanceof EntryError ? e.message : 'הרישום נכשל');
+      showToast(e instanceof EntryError ? e.message : g.entryFailed);
     } finally {
       setEntering(null);
     }
@@ -190,7 +192,7 @@ export function Garage() {
     const entry = carOf(modelId);
     if (!entry) return;
     await removeEntry(entry);
-    showToast(`${entry.driver} הוסר מהאליפות`);
+    showToast(g.removed(entry.driver));
     champ.reload();
   };
 
@@ -207,13 +209,13 @@ export function Garage() {
     try {
       await removeEntry(out);
       await enterChampionship(m);
-      showToast(`${out.driver} הוסר, ${m.name} נרשם במקומו`);
+      showToast(g.swapped(out.driver, m.name));
     } catch (e) {
       // The old car is already off the grid by now, so a bare "it failed" would
       // leave the team one down and none the wiser. The slot is free: say what
       // happened and the second half can simply be tried again.
-      const why = e instanceof EntryError ? e.message : 'הרישום נכשל';
-      showToast(`${out.driver} הוסר, אבל ${m.name} לא נרשם - ${why}`);
+      const why = e instanceof EntryError ? e.message : g.entryFailed;
+      showToast(g.swapHalf(out.driver, m.name, why));
     } finally {
       setEntering(null);
       champ.reload();
@@ -222,9 +224,9 @@ export function Garage() {
 
   const save = async (m: ModelMeta) => {
     try {
-      showToast(`נשמר הקובץ ${await exportModel(m.id)}`);
+      showToast(g.exported(await exportModel(m.id)));
     } catch (e) {
-      showToast(e instanceof ModelFileError ? e.message : 'הייצוא נכשל');
+      showToast(e instanceof ModelFileError ? e.message : g.exportFailed);
     }
   };
 
@@ -232,10 +234,10 @@ export function Garage() {
     if (!file) return;
     try {
       const rec = await importModel(file);
-      showToast(`${rec.name} יובא`);
+      showToast(g.imported(rec.name));
       void refresh();
     } catch (e) {
-      showToast(e instanceof ModelFileError ? e.message : 'הייבוא נכשל');
+      showToast(e instanceof ModelFileError ? e.message : g.importFailed);
     }
   };
 
@@ -245,7 +247,6 @@ export function Garage() {
   // time *there*: a record set on the oval says nothing about a mountain race,
   // and this is the one number that predicts how the next round will go.
   const gpTrackId = trackForRound(nextRound);
-  const gpTrack = TRACK_DEFS.find((t) => t.id === gpTrackId);
   // Exactly the field the next round will be built from, so a car that is over
   // the team limit is told here rather than discovering it on race day.
   const onGrid = new Set(champ.state ? eligibleEntries(champ.state.entries, nextRound).map((e) => e.id) : []);
@@ -257,23 +258,23 @@ export function Garage() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">המוסך</div>
-          <h1 className="display">המודלים שלי</h1>
-          <div className="muted small">כל מודל הוא נהג ממוחשב שאימנתם. כאן מאמנים, משפרים ורושמים לאליפות.</div>
+          <div className="eyebrow">{g.eyebrow}</div>
+          <h1 className="display">{g.title}</h1>
+          <div className="muted small">{g.intro}</div>
         </div>
         <div className="actions">
-          {/* Distinct from the footer's "איך זה עובד", which opens the rules of
+          {/* Distinct from the footer's "how it works", which opens the rules of
               the championship. This one is about training specifically. */}
-          <button className="ghost" onClick={() => setPrimer(true)} title="מה המודל בעצם לומד">
-            הסבר על אימון
+          <button className="ghost" onClick={() => setPrimer(true)} title={g.primerTitle}>
+            {g.primer}
           </button>
-          <button onClick={() => fileInput.current?.click()}>ייבוא מקובץ</button>
+          <button onClick={() => fileInput.current?.click()}>{g.importFile}</button>
           <CoachAnchor
             step={coach === 'create' ? coach : null}
-            text="כאן נולד מודל חדש. בוחרים מסלול, מכוונים עשרה מחווני אופי נהיגה - או משאירים כמו שהם - והרכב יוצא לנסות בעצמו. הוא מתחיל בלי לדעת כלום ולומד מהניסיונות."
+            text={g.coachCreate}
           >
             <button className="primary" onClick={startNew}>
-              אמן מודל חדש
+              {g.trainNew}
             </button>
           </CoachAnchor>
         </div>
@@ -318,15 +319,15 @@ export function Garage() {
               <>
                 <span className="pill">
                   <span className="livery" style={{ background: teamColor(team), width: 4, height: 12 }} />
-                  קבוצה: {team}
+                  {g.team(team)}
                 </span>
                 <span className={gridFull ? 'pill warn' : 'muted'}>
-                  {myCars.length} מתוך {MAX_ENTRIES_PER_TEAM} רכבים על המסלול
+                  {g.onTrack(myCars.length, MAX_ENTRIES_PER_TEAM)}
                 </span>
                 <span className="muted">
                   {gridFull
-                    ? 'הגריד מלא - רישום מודל נוסף יבקש לבחור איזה רכב יורד במקומו.'
-                    : 'מודל שנרשם לאליפות מתחרה בכל גרנד פרי יומי תחת השם הזה.'}
+                    ? g.gridFull
+                    : g.racesDaily}
                 </span>
               </>
             ) : (
@@ -334,25 +335,25 @@ export function Garage() {
                 {/* Right here, rather than a trip to another tab and back. */}
                 {naming ? (
                   <div style={{ flex: '1 1 260px' }}>
-                    <TeamNameForm autoFocus label="שם הקבוצה" onSaved={() => setNaming(false)} onCancel={() => setNaming(false)} />
+                    <TeamNameForm autoFocus label={g.teamName} onSaved={() => setNaming(false)} onCancel={() => setNaming(false)} />
                   </div>
                 ) : (
                   <>
-                    <span className="pill warn">אין שם מתחרה</span>
-                    <span className="muted">בלי שם מתחרה אי אפשר להירשם לאליפות.</span>
+                    <span className="pill warn">{g.noTeam}</span>
+                    <span className="muted">{g.needTeam}</span>
                     <button className="small" onClick={() => setNaming(true)}>
-                      בחירת שם
+                      {g.pickName}
                     </button>
                   </>
                 )}
               </>
             )}
             <div style={{ flex: 1 }} />
-            <span className="dim tiny">{grandPrixName(nextRound)}</span>
+            <span className="dim tiny">{grandPrixTitle(gpTrackId)}</span>
             <span className="dim tiny">
               {locked
-                ? `הרישום לסבב ${nextRound} סגור · רכב שיירשם עכשיו יתחרה בסבב ${nextRound + 1}, ${whenText(startsAtForRound(nextRound + 1))}`
-                : `הסבב הבא: ${whenText(startsAtForRound(nextRound))} · אפשר להירשם עד ${whenText(lockAtForRound(nextRound))}`}
+                ? g.locked(nextRound, nextRound + 1, whenText(startsAtForRound(nextRound + 1)))
+                : g.open(whenText(startsAtForRound(nextRound)), whenText(lockAtForRound(nextRound)))}
             </span>
         </div>
       </div>
@@ -361,13 +362,13 @@ export function Garage() {
 
       {models !== null && models.length === 0 && (
         <div className="empty">
-          <h2 style={{ marginBottom: 6 }}>אין עדיין מודלים</h2>
+          <h2 style={{ marginBottom: 6 }}>{g.noModels}</h2>
           <p style={{ margin: '0 0 6px' }}>{game.blurb}</p>
           <p className="small" style={{ margin: '0 0 14px' }}>
-            אימון ראשון לוקח בערך שתי דקות עד שהרכב משלים הקפה.
+            {g.firstRun}
           </p>
           <button className="primary" onClick={startNew}>
-            אמן מודל חדש
+            {g.trainNew}
           </button>
         </div>
       )}
@@ -388,57 +389,57 @@ export function Garage() {
                   <div className="row">
                     <DriverCell
                       driver={m.name}
-                      team={team || 'ללא שם'}
+                      team={team || t.misc.unnamed}
                       note={ALGORITHMS[m.algorithm]?.name ?? m.algorithm}
                     />
                     <div style={{ flex: 1 }} />
                     {gameId === 'racing' &&
                       (!entry ? (
-                        <span className="dim tiny">לא רשום</span>
+                        <span className="dim tiny">{g.notEntered}</span>
                       ) : !onGrid.has(entry.id) ? (
-                        <span className="pill warn small" title={`לכל קבוצה ${MAX_ENTRIES_PER_TEAM} רכבים במרוץ`}>
-                          מחוץ למכסת הקבוצה
+                        <span className="pill warn small" title={g.perTeam(MAX_ENTRIES_PER_TEAM)}>
+                          {g.overQuota}
                         </span>
                       ) : drift !== 'none' ? (
-                        <span className="pill warn small">{DRIFT_LABEL[drift]}</span>
+                        <span className="pill warn small">{t.entry.drift[drift]}</span>
                       ) : (
-                        <span className="pill good small">רשום</span>
+                        <span className="pill good small">{g.entered2}</span>
                       ))}
                   </div>
 
                   <div className="stats">
                     <span>
-                      {ALGORITHMS[m.algorithm]?.episodesLabel ?? 'סבבים'}{' '}
-                      <b>{m.training.episodes.toLocaleString('he-IL')}</b>
+                      {ALGORITHMS[m.algorithm]?.episodesLabel ?? g.rounds}{' '}
+                      <b>{m.training.episodes.toLocaleString(locale())}</b>
                     </span>
                     {/* Distance is only news until there is a full race to show. */}
                     {gp.raceMs == null && (
-                      <span title="הכי רחוק שהמודל הגיע בניסיון אחד">
-                        הכי רחוק <b>{m.training.bestScore.toFixed(1)}</b> {game.spec.scoreLabel}
+                      <span title={g.farthestTitle}>
+                        {g.farthest} <b>{m.training.bestScore.toFixed(1)}</b> {game.spec.scoreLabel}
                       </span>
                     )}
                     {/* The circuit that matters is the one the next Grand Prix
                         runs on, not whichever the model happened to train on
                         last - so that is the time on the card, and a model that
                         has never been there is told so plainly. */}
-                    <span title={`השיא של המודל במסלול של ${grandPrixName(nextRound)}`}>
-                      הקפה מהירה ב{gpTrack?.name ?? gpTrackId}{' '}
+                    <span title={g.gpRecordTitle(grandPrixTitle(gpTrackId))}>
+                      {g.fastLapOn(trackName(gpTrackId))}{' '}
                       {gp.lapMs != null ? (
                         <b>{lapTime(gp.lapMs)}</b>
                       ) : (
-                        <b style={{ color: 'var(--warn)' }}>טרם התאמן</b>
+                        <b style={{ color: 'var(--warn)' }}>{g.untrained}</b>
                       )}
                     </span>
                     {gp.raceMs != null && (
-                      <span title={`${RACE_LAPS} הקפות, מרחק הגרנד פרי`}>
-                        מרוץ מלא <b>{raceTime(gp.raceMs)}</b>
+                      <span title={g.gpDistance(RACE_LAPS)}>
+                        {g.fullRace} <b>{raceTime(gp.raceMs)}</b>
                       </span>
                     )}
                     <span>
-                      אימון אחרון: <b>{trackName(m.config) || '-'}</b>
+                      {g.lastTraining} <b>{lastTrack(m.config) || '-'}</b>
                     </span>
                     <span>
-                      זמן אימון <b>{durationText(m.training.trainedMs)}</b>
+                      {g.trainTime} <b>{durationText(m.training.trainedMs)}</b>
                     </span>
                   </div>
 
@@ -446,14 +447,14 @@ export function Garage() {
                     {gameId === 'racing' && (
                       <CoachAnchor
                         step={coach === 'enter' && m.id === firstUnregistered ? coach : null}
-                        text="בלי רישום המודל לא משתתף במרוצים. לחצו רשום לאליפות והוא יעלה לגריד של הגרנד פרי הבא."
+                        text={g.coachEnter}
                       >
                       <button
                         className={entry && drift === 'none' ? 'small' : 'small primary'}
                         disabled={entering === m.id || !team}
                         title={
                           gridFull && !entry
-                            ? `לכל קבוצה ${MAX_ENTRIES_PER_TEAM} רכבים על המסלול - תתבקשו לבחור מי יורד`
+                            ? g.fullTitle(MAX_ENTRIES_PER_TEAM)
                             : undefined
                         }
                         onClick={(ev) => {
@@ -464,7 +465,7 @@ export function Garage() {
                           else void enter(m);
                         }}
                       >
-                        {entering === m.id ? 'רושם…' : entry ? 'עדכן רכב' : 'רשום לאליפות'}
+                        {entering === m.id ? g.entering : entry ? g.update : g.enter}
                       </button>
                       </CoachAnchor>
                     )}
@@ -475,7 +476,7 @@ export function Garage() {
                         continueTraining(m, false);
                       }}
                     >
-                      המשך אימון
+                      {g.continue}
                     </button>
                     <button
                       className="small"
@@ -484,7 +485,7 @@ export function Garage() {
                         race(m);
                       }}
                     >
-                      התחרה מולו
+                      {g.race}
                     </button>
                   </div>
                 </div>
@@ -509,7 +510,7 @@ export function Garage() {
                       )}
                       <div className="fill" />
                       <button className="ghost small" onClick={() => setSelected(null)}>
-                        סגור
+                        {g.close}
                       </button>
                     </div>
 
@@ -521,39 +522,39 @@ export function Garage() {
                           setRenaming(m.id);
                         }}
                       >
-                        שנה שם
+                        {g.rename}
                       </button>
-                      <button onClick={() => duplicate(m)}>שכפל</button>
-                      <button onClick={() => void save(m)} title="שומר קובץ גיבוי שאפשר לייבא בחזרה">
-                        ייצוא לקובץ
+                      <button onClick={() => duplicate(m)}>{g.duplicate}</button>
+                      <button onClick={() => void save(m)} title={g.exportTitle}>
+                        {g.exportFile}
                       </button>
-                      {entry && <button onClick={() => void unregister(m.id)}>הסר מהאליפות</button>}
+                      {entry && <button onClick={() => void unregister(m.id)}>{g.unregister}</button>}
                       {confirmDelete === m.id ? (
                         <>
                           <button className="danger" onClick={() => void remove(m)}>
-                            {entry ? 'למחוק ולהסיר מהאליפות?' : 'למחוק לצמיתות?'}
+                            {entry ? g.deleteBoth : g.deleteForever}
                           </button>
                           <button className="ghost" onClick={() => setConfirmDelete(null)}>
-                            ביטול
+                            {g.cancel}
                           </button>
                         </>
                       ) : (
                         <button className="danger" onClick={() => setConfirmDelete(m.id)}>
-                          מחק
+                          {g.delete}
                         </button>
                       )}
                     </div>
 
-                    <h3 style={{ margin: '0 0 6px' }}>השיאים שלו</h3>
+                    <h3 style={{ margin: '0 0 6px' }}>{g.records}</h3>
                     <RecordTable model={m} />
 
-                    <h3 style={{ margin: '14px 0 6px' }}>עקומת הלמידה</h3>
+                    <h3 style={{ margin: '14px 0 6px' }}>{g.curve}</h3>
                     <LineChart
                       height={110}
                       series={[{ label: 'reward', color: '--accent-2', values: m.training.history.map((p) => p.reward) }]}
                     />
 
-                    <h3 style={{ margin: '14px 0 6px' }}>המחוונים שעיצבו אותו</h3>
+                    <h3 style={{ margin: '14px 0 6px' }}>{g.sliders}</h3>
                     <div className="small">
                       {game.spec.rewardChannels.map((c) => {
                         // The same 1-10 notch the slider showed, not the raw weight -
@@ -571,11 +572,11 @@ export function Garage() {
                       })}
                     </div>
 
-                    <h3 style={{ margin: '14px 0 6px' }}>פרטים</h3>
+                    <h3 style={{ margin: '14px 0 6px' }}>{g.details}</h3>
                     <div className="small muted">
                       {ALGORITHMS[m.algorithm]?.name} · {ALGORITHMS[m.algorithm]?.technical}
                     </div>
-                    <div className="small muted">אומן על {game.describeConfig(m.config)}</div>
+                    <div className="small muted">{g.trainedOn(game.describeConfig(m.config))}</div>
                   </div>
                 )}
               </div>
@@ -588,8 +589,8 @@ export function Garage() {
 }
 
 /** The circuit a model last trained on, for the one-line summary on its card. */
-function trackName(config: Record<string, unknown>): string {
-  return TRACK_DEFS.find((t) => t.id === config.trackId)?.name ?? '';
+function lastTrack(config: Record<string, unknown>): string {
+  return TRACK_DEFS.some((d) => d.id === config.trackId) ? trackName(String(config.trackId)) : '';
 }
 
 /**
@@ -635,14 +636,12 @@ function SwapDialog({
   onPick(out: ArenaEntry): void;
   onClose(): void;
 }) {
+  const g = useT().garage;
   const byId = new Map(models.map((m) => [m.id, m]));
-  const trackLabel = TRACK_DEFS.find((t) => t.id === gpTrackId)?.name ?? gpTrackId;
+  const trackLabel = trackName(gpTrackId);
   return (
-    <Modal eyebrow="הגריד מלא" title={`מי יורד כדי ש"${model.name}" יעלה?`} onClose={onClose}>
-      <p className="small muted">
-        לכל קבוצה {MAX_ENTRIES_PER_TEAM} רכבים על המסלול. הרכב שתבחרו יוסר מהאליפות - הנקודות שצבר
-        בעונה נשארות ברשומות, אבל הוא לא ייקח חלק בסבבים הבאים. אפשר לרשום אותו שוב בכל רגע.
-      </p>
+    <Modal eyebrow={g.full} title={g.whoLeaves(model.name)} onClose={onClose}>
+      <p className="small muted">{g.swapBody(MAX_ENTRIES_PER_TEAM)}</p>
       {cars.map((e) => {
         const m = byId.get(e.modelId);
         const gp = m ? gpRecord(m, gpTrackId) : { lapMs: null, raceMs: null };
@@ -651,14 +650,14 @@ function SwapDialog({
             <DriverCell driver={e.driver} team={e.team} tag={e.tag} />
             <div style={{ flex: 1 }} />
             <span className="small muted">
-              הקפה מהירה ב{trackLabel}{' '}
+              {g.fastLapOn(trackLabel)}{' '}
               <span className="mono" style={{ color: gp.lapMs != null ? 'var(--accent-2)' : 'var(--muted)' }}>
                 {gp.lapMs != null ? lapTime(gp.lapMs) : '-'}
               </span>
             </span>
-            <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} ניסיונות</span>
+            <span className="mono small muted">{g.attempts(e.episodes.toLocaleString(locale()))}</span>
             <button className="danger small" onClick={() => onPick(e)}>
-              הורד את {e.driver}
+              {g.takeOff(e.driver)}
             </button>
           </div>
         );
@@ -676,21 +675,22 @@ function SwapDialog({
  * setup the model ever touched.
  */
 function RecordTable({ model }: { model: ModelMeta }) {
+  const g = useT().garage;
   const rows = Object.values(model.training.records ?? {}).sort((a, b) => b.at - a.at);
   if (rows.length === 0) {
-    return <div className="small muted">עוד לא נקבע שיא. שיא נשמר בנפרד לכל מפה ולכל מספר הקפות.</div>;
+    return <div className="small muted">{g.noRecord}</div>;
   }
   return (
     <div className="small">
       <div className="row dim tiny" style={{ justifyContent: 'space-between' }}>
-        <span>מסלול</span>
-        <span>הקפה מהירה · מרוץ מלא</span>
+        <span>{g.track}</span>
+        <span>{g.lapAndRace}</span>
       </div>
       {rows.map((r) => (
         <div className="row" key={r.trackId + r.laps} style={{ justifyContent: 'space-between', padding: '3px 0' }}>
           <span>
-            {TRACK_DEFS.find((t) => t.id === r.trackId)?.name ?? r.trackId}
-            <span className="dim"> · {r.laps} הקפות</span>
+            {trackName(r.trackId)}
+            <span className="dim"> · {g.laps(r.laps)}</span>
           </span>
           <span className="mono">
             <span style={{ color: 'var(--accent-2)' }}>{lapTime(r.bestLapMs)}</span>

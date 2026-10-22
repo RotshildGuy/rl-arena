@@ -6,7 +6,6 @@ import { useChampionship, useNow } from '../useChampionship';
 import { buildStandings, POINTS, FASTEST_LAP_BONUS } from '../../core/champ/points';
 import { teamColor } from '../../core/champ/livery';
 import { dayState, settledResults } from '../../core/champ/timing';
-import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { trackForRound } from '../../core/champ/schedule';
 import { DriverCell } from '../components/Livery';
 import { dateText, lapTime, posClass, raceTime } from '../format';
@@ -17,10 +16,13 @@ import { hallOfFame, rookieUids, seasonCards, type SeasonHonours } from '../../c
 import { leagueView } from '../../core/champ/league';
 import { LeaguePanel, useLeagues } from '../components/Leagues';
 import type { RaceCard, RaceResult } from '../../core/champ/types';
+import { useT } from '../../i18n';
+import { driverName, grandPrixTitle, teamName, trackName } from '../../i18n/names';
 
 type Tab = 'drivers' | 'teams' | 'results' | 'records' | 'fame';
 
 export function Standings() {
+  const s = useT().standings;
   const { openRace, leagueId, setLeague } = useApp();
   const { leagues, reload: reloadLeagues } = useLeagues();
   /** The rookies' table is a league of its own, chosen from the same picker. */
@@ -82,8 +84,8 @@ export function Standings() {
   if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !leagueId && leagues.length === 0) {
     return (
       <div className="empty">
-        <h2 style={{ marginBottom: 6 }}>אין עדיין טבלה</h2>
-        <p style={{ margin: 0 }}>הטבלה תיבנה אחרי הגרנד פרי הראשון.</p>
+        <h2 style={{ marginBottom: 6 }}>{s.noTable}</h2>
+        <p style={{ margin: 0 }}>{s.afterFirst}</p>
       </div>
     );
   }
@@ -93,24 +95,24 @@ export function Standings() {
       <div className="toolbar">
         <div className="title">
           <div className="eyebrow">
-            עונה {season}
-            {season === current ? ' · נוכחית' : ''} · סבבים {seasonRange(season).first}–{seasonRange(season).last}
+            {s.season(season)}
+            {season === current ? s.currentTag : ''} · {s.rounds(seasonRange(season).first, seasonRange(season).last)}
           </div>
-          <h1 className="display">{rookies ? 'טבלת הטירונים' : league ? league.name : 'טבלאות האליפות'}</h1>
+          <h1 className="display">{rookies ? s.rookies : league ? league.name : s.title}</h1>
         </div>
         <div className="actions">
           {tab !== 'fame' && tab !== 'records' && (
             <select
               value={leagueId ?? ''}
               onChange={(e) => setLeague(e.target.value || null)}
-              aria-label="ליגה"
+              aria-label={s.league}
               style={{ width: 'auto' }}
             >
-              <option value="">כל המתחרים</option>
-              <option value={ROOKIES}>טירונים - העונה הראשונה שלהם</option>
+              <option value="">{s.everyone}</option>
+              <option value={ROOKIES}>{s.rookiesOption}</option>
               {leagues.map((l) => (
                 <option key={l.id} value={l.id}>
-                  ליגה: {l.name}
+                  {s.leagueOption(l.name)}
                 </option>
               ))}
             </select>
@@ -119,32 +121,32 @@ export function Standings() {
             <select
               value={season}
               onChange={(e) => setPicked(Number(e.target.value))}
-              aria-label="עונה"
+              aria-label={s.seasonLabel}
               style={{ width: 'auto' }}
             >
               {seasons.map((n) => (
                 <option key={n} value={n}>
-                  עונה {n}
-                  {n === current ? ' (נוכחית)' : ''}
+                  {s.season(n)}
+                  {n === current ? s.current : ''}
                 </option>
               ))}
             </select>
           )}
           <div className="segmented">
             <button className={tab === 'drivers' ? 'on' : ''} onClick={() => setTab('drivers')}>
-              נהגים
+              {s.drivers}
             </button>
             <button className={tab === 'teams' ? 'on' : ''} onClick={() => setTab('teams')}>
-              קבוצות
+              {s.teams}
             </button>
             <button className={tab === 'results' ? 'on' : ''} onClick={() => setTab('results')}>
-              תוצאות
+              {s.results}
             </button>
             <button className={tab === 'records' ? 'on' : ''} onClick={() => setTab('records')}>
-              שיאים
+              {s.records}
             </button>
             <button className={tab === 'fame' ? 'on' : ''} onClick={() => setTab('fame')}>
-              היכל התהילה
+              {s.fame}
             </button>
           </div>
         </div>
@@ -152,9 +154,9 @@ export function Standings() {
 
       {(tab === 'drivers' || tab === 'teams') && standings.drivers.length === 0 && (
         <div className="empty">
-          <h2 style={{ marginBottom: 6 }}>עונה {season} עוד לא התחילה</h2>
+          <h2 style={{ marginBottom: 6 }}>{s.notStarted(season)}</h2>
           <p style={{ margin: 0 }}>
-            הטבלה מתחילה מאפס בכל עונה, ותיבנה אחרי הגרנד פרי הראשון שלה - סבב {seasonRange(season).first}.
+            {s.fromZero(seasonRange(season).first)}
           </p>
         </div>
       )}
@@ -166,14 +168,14 @@ export function Standings() {
               <thead>
                 <tr>
                   <th style={{ width: 46 }}>#</th>
-                  <th>נהג</th>
-                  <th className="num">נקודות</th>
-                  <th className="num">ניצחונות</th>
-                  <th className="num">פודיומים</th>
-                  <th className="num">פול</th>
-                  <th className="num">הקפה מהירה</th>
-                  <th className="num">זינוקים</th>
-                  <th className="num">פרישות</th>
+                  <th>{s.driver}</th>
+                  <th className="num">{s.points}</th>
+                  <th className="num">{s.wins}</th>
+                  <th className="num">{s.podiums}</th>
+                  <th className="num">{s.poles}</th>
+                  <th className="num">{s.fastLap}</th>
+                  <th className="num">{s.starts}</th>
+                  <th className="num">{s.dnfs}</th>
                 </tr>
               </thead>
               <tbody>
@@ -183,7 +185,7 @@ export function Standings() {
                       <span className={posClass(d.position)}>{d.position}</span>
                     </td>
                     <td>
-                      <DriverCell driver={d.driver} team={d.team} tag={d.tag} />
+                      <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} />
                     </td>
                     <td className="mono num" style={{ fontWeight: 800, fontSize: 15 }}>
                       {d.points}
@@ -208,10 +210,10 @@ export function Standings() {
             <thead>
               <tr>
                 <th style={{ width: 46 }}>#</th>
-                <th>קבוצה</th>
-                <th className="num">נקודות</th>
-                <th className="num">ניצחונות</th>
-                <th className="num">פודיומים</th>
+                <th>{s.team}</th>
+                <th className="num">{s.points}</th>
+                <th className="num">{s.wins}</th>
+                <th className="num">{s.podiums}</th>
               </tr>
             </thead>
             <tbody>
@@ -226,8 +228,8 @@ export function Standings() {
                       <div className="driver">
                         <span className="livery" style={{ background: teamColor(t.team) }} />
                         <div className="names">
-                          <span className="who">{t.team}</span>
-                          <span className="team">{drivers.map((d) => d.driver).join(' · ')}</span>
+                          <span className="who">{teamName(t.team)}</span>
+                          <span className="team">{drivers.map((d) => driverName({ id: d.entryId, driver: d.driver })).join(' · ')}</span>
                         </div>
                       </div>
                     </td>
@@ -248,35 +250,35 @@ export function Standings() {
         <div className="card notched" style={{ padding: 0, overflow: 'hidden' }}>
           {raced.length === 0 ? (
             <div className="empty" style={{ border: 'none' }}>
-              עוד לא הסתיים אף גרנד פרי.
+              {s.noneFinished}
             </div>
           ) : (
             <ScrollX>
               <table className="timing pin-1">
                 <thead>
                   <tr>
-                    <th>נהג</th>
+                    <th>{s.driver}</th>
                     {raced.map((c) => (
-                      <th key={c.id} className="num" title={c.name}>
+                      <th key={c.id} className="num" title={grandPrixTitle(c.trackId)}>
                         <button
                           className="ghost small"
                           style={{ padding: '2px 4px' }}
                           onClick={() => openRace(c.id, 'report')}
                         >
-                          {TRACK_DEFS.find((t) => t.id === trackForRound(c.round))?.name.slice(0, 4) ?? c.round}
+                          {trackName(trackForRound(c.round)).slice(0, 4)}
                           <br />
                           <span className="dim tiny">{dateText(c.startsAt)}</span>
                         </button>
                       </th>
                     ))}
-                    <th className="num">סה״כ</th>
+                    <th className="num">{s.total}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {standings.drivers.map((d) => (
                     <tr key={d.entryId} className={d.entryIds.some((id) => mine.has(id)) ? 'me' : ''}>
                       <td>
-                        <DriverCell driver={d.driver} team={d.team} tag={d.tag} />
+                        <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} />
                       </td>
                       {raced.map((c) => {
                         const cell = d.byRace[c.id];
@@ -287,7 +289,7 @@ export function Standings() {
                             ) : (
                               <span
                                 className={posClass(cell.position, cell.status === 'dnf')}
-                                title={`${cell.points} נקודות`}
+                                title={s.pointsTitle(cell.points)}
                               >
                                 {cell.status === 'dnf' ? 'DNF' : cell.position}
                               </span>
@@ -316,7 +318,7 @@ export function Standings() {
 
       {tab !== 'records' && tab !== 'fame' && (
       <div className="card" style={{ marginTop: 14 }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>שיטת הניקוד</div>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>{s.scoring}</div>
         <div className="row wrap small">
           {POINTS.map((p, i) => (
             <span className="pill" key={i}>
@@ -326,13 +328,10 @@ export function Standings() {
               {p}
             </span>
           ))}
-          <span className="pill hot">הקפה מהירה +{FASTEST_LAP_BONUS}</span>
+          <span className="pill hot">{s.fastLapBonus(FASTEST_LAP_BONUS)}</span>
         </div>
         <div className="small muted" style={{ marginTop: 8 }}>
-          שיטת הניקוד המקובלת במרוצי מכוניות: נקודות לעשרת הראשונים, ונקודת בונוס להקפה המהירה ביותר -
-          אך ורק אם הנהג סיים בעשירייה. שוויון נקודות נשבר לפי מספר הניצחונות, ואם גם הוא שווה - לפי
-          מספר המקומות השניים, וכן הלאה. רכב שלא השלים לפחות מחצית מהמרחק של המנצח אינו מסווג
-          ואינו צובר נקודות, גם אם דורג בעשירייה.
+          {s.scoringBody}
         </div>
       </div>
       )}
@@ -354,6 +353,7 @@ function Records({
   results: Map<string, RaceResult>;
   now: number;
 }) {
+  const s = useT().standings;
   const records = useMemo(() => trackRecords(cards, results), [cards, results]);
   const round = currentRound(now);
 
@@ -364,25 +364,25 @@ function Records({
         return (
           <div className="card notched" key={r.trackId}>
             <div className="head">
-              <div className="eyebrow">{r.name}</div>
+              <div className="eyebrow">{trackName(r.trackId)}</div>
               <div className="fill" />
               <span className="muted small">
-                {r.races === 0 ? 'טרם נערך' : `${r.races} ${r.races === 1 ? 'מרוץ' : 'מרוצים'}`}
+                {r.races === 0 ? s.notYet : s.races(r.races)}
               </span>
               {next !== null && (
-                <span className="pill small" title={`סבב ${next}`}>
-                  הבא: {dateText(startsAtForRound(next))}
+                <span className="pill small" title={s.round(next)}>
+                  {s.next(dateText(startsAtForRound(next)))}
                 </span>
               )}
             </div>
 
             {r.races === 0 ? (
-              <div className="muted small">המסלול הזה עוד לא אירח גרנד פרי.</div>
+              <div className="muted small">{s.noGrandPrix}</div>
             ) : (
               <div className="cols-3">
-                <RecordCell label="שיא הקפה במרוץ" holder={r.lap} purple />
-                <RecordCell label="שיא הקפה במוקדמות" holder={r.quali} />
-                <RecordCell label={`שיא מרוץ (${RACE_LAPS} הקפות)`} holder={r.distance} full />
+                <RecordCell label={s.raceLap} holder={r.lap} purple />
+                <RecordCell label={s.qualiLap} holder={r.quali} />
+                <RecordCell label={s.raceRecord(RACE_LAPS)} holder={r.distance} full />
               </div>
             )}
           </div>
@@ -403,6 +403,7 @@ function RecordCell({
   purple?: boolean;
   full?: boolean;
 }) {
+  const s = useT().standings;
   return (
     <div>
       <div className="tiny dim" style={{ letterSpacing: '0.08em', marginBottom: 3 }}>
@@ -416,10 +417,10 @@ function RecordCell({
       </div>
       {holder && (
         <div className="small">
-          <span style={{ fontWeight: 700 }}>{holder.driver}</span>
-          <span className="muted"> · {holder.team}</span>
+          <span style={{ fontWeight: 700 }}>{driverName({ id: holder.entryId, driver: holder.driver })}</span>
+          <span className="muted"> · {teamName(holder.team)}</span>
           <div className="dim tiny">
-            סבב {holder.round} · {dateText(holder.at)}
+            {s.round(holder.round)} · {dateText(holder.at)}
           </div>
         </div>
       )}
@@ -433,12 +434,13 @@ function RecordCell({
  * final takes the flag, with nothing to close or archive.
  */
 function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
+  const s = useT().standings;
   if (fame.length === 0) {
     return (
       <div className="empty">
-        <h2 style={{ marginBottom: 6 }}>עוד אין אלופים</h2>
+        <h2 style={{ marginBottom: 6 }}>{s.noChampions}</h2>
         <p style={{ margin: 0 }}>
-          אלוף הנהגים ואלוף הקבוצות של כל עונה נכנסים לכאן ברגע שהמרוץ האחרון שלה מסתיים.
+          {s.championsWhen}
         </p>
       </div>
     );
@@ -448,23 +450,24 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
       {fame.map((h) => (
         <div className="card notched" key={h.season}>
           <div className="head">
-            <div className="eyebrow">עונה {h.season}</div>
+            <div className="eyebrow">{s.season(h.season)}</div>
             <div className="fill" />
             <span className="muted small">
-              סבבים {h.first}–{h.last} · {h.races} {h.races === 1 ? 'מרוץ' : 'מרוצים'}
+              {s.rounds(h.first, h.last)} · {s.races(h.races)}
             </span>
           </div>
           <div className="cols-2">
             <div>
               <div className="tiny dim" style={{ letterSpacing: '0.08em', marginBottom: 4 }}>
-                🏆 אלוף הנהגים
+                {s.driversChampion}
               </div>
               {h.driver ? (
                 <>
-                  <DriverCell driver={h.driver.driver} team={h.driver.team} tag={h.driver.tag} />
+                  <DriverCell driver={driverName({ id: h.driver.entryId, driver: h.driver.driver })} team={teamName(h.driver.team)} tag={h.driver.tag} />
                   <div className="small muted" style={{ marginTop: 4 }}>
-                    <span className="mono">{h.driver.points}</span> נקודות · {h.driver.wins} ניצחונות
-                    {h.runnerUp && ` · ${h.driver.points - h.runnerUp.points} לפני ${h.runnerUp.driver}`}
+                    <span className="mono">{h.driver.points}</span>
+                    {s.pointsWins(h.driver.wins)}
+                    {h.runnerUp && s.ahead(h.driver.points - h.runnerUp.points, driverName({ id: h.runnerUp.entryId, driver: h.runnerUp.driver }))}
                   </div>
                 </>
               ) : (
@@ -473,18 +476,19 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
             </div>
             <div>
               <div className="tiny dim" style={{ letterSpacing: '0.08em', marginBottom: 4 }}>
-                אלופת הקבוצות
+                {s.teamsChampion}
               </div>
               {h.team ? (
                 <>
                   <div className="driver">
                     <span className="livery" style={{ background: teamColor(h.team.team) }} />
                     <div className="names">
-                      <span className="who">{h.team.team}</span>
+                      <span className="who">{teamName(h.team.team)}</span>
                     </div>
                   </div>
                   <div className="small muted" style={{ marginTop: 4 }}>
-                    <span className="mono">{h.team.points}</span> נקודות · {h.team.wins} ניצחונות
+                    <span className="mono">{h.team.points}</span>
+                    {s.pointsWins(h.team.wins)}
                   </div>
                 </>
               ) : (

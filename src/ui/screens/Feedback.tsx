@@ -6,8 +6,6 @@ import {
   CONTACT_MAX,
   FEEDBACK_KINDS,
   FEEDBACK_MAX,
-  KIND_LABEL,
-  STATUS_LABEL,
   feedbackProblem,
   type Feedback as Item,
   type FeedbackKind,
@@ -15,6 +13,7 @@ import {
 } from '../../core/feedback';
 import { allFeedback, feedbackOnline, markFeedback, myFeedback, sendFeedback } from '../../storage/feedback';
 import { dateTimeText } from '../format';
+import { useT } from '../../i18n';
 
 /**
  * "Something is broken" and "this would be better if", from inside the app.
@@ -26,6 +25,8 @@ import { dateTimeText } from '../format';
  * a report does not disappear into a void.
  */
 export function Feedback() {
+  const t = useT();
+  const fb = t.feedback;
   const { go, feedbackFrom, showToast } = useApp();
   const auth = useSyncExternalStore(subscribeAuth, getAuthView);
   const [kind, setKind] = useState<FeedbackKind>('bug');
@@ -67,10 +68,10 @@ export function Feedback() {
       });
       setText('');
       setContact('');
-      showToast(online ? 'הפנייה נשלחה. תודה!' : 'הפנייה נשמרה בדפדפן הזה');
+      showToast(online ? fb.sent : fb.savedLocal);
       reload();
     } catch {
-      setError('השליחה נכשלה. נסו שוב בעוד רגע.');
+      setError(fb.failed);
     } finally {
       setBusy(false);
     }
@@ -80,13 +81,13 @@ export function Feedback() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">פניות</div>
-          <h1 className="display">באג או רעיון?</h1>
-          <div className="muted small">כל פנייה נקראת. אפשר לכתוב בחופשיות - גם "זה מבלבל" זה מידע שימושי.</div>
+          <div className="eyebrow">{fb.eyebrow}</div>
+          <h1 className="display">{fb.title}</h1>
+          <div className="muted small">{fb.intro}</div>
         </div>
         <div className="actions">
           <button className="ghost" onClick={() => go(feedbackFrom === 'feedback' ? 'championship' : feedbackFrom)}>
-            חזרה
+            {fb.back}
           </button>
         </div>
       </div>
@@ -96,16 +97,16 @@ export function Feedback() {
           <div className="segmented" style={{ width: '100%', marginBottom: 12 }}>
             {FEEDBACK_KINDS.map((k) => (
               <button key={k} style={{ flex: 1 }} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
-                {KIND_LABEL[k]}
+                {t.feedbackCore.kind[k]}
               </button>
             ))}
           </div>
           <label className="small muted" htmlFor="fb-text">
             {kind === 'bug'
-              ? 'מה קרה, ומה ציפיתם שיקרה? אם אפשר - מה עשיתם רגע לפני.'
+              ? fb.askBug
               : kind === 'idea'
-                ? 'מה הייתם רוצים שיהיה, ולמה?'
-                : 'מה תרצו לספר?'}
+                ? fb.askIdea
+                : fb.askOther}
           </label>
           <textarea
             id="fb-text"
@@ -120,24 +121,24 @@ export function Feedback() {
           </div>
 
           <label className="small muted" htmlFor="fb-contact">
-            איך לחזור אליכם (לא חובה)
+            {fb.contact}
           </label>
           <input
             id="fb-contact"
             type="text"
             value={contact}
             maxLength={CONTACT_MAX}
-            placeholder="מייל, או השאירו ריק"
+            placeholder={fb.contactPlaceholder}
             onChange={(e) => setContact(e.target.value)}
             style={{ width: '100%', marginTop: 6 }}
           />
 
           <label className="row small" style={{ marginTop: 10, gap: 8 }}>
             <input type="checkbox" checked={withDevice} onChange={(e) => setWithDevice(e.target.checked)} />
-            לצרף את סוג הדפדפן והמכשיר (עוזר מאוד לתקן באגים)
+            {fb.withDevice}
           </label>
           <div className="dim tiny" style={{ marginTop: 4 }}>
-            נשלח גם שם המסך שממנו פתחתם את הטופס. שום דבר אחר לא מצורף.
+            {fb.screenToo}
           </div>
 
           {error && (
@@ -148,12 +149,12 @@ export function Feedback() {
 
           <div className="row wrap" style={{ marginTop: 14 }}>
             <button className="primary" onClick={() => void submit()} disabled={busy}>
-              {busy ? 'שולח…' : 'שליחה'}
+              {busy ? fb.sending : fb.send}
             </button>
           </div>
           {!online && (
             <div className="small muted" style={{ marginTop: 8 }}>
-              האתר רץ בלי ענן, אז הפנייה תישמר רק בדפדפן הזה ולא תגיע אלינו.
+              {fb.noCloud}
             </div>
           )}
         </div>
@@ -161,10 +162,10 @@ export function Feedback() {
         <div className="grid">
           <div className="card notched">
             <div className="eyebrow" style={{ marginBottom: 8 }}>
-              הפניות שלי
+              {fb.mine}
             </div>
             {mine === null && <LineSkeleton />}
-            {mine?.length === 0 && <div className="muted small">עוד לא שלחתם פניות.</div>}
+            {mine?.length === 0 && <div className="muted small">{fb.none}</div>}
             {mine?.map((f) => <FeedbackRow key={f.id} item={f} />)}
           </div>
 
@@ -176,11 +177,12 @@ export function Feedback() {
 }
 
 function FeedbackRow({ item, admin }: { item: Item; admin?: boolean }) {
+  const t = useT();
   return (
     <div style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
       <div className="row wrap" style={{ gap: 6 }}>
-        <span className={`pill small ${item.kind === 'bug' ? 'warn' : ''}`}>{KIND_LABEL[item.kind]}</span>
-        <span className={`pill small ${item.status === 'done' ? 'good' : ''}`}>{STATUS_LABEL[item.status]}</span>
+        <span className={`pill small ${item.kind === 'bug' ? 'warn' : ''}`}>{t.feedbackCore.kind[item.kind]}</span>
+        <span className={`pill small ${item.status === 'done' ? 'good' : ''}`}>{t.feedbackCore.status[item.status]}</span>
         <div style={{ flex: 1 }} />
         <span className="dim tiny">{dateTimeText(item.createdAt)}</span>
       </div>
@@ -189,15 +191,15 @@ function FeedbackRow({ item, admin }: { item: Item; admin?: boolean }) {
       </div>
       {admin && (
         <div className="dim tiny" style={{ marginTop: 2, overflowWrap: 'anywhere' }}>
-          מסך: {item.screen}
-          {item.contact && ` · קשר: ${item.contact}`}
+          {t.feedback.screen(item.screen)}
+          {item.contact && t.feedback.contactIs(item.contact)}
           {item.device && ` · ${item.device}`}
           {` · ${item.uid}`}
         </div>
       )}
       {item.reply && (
         <div className="small" style={{ marginTop: 4, color: 'var(--accent-2)' }}>
-          תשובה: {item.reply}
+          {t.feedback.reply} {item.reply}
         </div>
       )}
     </div>
@@ -212,20 +214,21 @@ function FeedbackRow({ item, admin }: { item: Item; admin?: boolean }) {
 type Filter = 'open' | 'done' | 'all';
 
 function AdminList({ items, onChanged }: { items: Item[]; onChanged(): void }) {
+  const fb = useT().feedback;
   const [filter, setFilter] = useState<Filter>('open');
   const shown = items.filter((f) => filter === 'all' || (filter === 'done') === (f.status === 'done'));
   return (
     <div className="card notched">
       <div className="head">
-        <div className="eyebrow">כל הפניות (מפעילים)</div>
+        <div className="eyebrow">{fb.all}</div>
         <div className="fill" />
         <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} style={{ width: 'auto' }}>
-          <option value="open">פתוחות</option>
-          <option value="done">טופלו</option>
-          <option value="all">הכל</option>
+          <option value="open">{fb.open}</option>
+          <option value="done">{fb.done}</option>
+          <option value="all">{fb.everything}</option>
         </select>
       </div>
-      {shown.length === 0 && <div className="muted small">אין פניות בסינון הזה.</div>}
+      {shown.length === 0 && <div className="muted small">{fb.emptyFilter}</div>}
       {shown.map((f) => (
         <div key={f.id}>
           <FeedbackRow item={f} admin />
@@ -237,6 +240,7 @@ function AdminList({ items, onChanged }: { items: Item[]; onChanged(): void }) {
 }
 
 function AdminActions({ item, onChanged }: { item: Item; onChanged(): void }) {
+  const fb = useT().feedback;
   const [reply, setReply] = useState(item.reply ?? '');
   const set = (status: FeedbackStatus) =>
     void markFeedback(item.id, status, reply.trim() || undefined)
@@ -247,18 +251,18 @@ function AdminActions({ item, onChanged }: { item: Item; onChanged(): void }) {
       <input
         type="text"
         value={reply}
-        placeholder="תשובה לשולח (לא חובה)"
+        placeholder={fb.replyPlaceholder}
         onChange={(e) => setReply(e.target.value)}
         style={{ flex: '1 1 200px' }}
       />
       {reply.trim() !== (item.reply ?? '') && (
         <button className="small" onClick={() => set(item.status)}>
-          שמירת תשובה
+          {fb.saveReply}
         </button>
       )}
       {item.status !== 'done' && (
         <button className="small" onClick={() => set('done')}>
-          טופלה
+          {fb.markDone}
         </button>
       )}
     </div>

@@ -1,3 +1,5 @@
+import { useT } from '../../i18n';
+
 /**
  * The shape of a screen that is still loading, in place of a line of text.
  * Same shimmer as the first-load skeleton (`.skel` in styles.css), laid out
@@ -8,8 +10,9 @@
  * than nothing.
  */
 export function PageSkeleton({ variant, note }: { variant: 'table' | 'cards' | 'list' | 'race'; note?: string | null }) {
+  const t = useT();
   return (
-    <div className="grid" aria-busy aria-label="טוען">
+    <div className="grid" aria-busy aria-label={t.misc.loading}>
       {note && <div className="small muted">{note}</div>}
       {variant === 'race' && (
         <div className="skel-card" style={{ minHeight: 300 }}>
@@ -62,8 +65,9 @@ export function PageSkeleton({ variant, note }: { variant: 'table' | 'cards' | '
 
 /** A few shimmering lines, for a list inside a card that is still loading. */
 export function LineSkeleton({ lines = 3 }: { lines?: number }) {
+  const t = useT();
   return (
-    <div style={{ display: 'grid', gap: 8 }} aria-busy aria-label="טוען">
+    <div style={{ display: 'grid', gap: 8 }} aria-busy aria-label={t.misc.loading}>
       {Array.from({ length: lines }, (_, i) => (
         <span key={i} className="skel" style={{ width: `${90 - i * 15}%`, height: 16 }} />
       ))}

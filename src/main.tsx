@@ -3,10 +3,16 @@ import { App } from './ui/App';
 import { startAuth } from './ui/auth';
 import './ui/styles.css';
 import { initTheme } from './ui/theme';
+import { initLang, subscribeLang, t } from './i18n';
 import { registerServiceWorker } from './ui/serviceWorker';
 import { startSlidingTabs } from './ui/slidingTabs';
 
 initTheme();
+initLang();
+// The tab's title follows the language; index.html carries the Hebrew one.
+const retitle = () => (document.title = t().app.docTitle);
+retitle();
+subscribeLang(retitle);
 startSlidingTabs();
 registerServiceWorker();
 

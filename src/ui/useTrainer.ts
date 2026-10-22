@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FromTrainer, SlotWeights, SpeedMode, ToTrainer, TrainInit } from '../workers/protocol';
 import type { RewardConfig } from '../core/games/types';
 import type { TrainingPoint } from '../storage';
+import { getLang, t } from '../i18n';
 
 export interface LiveStats {
   episode: number;
@@ -132,7 +133,7 @@ export function useTrainer() {
       setStatus('idle');
       setSpeedState(cfg.speed);
       elapsedRef.current = 0;
-      send({ type: 'init', init: cfg });
+      send({ type: 'init', init: cfg, lang: getLang() });
     },
     [send],
   );
@@ -170,7 +171,7 @@ export function useTrainer() {
         pending.current.set(tag, resolve);
         send({ type: 'requestWeights', tag });
         setTimeout(() => {
-          if (pending.current.delete(tag)) reject(new Error('הבקשה למשקולות לא נענתה'));
+          if (pending.current.delete(tag)) reject(new Error(t().misc.weightsTimeout));
         }, 10_000);
       }),
     [send],

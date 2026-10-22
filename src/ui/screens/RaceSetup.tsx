@@ -9,6 +9,8 @@ import { isTouchDevice } from '../device';
 import { useChampionship } from '../useChampionship';
 import { ARENA_PREFIX } from '../opponents';
 import { lapTime } from '../format';
+import { driverName, teamName } from '../../i18n/names';
+import { locale, useT } from '../../i18n';
 
 /**
  * Setting up a race against models.
@@ -18,6 +20,8 @@ import { lapTime } from '../format';
  * answer the game can give to "is my model any good".
  */
 export function RaceSetup() {
+  const t = useT();
+  const r = t.raceSetup;
   const { gameId, race, patchRace, go, competitor: team } = useApp();
   const game = getGame(gameId);
   const champ = useChampionship();
@@ -71,42 +75,41 @@ export function RaceSetup() {
   return (
     <>
       <div className="page-head">
-        <div className="eyebrow">מחוץ לאליפות</div>
-        <h1 className="display">אתם מול המודלים</h1>
+        <div className="eyebrow">{r.eyebrow}</div>
+        <h1 className="display">{r.title}</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 640 }}>
-          {game.seatHint} - {isTouchDevice ? game.touchHint : game.controlsHint}. תוצאות כאן אינן משפיעות
-          על טבלת האליפות; זה מגרש אימונים.
+          {game.seatHint} - {isTouchDevice ? game.touchHint : game.controlsHint}. {r.offRecord}
         </p>
       </div>
 
       <div className="split-setup">
         <div className="card notched">
-          <div className="eyebrow" style={{ marginBottom: 12 }}>הגדרות {game.matchNoun}</div>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>{r.settings(game.matchNoun)}</div>
           <GameOptions options={configOptions} value={race.config} onChange={(config) => patchRace({ config })} />
           <div className="small muted">
             {maxOpponents === 1
-              ? 'משחק אחד מול אחד: אתם מול מודל אחד.'
+              ? r.oneOnOne
               : race.opponents.length === 0
-                ? 'בחרו יריבים מהרשימה - כל יריב הוא רכב נוסף על המסלול.'
-                : `על המסלול: אתם ועוד ${race.opponents.length === 1 ? 'יריב אחד' : `${race.opponents.length} יריבים`}.`}
+                ? r.pick
+                : r.onTrack(race.opponents.length)}
           </div>
         </div>
 
         <div className="card notched">
           <div className="head">
-            <div className="eyebrow">יריבים</div>
+            <div className="eyebrow">{r.rivals}</div>
             <div className="fill" />
             <span className="muted small">
-              נבחרו <span className="mono">{race.opponents.length}</span> מתוך {maxOpponents}
+              {r.chosen} <span className="mono">{race.opponents.length}</span> {r.of(maxOpponents)}
             </span>
           </div>
 
           <div className="segmented" style={{ marginBottom: 12, width: '100%' }}>
               <button style={{ flex: 1 }} className={pool === 'mine' ? 'on' : ''} onClick={() => setPool('mine')}>
-                המודלים שלי
+                {r.mine}
               </button>
             <button style={{ flex: 1 }} className={pool === 'arena' ? 'on' : ''} onClick={() => setPool('arena')}>
-              רשת האליפות
+              {r.arena}
             </button>
           </div>
 
@@ -115,9 +118,9 @@ export function RaceSetup() {
               {models === null && <LineSkeleton />}
               {models !== null && models.length === 0 && (
                 <div className="empty">
-                  <p style={{ margin: '0 0 12px' }}>אין מודלים מאומנים למשחק הזה.</p>
+                  <p style={{ margin: '0 0 12px' }}>{r.noModels}</p>
                   <button className="primary" onClick={() => go('trainSetup')}>
-                    אמן מודל
+                    {r.train}
                   </button>
                 </div>
               )}
@@ -127,9 +130,9 @@ export function RaceSetup() {
                   id={m.id}
                   on={race.opponents.includes(m.id)}
                   driver={m.name}
-                  team={m.owner || team || 'ללא שם'}
-                  note={`${m.training.episodes.toLocaleString('he-IL')} ניסיונות אימון`}
-                  right={m.training.bestLapMs ? `הקפה מהירה ${lapTime(m.training.bestLapMs)}` : ''}
+                  team={m.owner || team || t.misc.unnamed}
+                  note={r.episodes(m.training.episodes.toLocaleString(locale()))}
+                  right={m.training.bestLapMs ? r.fastLap(lapTime(m.training.bestLapMs)) : ''}
                   onToggle={toggle}
                 />
               ))}
@@ -139,18 +142,18 @@ export function RaceSetup() {
           {pool === 'arena' && (
             <>
               {arenaEntries.length === 0 && (
-                <div className="muted small">אף מודל לא רשום לאליפות עדיין.</div>
+                <div className="muted small">{r.noEntries}</div>
               )}
               {arenaEntries.map((e) => (
                 <OpponentRow
                   key={e.id}
                   id={ARENA_PREFIX + e.id}
                   on={race.opponents.includes(ARENA_PREFIX + e.id)}
-                  driver={e.driver}
-                  team={e.team}
+                  driver={driverName(e)}
+                  team={teamName(e.team)}
                   tag={e.tag}
-                  note={`${e.episodes.toLocaleString('he-IL')} ניסיונות אימון`}
-                  right={formGuide.has(e.id) ? `הקפה מהירה ${lapTime(formGuide.get(e.id)!)}` : ''}
+                  note={r.episodes(e.episodes.toLocaleString(locale()))}
+                  right={formGuide.has(e.id) ? r.fastLap(lapTime(formGuide.get(e.id)!)) : ''}
                   onToggle={toggle}
                 />
               ))}
@@ -162,14 +165,14 @@ export function RaceSetup() {
       <div className="row wrap" style={{ marginTop: 18, justifyContent: 'flex-end' }}>
         {race.opponents.length === 0 && (
           <span className="small muted" role="status" style={{ marginInlineEnd: 'auto' }}>
-            בחרו לפחות יריב אחד ברשימה כדי לזנק.
+            {r.pickOne}
           </span>
         )}
         <button className="ghost" onClick={() => go('library')}>
-          למוסך
+          {r.toGarage}
         </button>
         <button className="primary" onClick={() => go('race')} disabled={race.opponents.length === 0}>
-          לזינוק
+          {r.go}
         </button>
       </div>
     </>

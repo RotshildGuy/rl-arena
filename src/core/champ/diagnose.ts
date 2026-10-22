@@ -1,5 +1,6 @@
 import { RACING_REWARDS } from '../games/racing/rewards';
 import type { Finish, RaceCard, RaceResult, SessionResult } from './types';
+import { t } from '../../i18n/dict';
 
 /**
  * Why a car lost, and which slider to move about it.
@@ -70,12 +71,13 @@ export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string
   const winnerLaps = Math.max(1, ...field.map((f) => f.laps));
   const laps = Math.max(1, finish.laps);
   const out: Advice[] = [];
+  const words = t().diagnose;
 
   if (finish.laps < winnerLaps * 0.5) {
     out.push({
       kind: 'unready',
-      finding: `השלים ${finish.laps} מתוך ${winnerLaps} הקפות`,
-      action: 'המודל לא מוכן למרוץ מלא. תנו לו עוד זמן אימון, עד שבאימון הוא משלים את כל ההקפות ברצף.',
+      finding: words.unreadyFinding(finish.laps, winnerLaps),
+      action: words.unreadyAction,
     });
   }
 
@@ -86,8 +88,8 @@ export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string
   if (finish.wallHits >= 3 && wallRate >= WALLS_PER_LAP && wallRate > fieldWalls * STANDS_OUT) {
     out.push({
       kind: 'walls',
-      finding: `${finish.wallHits} פגיעות בקיר ב-${finish.laps} הקפות, יותר מרוב המגרש`,
-      action: `הזיזו ימינה את "${label('wallHit')}" - קנס חמור יותר על הקיר מלמד לבלום לפני הפנייה.`,
+      finding: words.wallsFinding(finish.wallHits, finish.laps),
+      action: words.wallsAction(label('wallHit')),
       slider: 'wallHit',
       direction: 'right',
     });
@@ -98,8 +100,8 @@ export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string
   if (avgTop > 0 && finish.topSpeed > 0 && finish.topSpeed < avgTop * SLOW_TOP_SPEED) {
     out.push({
       kind: 'speed',
-      finding: `מהירות שיא ${kmh(finish.topSpeed)} קמ״ש, מול ממוצע ${kmh(avgTop)} קמ״ש של השאר`,
-      action: `הזיזו ימינה את "${label('speed')}" - הוא נוהג לאט מדי בישורות.`,
+      finding: words.speedFinding(kmh(finish.topSpeed), kmh(avgTop)),
+      action: words.speedAction(label('speed')),
       slider: 'speed',
       direction: 'right',
     });
@@ -111,8 +113,8 @@ export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string
   if (finish.carHits >= 3 && contactRate >= CONTACT_PER_LAP && contactRate > fieldContact * STANDS_OUT && lostPlaces > 0) {
     out.push({
       kind: 'contact',
-      finding: `${finish.carHits} מגעים עם רכבים, ו-${lostPlaces === 1 ? 'מקום אחד שאבד' : `${lostPlaces} מקומות שאבדו`} מהזינוק`,
-      action: `הזיזו שמאלה את "${label('carHit')}" - המגעים עולים לו מקומות.`,
+      finding: words.contactFinding(finish.carHits, lostPlaces),
+      action: words.contactAction(label('carHit')),
       slider: 'carHit',
       direction: 'left',
     });
@@ -125,16 +127,16 @@ export function diagnoseCar(_card: RaceCard, result: RaceResult, entryId: string
       kind: 'pace',
       finding:
         gap === null
-          ? 'לא השלים הקפה נקייה'
+          ? words.noCleanLap
           : gap <= 0.005
-            ? 'קצב הקפה בין המהירים במרוץ'
-            : `ההקפה המהירה שלו איטית ב-${(gap * 100).toFixed(1)}% מהמהירה במרוץ`,
+            ? words.onPace
+            : words.offPace((gap * 100).toFixed(1)),
       action:
         gap !== null && gap <= 0.005
           ? lostPlaces > 0
-            ? 'הקצב קיים; המקום הלך בזינוק או בתנועה. אמנו עם יותר רכבים על המסלול כדי שילמד לעקוף.'
-            : 'הקצב קיים ולא אבד אף מקום. הניצחון מתחיל במוקדמות: הקפה מהירה יותר שם פירושה זינוק מקדימה.'
-          : 'הוא נקי אבל איטי. המשיכו לאמן אותו על המסלול הזה - זמן אימון הוא מה שחסר כאן.',
+            ? words.paceLostAtStart
+            : words.paceQuali
+          : words.slow,
     });
   }
 

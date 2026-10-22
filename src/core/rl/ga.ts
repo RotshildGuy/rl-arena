@@ -1,4 +1,5 @@
 import { MLP } from '../nn/mlp';
+import { t } from '../../i18n/dict';
 import { getGame } from '../games/registry';
 import type { Env, RewardConfig } from '../games/types';
 import { mulberry32, randInt, randn, type Rng } from '../rng';
@@ -134,7 +135,7 @@ export class GaLearner implements Learner {
   progressNote(): string {
     const total = Math.ceil(this.order.length / this.seatCount);
     const current = Math.min(total, Math.ceil(this.cursor / this.seatCount));
-    return `מקצה ${current}/${total} בדור`;
+    return t().algorithms.gaNote(current, total);
   }
 
   beginEpisode(): void {

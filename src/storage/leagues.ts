@@ -1,6 +1,7 @@
 import { LEAGUE_NAME_MAX, newLeagueId, type League } from '../core/champ/league';
 import { firebaseConfigured } from './firebase';
 import { cloudDisabled } from './cloudStatus';
+import { t } from '../i18n';
 
 /**
  * Friends' leagues, in Firestore. Only names and account ids: the races and
@@ -48,7 +49,7 @@ export async function joinLeague(id: string): Promise<League> {
   const { doc, updateDoc, arrayUnion, db, uid } = await fs();
   await updateDoc(doc(db, 'leagues', id), { members: arrayUnion(uid) });
   const league = await getLeague(id);
-  if (!league) throw new Error('הליגה לא נמצאה');
+  if (!league) throw new Error(t().authErrors.leagueMissing);
   return league;
 }
 

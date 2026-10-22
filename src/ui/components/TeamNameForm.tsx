@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import { changeTeamName } from '../teamName';
+import { useT } from '../../i18n';
 
 /**
  * The one place a team name is chosen or changed.
@@ -13,7 +14,7 @@ export function TeamNameForm({
   autoFocus,
   onSaved,
   onCancel,
-  label = 'שם המתחרה - זה יהיה שם הקבוצה שלכם בטבלה',
+  label,
   onTyping,
   wrap,
 }: {
@@ -25,6 +26,7 @@ export function TeamNameForm({
   /** Lets a caller put something around the field, such as a coach bubble. */
   wrap?: (field: React.ReactNode) => React.ReactNode;
 }) {
+  const f = useT().teamNameForm;
   const competitor = useApp((s) => s.competitor);
   const setCompetitor = useApp((s) => s.setCompetitor);
   const [name, setName] = useState(competitor);
@@ -40,7 +42,7 @@ export function TeamNameForm({
       setCompetitor(saved);
       onSaved?.(saved);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'שמירת השם נכשלה');
+      setError(e instanceof Error ? e.message : f.failed);
     } finally {
       setBusy(false);
     }
@@ -48,12 +50,12 @@ export function TeamNameForm({
 
   const field = (
     <div className="field" style={{ marginBottom: 0, flex: '1 1 220px' }}>
-      <label>{label}</label>
+      <label>{label ?? f.label}</label>
       <input
         type="text"
         value={name}
         autoFocus={autoFocus}
-        placeholder="לדוגמה: גיא"
+        placeholder={f.placeholder}
         onChange={(e) => {
           onTyping?.();
           setError(null);
@@ -69,11 +71,11 @@ export function TeamNameForm({
       <div className="row wrap" style={{ alignItems: 'flex-end' }}>
         {wrap ? wrap(field) : field}
         <button className="primary" disabled={!name.trim() || busy} onClick={() => void save()}>
-          {busy ? 'שומר…' : 'שמור'}
+          {busy ? f.saving : f.save}
         </button>
         {onCancel && (
           <button className="ghost" onClick={onCancel} disabled={busy}>
-            ביטול
+            {f.cancel}
           </button>
         )}
       </div>
