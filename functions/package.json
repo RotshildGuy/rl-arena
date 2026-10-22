@@ -1,0 +1,11 @@
+{
+  "name": "rl-arena-functions",
+  "private": true,
+  "description": "Server-side code for RL Arena. Deployed with `firebase deploy --only functions` (needs the Blaze plan).",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

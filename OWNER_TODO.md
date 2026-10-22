@@ -87,18 +87,21 @@ match /shop/{uid} {
 
 ## 3. הסרת התראות הדחיפה (2.3)
 
-ההתראות הוסרו מהאתר (הכפתור, הקוד בדפדפן ותיקיית `functions/`). מה שנשאר בצד של Firebase:
+ההתראות הוסרו מהאתר (הכפתור, הקוד בדפדפן, והפונקציות ב-`functions/index.js`). הפונקציות שכבר
+פרוסות ממשיכות לשלוח עד שמוחקים אותן, ולכן:
 
-- [ ] למחוק את הפונקציות הפרוסות, ממחשב עם firebase-tools:
+- [ ] לפרוס את הפונקציות ממחשב עם firebase-tools, אחרי שהמיזוג ב-`main`:
   ```bash
-  firebase functions:delete raceReminder raceResult feedbackReply --region me-west1
+  cd functions && npm install && cd ..
+  firebase deploy --only functions
   ```
-  (אם פרסת לאזור אחר, להחליף את `me-west1`.) עד שהן נמחקות, הן ממשיכות לשלוח למכשירים שעוד לא
-  פתחו את האתר מאז העדכון.
+  הפריסה תשאל אם למחוק את `raceReminder`, `raceResult` ו-`feedbackReply` - לענות כן.
+  (או ישירות: `firebase functions:delete raceReminder raceResult feedbackReply --region me-west1`.)
 - [ ] ב-`firestore.rules`: למחוק את הבלוק `match /pushTokens/{token}` ולפרסם.
 - [ ] בקונסולה ← Firestore: למחוק את האוספים `pushTokens` ו-`pushSent`.
 - [ ] ב-GitHub ← Settings ← Secrets and variables ← Actions: אפשר למחוק את `VITE_FIREBASE_VAPID_KEY`.
-- [ ] אם עברת ל-Blaze רק בשביל הפונקציות, אפשר לחזור לתוכנית החינמית.
+
+תוכנית Blaze נשארת - היא בשביל המרוץ בצד השרת.
 
 ## 4. לבדוק על מכשירים אמיתיים
 
