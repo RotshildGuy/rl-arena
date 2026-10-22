@@ -19,6 +19,12 @@ export const app: typeof He.app = {
   competitorTitle: 'Your competitor name - the team your models race for',
   guestTitle: 'You are playing as a guest: your progress is saved, but only in this browser. To keep it on another device too, tap save account.',
   guest: 'Guest',
+  crash: {
+    title: 'Something broke on this screen.',
+    body: 'Your saved models and the championship are not affected. Go back to the championship, and if it happens again, reload the page.',
+    back: 'Back to the championship',
+    reload: 'Reload',
+  },
   footer: {
     feedback: 'Bug or idea?',
     how: 'How it works',
