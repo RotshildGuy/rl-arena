@@ -106,6 +106,7 @@ export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChang
           value={name}
           maxLength={LEAGUE_NAME_MAX}
           placeholder={l10n.newName}
+          aria-label={l10n.newName}
           onChange={(e) => setName(e.target.value)}
         />
         <button className="primary" onClick={() => void create()} disabled={busy || name.trim().length < 2}>

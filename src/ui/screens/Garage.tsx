@@ -498,6 +498,7 @@ export function Garage() {
                         <input
                           type="text"
                           autoFocus
+                          aria-label={g.rename}
                           value={renameText}
                           onChange={(e) => setRenameText(e.target.value)}
                           onBlur={() => void commitRename(m)}

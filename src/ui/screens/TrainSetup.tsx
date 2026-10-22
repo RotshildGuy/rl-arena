@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
 import {
   chooseTimeLimit,
@@ -290,6 +290,7 @@ function SlotCard({
   // being continued cannot switch either without throwing the training away.
   const locked = slot.modelId !== null && !slot.restart;
   const s = useT().trainSetup;
+  const nameId = useId();
 
   return (
     <div className="slot-card">
@@ -321,8 +322,9 @@ function SlotCard({
       ) : (
       <div className="cols-2">
         <div className="field">
-          <label>{s.nameLabel}</label>
+          <label htmlFor={nameId}>{s.nameLabel}</label>
           <input
+            id={nameId}
             type="text"
             value={slot.name}
             placeholder={placeholder}
