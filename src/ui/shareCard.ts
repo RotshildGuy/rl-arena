@@ -77,7 +77,7 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData): void
   // The place, huge. Latin digits, drawn left-to-right.
   ctx.direction = 'ltr';
   ctx.fillStyle = d.dnf ? '#8590a8' : d.position === 1 ? '#ffd84d' : '#e9edf7';
-  ctx.font = '900 300px "JetBrains Mono", monospace';
+  ctx.font = '900 300px "JetBrains Mono", Heebo, monospace';
   ctx.fillText(placeText(d), right, 520);
 
   ctx.direction = dir;

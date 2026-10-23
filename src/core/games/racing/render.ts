@@ -581,7 +581,7 @@ function drawCar(
     ctx.rotate(Math.PI / 2);
     // Two digits get a smaller face, or they run into the helmet.
     const size = wid * (look.number > 9 ? 0.27 : 0.34);
-    ctx.font = `800 ${size}px system-ui, sans-serif`;
+    ctx.font = `800 ${size}px Heebo, system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     // A dark outline first: white on a white or pale body would vanish.
@@ -600,7 +600,7 @@ function drawLabels(ctx: CanvasRenderingContext2D, snap: RacingSnapshot, view: V
   if (!opts.labels) return;
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.font = '600 11px system-ui, sans-serif';
+  ctx.font = '600 11px Heebo, system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
 
