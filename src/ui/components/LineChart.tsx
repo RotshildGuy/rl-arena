@@ -77,7 +77,7 @@ export function LineChart({ series, height = 120, fixedRange, log, nonNegative, 
     if (nonNegative && lo < 0) lo = 0;
     const empty = !series.some((s) => s.values.some((v) => isFinite(v)));
     if (empty && emptyText) {
-      ctx.font = '13px system-ui, sans-serif';
+      ctx.font = '13px Heebo, system-ui, sans-serif';
       ctx.fillStyle = cssVar('--muted', '#888');
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -91,7 +91,7 @@ export function LineChart({ series, height = 120, fixedRange, log, nonNegative, 
     const Y = (v: number) => pad.top + plotH - ((tx(v) - lo) / (hi - lo)) * plotH;
 
     // Gridlines and axis labels.
-    ctx.font = '10px ui-monospace, monospace';
+    ctx.font = '10px "JetBrains Mono", Heebo, ui-monospace, monospace';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let g = 0; g <= 3; g++) {

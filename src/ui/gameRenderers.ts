@@ -35,7 +35,7 @@ export function drawPlaceholder(ctx: CanvasRenderingContext2D, lines: string[]):
   const px = ctx.canvas.clientWidth ? w / ctx.canvas.clientWidth : 1;
   lines.forEach((line, i) => {
     const big = i === 0;
-    ctx.font = `${big ? '600' : '400'} ${Math.round((big ? 20 : 14) * px)}px system-ui, sans-serif`;
+    ctx.font = `${big ? '600' : '400'} ${Math.round((big ? 20 : 14) * px)}px Heebo, system-ui, sans-serif`;
     ctx.fillStyle = big ? (day ? '#11141f' : '#e9edf7') : day ? '#586179' : '#8590a8';
     ctx.fillText(line, w / 2, h / 2 + (i - (lines.length - 1) / 2) * 28 * px, w - 16 * px);
   });

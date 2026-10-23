@@ -1996,6 +1996,26 @@ function dashTest(): void {
     }
   });
   check('no em dash in any tracked file', hits.length === 0, hits.slice(0, 5).join(', '));
+
+  // Every font stack in the app has to reach Heebo, the one bundled font with
+  // Hebrew in it. A stack that skips it falls back to the system, and a machine
+  // without a Hebrew font then draws boxes in place of the words.
+  const sources = files.filter((f) => /^src\/.*\.(css|ts|tsx)$/.test(f));
+  const stacks: string[] = [];
+  for (const f of sources) {
+    const text = readFileSync(f, 'utf8').replace(/@font-face\s*\{[^}]*\}/g, '');
+    const found = [
+      ...text.matchAll(/font-family:\s*([^;}\n]+)/g),
+      ...text.matchAll(/\.font\s*=\s*([`'"][^\n;]*)/g),
+      ...text.matchAll(/fontFamily:\s*([`'"][^\n,}]*)/g),
+    ];
+    for (const m of found) {
+      const stack = m[1];
+      if (/inherit|var\(--font-/.test(stack) || /heebo/i.test(stack)) continue;
+      stacks.push(`${f}: ${stack.trim()}`);
+    }
+  }
+  check('every font stack falls back to Heebo, so Hebrew never draws as boxes', stacks.length === 0, stacks.slice(0, 5).join(' | '));
 }
 
 console.log('RL core sanity checks');

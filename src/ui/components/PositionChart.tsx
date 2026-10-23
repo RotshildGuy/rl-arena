@@ -50,7 +50,7 @@ export function PositionChart({
     const Y = (pos: number) => pad.top + ((pos - 1) / Math.max(1, n - 1)) * plotH;
 
     // Position gridlines.
-    ctx.font = '10px ui-monospace, monospace';
+    ctx.font = '10px "JetBrains Mono", Heebo, ui-monospace, monospace';
     ctx.textBaseline = 'middle';
     for (let p = 1; p <= n; p++) {
       const y = Y(p);
