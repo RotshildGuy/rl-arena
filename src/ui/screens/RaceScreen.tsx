@@ -12,6 +12,7 @@ import { canLockLandscape, goFullscreenLandscape, isTouchDevice, useIsPortrait }
 import { loadOpponent } from '../opponents';
 import { lapTime, posClass, raceTime } from '../format';
 import type { RacingSnapshot } from '../../core/games/racing/env';
+import { t as words, useT } from '../../i18n';
 
 type Phase = 'loading' | 'countdown' | 'racing' | 'done';
 
@@ -32,6 +33,8 @@ const COUNTDOWN_MS = 5000;
 const PLAYER_COLOR = '#ffffff';
 
 export function RaceScreen() {
+  const t = useT();
+  const w = t.race;
   const { gameId, race, go } = useApp();
   const game = getGame(gameId);
 
@@ -62,7 +65,7 @@ export function RaceScreen() {
   const [rotateNote, setRotateNote] = useState<string | null>(null);
   const rotateForMe = async () => {
     const ok = await goFullscreenLandscape(document.documentElement);
-    if (!ok) setRotateNote('הדפדפן הזה לא מאפשר לסובב אוטומטית - סובבו את הטלפון ביד.');
+    if (!ok) setRotateNote(words().race.noRotate);
   };
   const compact = isTouchDevice && !portrait;
   // The clock only runs on the canvas, which is not drawn while the phone is
@@ -87,8 +90,8 @@ export function RaceScreen() {
     void (async () => {
       try {
         const policies: (Policy | null)[] = [null]; // car 0 is the player
-        const names = ['אתם'];
-        const teams = [useApp.getState().competitor || 'הקבוצה שלי'];
+        const names = [words().race.you];
+        const teams = [useApp.getState().competitor || words().race.myTeam];
         const colors = [PLAYER_COLOR];
 
         for (const id of race.opponents) {
@@ -100,8 +103,9 @@ export function RaceScreen() {
           colors.push(opp.color);
         }
         if (cancelled) return;
-        if (policies.length < 2) {
-          setError('לא הצלחתי לטעון אף מודל יריב');
+        // No rivals picked is a time trial; rivals picked and none loaded is an error.
+        if (race.opponents.length > 0 && policies.length < 2) {
+          setError(words().race.noRivals);
           return;
         }
 
@@ -222,7 +226,7 @@ export function RaceScreen() {
     if (now - hudTickRef.current > 120) {
       hudTickRef.current = now;
       setStandings(buildStandings());
-      let allOthersDone = true;
+      let allOthersDone = policiesRef.current.length > 1;
       for (let i = 1; i < policiesRef.current.length; i++) {
         if (!env.isAgentDone(i)) {
           allOthersDone = false;
@@ -253,9 +257,9 @@ export function RaceScreen() {
   if (error) {
     return (
       <div className="empty">
-        <h2>לא ניתן להתחיל {game.matchNoun}</h2>
+        <h2>{w.cannotStart(game.matchNoun)}</h2>
         <p>{error}</p>
-        <button onClick={() => go('raceSetup')}>חזרה</button>
+        <button onClick={() => go('raceSetup')}>{w.back}</button>
       </div>
     );
   }
@@ -264,7 +268,7 @@ export function RaceScreen() {
     simulate(performance.now());
     const env = envRef.current;
     if (!env) {
-      drawPlaceholder(ctx, ['טוען את היריבים…']);
+      drawPlaceholder(ctx, [words().race.loadingRivals]);
       return;
     }
     renderGame(gameId, ctx, env.snapshot(), {
@@ -283,7 +287,7 @@ export function RaceScreen() {
   const countdownOverlay = phase === 'countdown' && (
     <div className={`countdown ${compact ? 'small' : ''}`}>
       <StartLights secondsLeft={countdown / 1000} />
-      {countdown <= 0 && <div className="word">צאו!</div>}
+      {countdown <= 0 && <div className="word">{w.go}</div>}
     </div>
   );
 
@@ -296,17 +300,17 @@ export function RaceScreen() {
   const second = standings[1];
   const margin =
     leader?.finished && leader.timeMs !== null && second?.timeMs != null
-      ? ` ב-${((second.timeMs - leader.timeMs) / 1000).toFixed(1)} שנ׳`
+      ? w.margin(((second.timeMs - leader.timeMs) / 1000).toFixed(1))
       : '';
   const winnerLine = !leader
     ? ''
     : leader.finished
       ? won
-        ? `ניצחתם${margin}! 🏆`
-        : `${leader.name} ניצח${margin}`
+        ? w.youWon(margin)
+        : w.won(leader.name, margin)
       : won
-        ? `הובלתם כש${game.matchNoun} נעצר`
-        : `${leader.name} הוביל כש${game.matchNoun} נעצר`;
+        ? w.youLed(game.matchNoun)
+        : w.led(leader.name, game.matchNoun);
   const snap = envRef.current ? (envRef.current.snapshot() as Partial<RacingSnapshot>) : null;
 
   const standingsRows = standings.map((s, i) => (
@@ -327,7 +331,7 @@ export function RaceScreen() {
       </td>
       <td className="mono num small muted">{s.bestLapMs ? lapTime(s.bestLapMs) : '-'}</td>
       <td className="mono num small">
-        {s.timeMs !== null ? raceTime(s.timeMs) : `הקפה ${s.laps + 1}`}
+        {s.timeMs !== null ? raceTime(s.timeMs) : w.lap(s.laps + 1)}
       </td>
     </tr>
   ));
@@ -338,19 +342,19 @@ export function RaceScreen() {
     return (
       <div className="match-fill">
         <div className="match-bar">
-          <strong style={{ fontSize: 13 }}>{game.matchNoun}</strong>
+          <strong style={{ fontSize: 13 }}>{w.title(game.matchNoun)}</strong>
           <span className="muted tiny">{game.touchHint}</span>
           <div style={{ flex: 1 }} />
           {phase === 'racing' && (
             <button className={opponentsDone ? 'primary' : ''} onClick={endRace}>
-              סיים
+              {w.finish}
             </button>
           )}
           <button onClick={restart} disabled={phase === 'loading'}>
-            מחדש
+            {w.restart}
           </button>
           <button className="ghost" onClick={() => go('raceSetup')}>
-            יציאה
+            {w.exit}
           </button>
         </div>
 
@@ -364,7 +368,7 @@ export function RaceScreen() {
             <div className="race-hud">
               <span className="pill mono">
                 {raceTime(snap.raceMs)}
-                {snap.cars?.[0] && snap.laps ? ` · הקפה ${Math.min(snap.cars[0].lap + 1, snap.laps)}/${snap.laps}` : ''}
+                {snap.cars?.[0] && snap.laps ? w.lapOf(Math.min(snap.cars[0].lap + 1, snap.laps), snap.laps) : ''}
               </span>
             </div>
           )}
@@ -392,7 +396,7 @@ export function RaceScreen() {
                 <tbody>{standingsRows}</tbody>
               </table>
               <button className="primary" onClick={restart}>
-                עוד {game.matchNoun}
+                {w.again(game.matchNoun)}
               </button>
             </div>
           )}
@@ -410,19 +414,18 @@ export function RaceScreen() {
       <div className="rotate-page" ref={stageRef}>
         <div className="rotate-gate">
           <div className="glyph" aria-hidden="true">📱</div>
-          <h2>סובבו את הטלפון לרוחב</h2>
+          <h2>{w.rotate}</h2>
           <p className="muted" style={{ margin: 0, maxWidth: 300 }}>
-            ה{game.matchNoun} משוחק לרוחב - כך המסלול נכנס למסך ויש מקום לפקדים. ה{game.matchNoun} יתחיל
-            מעצמו ברגע שהמסך יסתובב.
+            {w.rotateWhy(game.matchNoun)}
           </p>
           {canLockLandscape() && (
             <button className="primary" onClick={() => void rotateForMe()}>
-              סובבו בשבילי (מסך מלא)
+              {w.rotateForMe}
             </button>
           )}
           {rotateNote && <p className="small muted" style={{ margin: 0 }}>{rotateNote}</p>}
           <button className="ghost" onClick={() => go('raceSetup')}>
-            חזרה לבחירת יריבים
+            {w.backToRivals}
           </button>
         </div>
       </div>
@@ -435,21 +438,21 @@ export function RaceScreen() {
     <div className="race-page">
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">מגרש אימונים</div>
-          <h1 className="display">{game.matchNoun}</h1>
+          <div className="eyebrow">{w.practice}</div>
+          <h1 className="display">{w.title(game.matchNoun)}</h1>
           <span className="muted small">{isTouchDevice ? game.touchHint : game.controlsHint}</span>
         </div>
         <div className="actions">
           {phase === 'racing' && (
             <button className={opponentsDone ? 'primary' : ''} onClick={endRace}>
-              סיים {game.matchNoun}
+              {w.finishNoun(game.matchNoun)}
             </button>
           )}
           <button onClick={restart} disabled={phase === 'loading'}>
-            {game.matchNoun} מחדש
+            {w.restartNoun(game.matchNoun)}
           </button>
           <button className="ghost" onClick={() => go('raceSetup')}>
-            שינוי הגדרות
+            {w.changeSettings}
           </button>
         </div>
       </div>
@@ -467,10 +470,10 @@ export function RaceScreen() {
 
         <div className="card notched" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px 6px' }}>
-            <div className="eyebrow">{phase === 'done' ? 'תוצאות' : 'דירוג'}</div>
+            <div className="eyebrow">{phase === 'done' ? w.results : w.order}</div>
             {phase === 'racing' && opponentsDone && (
               <div className="pill warn" style={{ marginTop: 8 }}>
-                כל היריבים סיימו
+                {w.rivalsDone}
               </div>
             )}
           </div>
@@ -481,9 +484,9 @@ export function RaceScreen() {
             <thead>
               <tr>
                 <th style={{ width: 44 }}>#</th>
-                <th>נהג</th>
-                <th className="num">הקפה מהירה</th>
-                <th className="num">זמן מרוץ</th>
+                <th>{w.driver}</th>
+                <th className="num">{w.fastLap}</th>
+                <th className="num">{w.raceTime}</th>
               </tr>
             </thead>
             <tbody>{standingsRows}</tbody>
@@ -494,7 +497,7 @@ export function RaceScreen() {
                 {winnerLine}
               </div>
               <button className="primary" onClick={restart} style={{ width: '100%' }}>
-                עוד {game.matchNoun}
+                {w.again(game.matchNoun)}
               </button>
             </div>
           )}

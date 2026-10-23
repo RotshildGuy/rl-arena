@@ -20,7 +20,7 @@ export function ScrollX({ children }: { children: ReactNode }) {
   const [more, setMore] = useState(false);
   const checkMore = () => {
     const el = box.current;
-    // RTL: scrollLeft runs from 0 towards negative as the table moves on.
+    // RTL: scrollLeft runs from 0 towards negative as the table moves on; LTR, towards positive.
     if (el) setMore(Math.abs(el.scrollLeft) + el.clientWidth < el.scrollWidth - 2);
   };
 

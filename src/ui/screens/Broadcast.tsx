@@ -7,7 +7,8 @@ import { TimingTower, type TowerCar } from '../components/TimingTower';
 import { StartLights } from '../components/StartLights';
 import { drawPlaceholder, renderGame } from '../gameRenderers';
 import { getArena } from '../../storage/arena';
-import { SessionSim, policiesFor } from '../../core/champ/sim';
+import { SessionSim, policiesFor, replayDriversFor, type SimCar } from '../../core/champ/sim';
+import { ReplayDriver, type DayReplay } from '../../core/champ/replay';
 import { lapsFor } from '../../core/champ/format';
 import { dayState, dayStatus, liveSession, sessionWindows } from '../../core/champ/timing';
 import { shadeFor, teamColor, teamLook } from '../../core/champ/livery';
@@ -18,6 +19,8 @@ import { useIsPortrait, useWakeLock } from '../device';
 import { track } from '../../storage/metrics';
 import { useTeamPaint } from '../teamLooks';
 import { Podium } from '../components/Podium';
+import { t as words, useLang, useT } from '../../i18n';
+import { driverName, grandPrixTitle, teamName } from '../../i18n/names';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -36,9 +39,27 @@ const RETIREMENT_GRACE_MS = 8000;
 
 type Camera = 'track' | 'follow';
 
+/**
+ * What drives the cars on screen.
+ *
+ * In the cloud, the replay the server recorded: nobody's weights reach the
+ * browser. A local championship has its own weights and drives from those.
+ * Before the lights there is nothing to drive yet - the cars only sit on the
+ * grid - and `missing` is a race that has no replay at all.
+ */
+type DriveSource =
+  | { kind: 'grid' }
+  | { kind: 'replay'; replay: DayReplay }
+  | { kind: 'weights'; weights: Map<string, string> }
+  | { kind: 'missing' };
+
+/** How often to ask again for a live race's replay that is not there yet. */
+const REPLAY_RETRY_MS = 15_000;
+
 export function Broadcast() {
+  const b = useT().broadcast;
   const { viewRaceId, go, openRace } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const now = useNow(500);
 
   const card = useMemo(() => {
@@ -54,16 +75,16 @@ export function Broadcast() {
   if (!state) {
     return (
       <div style={{ margin: 20 }}>
-        <PageSkeleton variant="race" note={progress} />
+        <PageSkeleton variant="race" />
       </div>
     );
   }
   if (!card) {
     return (
       <div className="empty" style={{ margin: 20 }}>
-        {progress ?? 'אין מרוץ להציג.'}
+        {b.nothing}
         <div style={{ marginTop: 14 }}>
-          <button onClick={() => go('championship')}>חזרה לאליפות</button>
+          <button onClick={() => go('championship')}>{b.backToChamp}</button>
         </div>
       </div>
     );
@@ -83,15 +104,22 @@ function BroadcastStage({
   onExit(): void;
   onHome(): void;
 }) {
+  const b = useT().broadcast;
+  const lang = useLang();
   const { state } = useChampionship();
   const goTo = useApp((st) => st.go);
   /** Somebody with no car of their own: the end of a race is the moment to offer them one. */
   const spectator = state ? !state.entries.some((e) => e.uid === state.uid && !e.retired) : false;
-  const windows = useMemo(() => sessionWindows(card), [card]);
+  // The session names are in the reader's language, so they are worked out again when it changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const windows = useMemo(() => sessionWindows(card), [card, lang]);
   const live = liveSession(card, now);
   const isLive = live !== null;
 
-  const [weights, setWeights] = useState<Map<string, string> | null>(null);
+  const [source, setSource] = useState<DriveSource | null>(null);
+  const started = now >= card.startsAt;
+  /** Bumped to ask again for a replay that was not there. */
+  const [attempt, setAttempt] = useState(0);
   const [sessionId, setSessionId] = useState<string>(() => live?.session.id ?? windows[windows.length - 1]?.session.id);
   const [camera, setCamera] = useState<Camera>('track');
   // A wide circuit inside a tall viewport letterboxes badly. In portrait the
@@ -134,17 +162,48 @@ function BroadcastStage({
     if (live && live.session.id !== sessionId) setSessionId(live.session.id);
   }, [live, sessionId]);
 
+  /** The race `source` belongs to. */
+  const sourceFor = useRef('');
+
+  // The replay is read from the lights: before them it does not exist for the
+  // browser (the rules keep a race's outcome sealed until it starts).
   useEffect(() => {
+    if (sourceFor.current !== card.id) {
+      // Never a moment of the previous race on screen, or driving this one.
+      sourceFor.current = card.id;
+      simRef.current = null;
+      builtFor.current = '';
+      setSource(null);
+    }
+    if (!started) {
+      setSource({ kind: 'grid' });
+      return;
+    }
     let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     void (async () => {
       const arena = await getArena();
-      const w = await arena.loadRaceWeights(card.id);
-      if (!cancelled) setWeights(w);
+      let next: DriveSource = { kind: 'missing' };
+      try {
+        const replay = await arena.loadReplay(card.id);
+        if (replay) next = { kind: 'replay', replay };
+        else if (arena.kind === 'local') {
+          const weights = await arena.loadRaceWeights(card.id);
+          if (weights.size) next = { kind: 'weights', weights };
+        }
+      } catch {
+        // Refused or offline: the same as not there yet.
+      }
+      if (cancelled) return;
+      setSource(next);
+      if (next.kind === 'missing' && isLive) retry = setTimeout(() => setAttempt((n) => n + 1), REPLAY_RETRY_MS);
     })();
     return () => {
       cancelled = true;
+      clearTimeout(retry);
     };
-  }, [card.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.id, started, attempt]);
 
   const window_ = windows.find((w) => w.session.id === sessionId) ?? windows[0];
   const result = state?.results.get(card.id) ?? null;
@@ -170,14 +229,14 @@ function BroadcastStage({
       const bought = e ? paint.get(e.uid) : undefined;
       return {
         car: i,
-        name: e?.driver ?? '-',
+        name: e ? driverName(e) : '-',
         tag: e?.tag ?? '???',
         color: shadeFor(bought?.color ?? teamColor(team), n),
         look: { ...teamLook(team, e?.driver ?? ''), ...bought?.look },
         mine: myIds.has(id),
       };
     });
-  }, [grid, entryById, myIds, paint]);
+  }, [grid, entryById, myIds, paint, lang]);
 
   const colors = towerCars.map((c) => c.color);
   const labels = towerCars.map((c) => c.tag);
@@ -192,8 +251,11 @@ function BroadcastStage({
    * memory to be able to scrub back into it.
    */
   const buildSim = useCallback((): SessionSim | null => {
-    if (!weights || !window_ || grid.length === 0) return null;
-    const cars = policiesFor(grid, entryById, weights);
+    if (!source || !window_ || grid.length === 0) return null;
+    let cars: SimCar[] = [];
+    if (source.kind === 'replay') cars = replayDriversFor(grid, source.replay.get(window_.session.id) ?? {});
+    else if (source.kind === 'weights') cars = policiesFor(grid, entryById, source.weights);
+    else if (source.kind === 'grid') cars = grid.map((entryId) => ({ entryId, policy: new ReplayDriver('') }));
     if (cars.length === 0) return null;
     return new SessionSim(
       card.trackId,
@@ -202,12 +264,12 @@ function BroadcastStage({
       card.seed + window_.session.offsetMs,
       card.physics,
     );
-  }, [weights, window_, grid, entryById, card]);
+  }, [source, window_, grid, entryById, card]);
 
   // Build (or rebuild) the simulation for the selected session.
   useEffect(() => {
     if (!window_) return;
-    const key = `${card.id}:${sessionId}:${grid.length}`;
+    const key = `${card.id}:${sessionId}:${grid.length}:${source?.kind}`;
     if (builtFor.current === key) return;
     const sim = buildSim();
     if (!sim) return;
@@ -235,7 +297,7 @@ function BroadcastStage({
     setFollowIdx(mineIdx >= 0 ? mineIdx : 0);
     bump((n) => n + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weights, sessionId, card.id, grid.length]);
+  }, [source, sessionId, card.id, grid.length]);
 
   /**
    * How long the replay runs.
@@ -290,10 +352,18 @@ function BroadcastStage({
   const drawFrame = (ctx: CanvasRenderingContext2D) => {
     let sim = simRef.current;
     if (!sim) {
-      drawPlaceholder(ctx, ['מתחבר לשידור…', card.name]);
+      drawPlaceholder(
+        ctx,
+        source?.kind === 'missing' && !isLive
+          ? [words().broadcast.noReplay, grandPrixTitle(card.trackId)]
+          : [words().broadcast.connecting, grandPrixTitle(card.trackId)],
+      );
       return;
     }
-    let ms = Math.max(0, playingRef.current ? Date.now() - anchorRef.current : headRef.current);
+    // Cars on the grid with nothing to drive them yet - before the lights, or
+    // while the replay is on its way - stay where they are.
+    const parked = source?.kind !== 'replay' && source?.kind !== 'weights';
+    let ms = parked ? 0 : Math.max(0, playingRef.current ? Date.now() - anchorRef.current : headRef.current);
     const target = Math.floor(ms / STEP_MS);
     if (sim.env.step_ > target) {
       // Rewind: the only way back through a simulation is forward through a new
@@ -396,15 +466,15 @@ function BroadcastStage({
     <div className="match-fill">
       <div className="match-bar">
         <button className="small" onClick={onHome}>
-          → חזרה לאליפות
+          {b.backArrow}
         </button>
-        <strong style={{ fontSize: 13 }}>{card.name}</strong>
+        <strong style={{ fontSize: 13 }}>{grandPrixTitle(card.trackId)}</strong>
         {isLive ? (
           <span className="pill live small">
-            <span className="blip" /> חי
+            <span className="blip" /> {b.live}
           </span>
         ) : (
-          <span className="pill small">צפייה חוזרת</span>
+          <span className="pill small">{b.replay}</span>
         )}
         <span className="muted tiny">{window_?.session.name}</span>
         <div style={{ flex: 1 }} />
@@ -426,10 +496,10 @@ function BroadcastStage({
 
         <div className="segmented">
           <button className={camera === 'track' ? 'on' : ''} onClick={() => setCamera('track')}>
-            מסלול
+            {b.track}
           </button>
           <button className={camera === 'follow' ? 'on' : ''} onClick={() => setCamera('follow')}>
-            רכב
+            {b.car}
           </button>
         </div>
         {camera === 'follow' && (
@@ -441,13 +511,13 @@ function BroadcastStage({
             {towerCars.map((c, i) => (
               <option key={i} value={i}>
                 {c.name}
-                {c.mine ? ' (שלי)' : ''}
+                {c.mine ? b.mine : ''}
               </option>
             ))}
           </select>
         )}
         <button className="small" onClick={onExit}>
-          דוח
+          {b.report}
         </button>
       </div>
 
@@ -463,12 +533,12 @@ function BroadcastStage({
         {snap && !preStart && (
           <div className="stage-overlay-end" style={{ display: 'grid', gap: 6, justifyItems: 'end' }}>
             <div className="pill" style={{ fontSize: 13 }}>
-              הקפה <span className="mono">{leadLap}</span> / {totalLaps}
+              {b.lap} <span className="mono">{leadLap}</span> / {totalLaps}
             </div>
             <div className="pill mono">{raceTime(snap.raceMs)}</div>
             {snap.fastestLap && (
               <div className="pill" style={{ borderColor: 'var(--purple)', color: 'var(--purple)' }}>
-                הקפה מהירה · {towerCars[snap.fastestLap.car]?.name ?? ''} ·{' '}
+                {b.fastLap} {towerCars[snap.fastestLap.car]?.name ?? ''} ·{' '}
                 <span className="mono">{lapTime(snap.fastestLap.ms)}</span>
               </div>
             )}
@@ -477,7 +547,7 @@ function BroadcastStage({
 
         {rewinding && (
           <div className="seek-note">
-            מריץ מחדש… <span className="mono">{rewindPct}%</span>
+            {b.rewinding} <span className="mono">{rewindPct}%</span>
           </div>
         )}
 
@@ -486,8 +556,8 @@ function BroadcastStage({
             <StartLights secondsLeft={toLights / 1000} />
             <div className="word">{window_?.session.name}</div>
             <div className="muted small">
-              {isLive ? 'השידור מתחיל בעוד' : 'צפייה חוזרת מתחילה בעוד'}{' '}
-              <span className="mono">{Math.ceil(toLights / 1000)}</span> שניות
+              {isLive ? b.liveIn : b.replayIn}{' '}
+              <span className="mono">{Math.ceil(toLights / 1000)}</span> {b.seconds}
             </div>
           </div>
         )}
@@ -495,9 +565,9 @@ function BroadcastStage({
         {finished && snap && (
           <div className="done-overlay">
             <div className="checkers" style={{ width: 220 }} />
-            <h1 className="display">{towerCars[snap.order[0]]?.name ?? ''} מנצח</h1>
+            <h1 className="display">{b.wins(towerCars[snap.order[0]]?.name ?? '')}</h1>
             <div className="muted small">
-              {window_?.session.name} · {card.name} · זמן מרוץ {raceTime(snap.cars[snap.order[0]]?.totalMs ?? snap.raceMs)}
+              {window_?.session.name} · {grandPrixTitle(card.trackId)} · {b.raceTime(raceTime(snap.cars[snap.order[0]]?.totalMs ?? snap.raceMs))}
             </div>
             <Podium
               compact
@@ -507,10 +577,14 @@ function BroadcastStage({
                 return {
                   position: i + 1,
                   driver: t?.name ?? '-',
-                  team: entryById.get(grid[car] ?? '')?.team ?? '',
+                  team: teamName(entryById.get(grid[car] ?? '')?.team ?? ''),
                   color: t?.color ?? '#888',
                   look: t?.look,
-                  detail: !c?.finished ? 'פרש' : i === 0 ? raceTime(c.totalMs) : `+${((c.totalMs! - (snap.cars[snap.order[0]]?.totalMs ?? 0)) / 1000).toFixed(1)} שנ׳`,
+                  detail: !c?.finished
+                    ? b.retired
+                    : i === 0
+                      ? raceTime(c.totalMs)
+                      : b.gap(((c.totalMs! - (snap.cars[snap.order[0]]?.totalMs ?? 0)) / 1000).toFixed(1)),
                 };
               })}
             />
@@ -519,28 +593,26 @@ function BroadcastStage({
                 starts - and let the viewer read this one's result meanwhile. */}
             {isLive && nextSession && (
               <div className="pill" style={{ fontSize: 15 }}>
-                {nextSession.session.name} מתחיל בעוד{' '}
+                {b.startsIn(nextSession.session.name)}{' '}
                 <span className="mono">{untilText(nextSession.startsAt - now)}</span>
               </div>
             )}
-            {isLive && !nextSession && <div className="pill good">היום הסתיים - התוצאות פתוחות</div>}
+            {isLive && !nextSession && <div className="pill good">{b.dayOver}</div>}
             {/* Watching was the first thing they did, and a table of numbers
                 was the next - which is where a curious visitor left. So the
                 end of the race asks the obvious question instead. */}
             {spectator && (
               <div className="try-cta">
-                <b>רוצים שגם לכם יהיה רכב על הגריד?</b>
-                <span className="small muted">
-                  בוחרים איך הרכב ינהג, והוא לומד לבד מול העיניים. שתי דקות, בלי תכנות.
-                </span>
+                <b>{b.ctaTitle}</b>
+                <span className="small muted">{b.ctaBody}</span>
                 <button className="primary" onClick={() => goTo('library')}>
-                  🔧 לבנות נהג משלי
+                  {b.ctaButton}
                 </button>
               </div>
             )}
             <div className="row">
               <button className={spectator ? '' : 'primary'} onClick={onExit}>
-                {isLive && nextSession ? `תוצאות ${window_?.session.name ?? ''}` : 'לדוח המרוץ'}
+                {isLive && nextSession ? b.sessionResults(window_?.session.name ?? '') : b.toReport}
               </button>
               {/* A live broadcast cannot be rewound: everyone is watching the
                   same moment, and a replay only becomes available once the
@@ -552,10 +624,10 @@ function BroadcastStage({
                     seek(0);
                   }}
                 >
-                  צפייה חוזרת
+                  {b.replay}
                 </button>
               )}
-              {isLive && <button onClick={onHome}>חזרה לאליפות</button>}
+              {isLive && <button onClick={onHome}>{b.backToChamp}</button>}
             </div>
           </div>
         )}
@@ -570,7 +642,7 @@ function BroadcastStage({
       {isLive ? (
         <div className="match-bar" style={{ justifyContent: 'center' }}>
           <span className="dim tiny">
-            השידור רץ במהירות רגילה בלבד - כולם רואים את אותו רגע באותו זמן.
+            {b.realTime}
           </span>
         </div>
       ) : (
@@ -578,16 +650,16 @@ function BroadcastStage({
           <button
             className="icon"
             onClick={() => setPlayState(!playing)}
-            aria-label={playing ? 'השהה' : 'נגן'}
-            title={playing ? 'השהה (רווח)' : 'נגן (רווח)'}
+            aria-label={playing ? b.pause : b.play}
+            title={playing ? b.pauseKey : b.playKey}
           >
             {playing ? '❚❚' : '▶'}
           </button>
           <button
             className="icon ghost"
             onClick={() => seek(headMs - SKIP_MS)}
-            aria-label="אחורה 10 שניות"
-            title="אחורה 10 שניות"
+            aria-label={b.back10}
+            title={b.back10}
           >
             {/* Two boxes rather than one string: the arrow is a neutral character
                 and would swap sides with the digits depending on what surrounds
@@ -603,15 +675,15 @@ function BroadcastStage({
             step={100}
             value={Math.min(headMs, durationMs)}
             style={{ ['--fill' as string]: `${durationMs > 0 ? (Math.min(headMs, durationMs) / durationMs) * 100 : 0}%` }}
-            aria-label="מיקום בצפייה החוזרת"
+            aria-label={b.position}
             onChange={(e) => seek(Number(e.target.value))}
           />
           <span className="mono tiny clock dim">{raceTime(durationMs)}</span>
           <button
             className="icon ghost"
             onClick={() => seek(headMs + SKIP_MS)}
-            aria-label="קדימה 10 שניות"
-            title="קדימה 10 שניות"
+            aria-label={b.forward10}
+            title={b.forward10}
           >
             <span>10</span>
             <span>↻</span>

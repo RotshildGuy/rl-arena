@@ -5,6 +5,7 @@ import { GaLearner } from '../core/rl/ga';
 import { TrainingSession } from '../core/rl/session';
 import { decodeWeights, encodeWeights } from '../core/nn/serialize';
 import type { FromTrainer, SlotLive, SpeedMode, ToTrainer } from './protocol';
+import { setLang } from '../i18n/lang';
 
 /** Wall-clock budget per tick. Keeps the worker responsive to control messages. */
 const TICK_BUDGET_MS = 25;
@@ -122,6 +123,7 @@ self.onmessage = (ev: MessageEvent<ToTrainer>) => {
   try {
     switch (msg.type) {
       case 'init': {
+        if (msg.lang) setLang(msg.lang);
         const i = msg.init;
         session = new TrainingSession({
           gameId: i.gameId,

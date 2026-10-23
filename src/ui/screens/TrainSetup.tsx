@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
 import {
+  chooseTimeLimit,
   MAX_TRAIN_SLOTS,
   nextGrandPrixTrack,
   TIME_LIMITS,
@@ -20,9 +21,12 @@ import { getStore, type ModelMeta } from '../../storage';
 import { randomModelName } from '../../core/champ/nameGen';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { TeamNameForm } from '../components/TeamNameForm';
-import { TRACK_DEFS } from '../../core/games/racing/tracks';
+import { locale, useT } from '../../i18n';
+import { trackName } from '../../i18n/names';
+import { Name } from '../components/Name';
 
 export function TrainSetup() {
+  const s = useT().trainSetup;
   const { gameId, draft, patchDraft, patchSlot, addSlot, removeSlot, slotFromModel, newDraft, go, competitor } =
     useApp();
   const [editingName, setEditingName] = useState(false);
@@ -78,8 +82,8 @@ export function TrainSetup() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">המוסך</div>
-          <h1 className="display">{continuing ? 'המשך אימון' : multi ? 'אימון משותף' : 'מודל חדש'}</h1>
+          <div className="eyebrow">{s.eyebrow}</div>
+          <h1 className="display">{continuing ? s.continue : multi ? s.together : s.newModel}</h1>
         </div>
       </div>
 
@@ -96,18 +100,18 @@ export function TrainSetup() {
         <div className="row start-bar-actions">
           {slots.some((s) => s.modelId) && (
             <button className="ghost" onClick={newDraft}>
-              התחל מחדש
+              {s.startOver}
             </button>
           )}
           <button className="ghost" onClick={() => go('library')}>
-            ביטול
+            {s.cancel}
           </button>
           <CoachAnchor
             step={coach === 'setup' ? coach : null}
-            text="אפשר להשאיר הכל כמו שהוא לאימון ראשון. לחצו התחל אימון והרכב יתחיל לנסוע ולהשתפר מול העיניים שלכם."
+            text={s.coach}
           >
             <button className="primary" onClick={start}>
-              {continuing ? 'המשך אימון' : 'התחל אימון'}
+              {continuing ? s.continue : s.start}
             </button>
           </CoachAnchor>
         </div>
@@ -116,12 +120,11 @@ export function TrainSetup() {
       <div className="split-setup">
         <div className="grid">
           <div className="card notched">
-            <div className="eyebrow" style={{ marginBottom: 10 }}>מי מתאמן</div>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>{s.who}</div>
 
             {multi && (
               <p className="muted small" style={{ margin: '0 0 10px' }}>
-                כל המודלים מתאמנים יחד על אותו מסלול ומפריעים זה לזה בדיוק כמו במרוץ אמיתי. לכל אחד
-                רשת משלו, מחוונים משלו ושמירה נפרדת.
+                {s.togetherExplain}
               </p>
             )}
 
@@ -155,39 +158,41 @@ export function TrainSetup() {
                 className="small"
                 style={{ marginTop: 10, width: '100%' }}
                 onClick={addModel}
-                title="עוד מודל על אותו מסלול, באותו הזמן"
+                title={s.addTitle}
               >
-                + הוסף מודל
+                {s.add}
               </button>
             )}
           </div>
 
 
           <div className="card notched">
-            <div className="eyebrow" style={{ marginBottom: 12 }}>המסלול והקבוצה</div>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>{s.trackAndTeam}</div>
 
             {/* One name, remembered: it fills the next model too, and it is what
                 the championship entry races under. */}
             {!competitor || editingName ? (
               <div className="field">
                 <TeamNameForm
-                  label="שם המתחרה - הקבוצה שכל המודלים כאן מתחרים בשמה"
+                  label={s.teamLabel}
                   onSaved={() => setEditingName(false)}
                   onCancel={competitor ? () => setEditingName(false) : undefined}
                 />
                 {!competitor && (
                   <div className="small muted" style={{ marginTop: 6 }}>
-                    בלי שם מתחרה אי אפשר לרשום את המודל לאליפות.
+                    {s.needTeam}
                   </div>
                 )}
               </div>
             ) : (
               <div className="field">
-                <label>שם המתחרה - הקבוצה שכל המודלים כאן מתחרים בשמה</label>
+                <label>{s.teamLabel}</label>
                 <div className="row">
-                  <b>{competitor}</b>
+                  <b>
+                    <Name>{competitor}</Name>
+                  </b>
                   <button className="ghost small" onClick={() => setEditingName(true)}>
-                    שינוי שם
+                    {s.rename}
                   </button>
                 </div>
               </div>
@@ -201,22 +206,20 @@ export function TrainSetup() {
             />
             {gameId === 'racing' && draft.config.trackId !== nextGrandPrixTrack() && (
               <div className="auth-note warn small" style={{ margin: '0 0 10px' }}>
-                הגרנד פרי הבא נוסע ב{TRACK_DEFS.find((t) => t.id === nextGrandPrixTrack())?.name ?? 'מסלול אחר'}.
-                מודל שמתאמן על מסלול אחד לא בהכרח יודע לנסוע על אחר.{' '}
+                {s.otherTrack(trackName(nextGrandPrixTrack()))}{' '}
                 <button
                   className="ghost small"
                   onClick={() =>
                     patchDraft({ config: withTrainingDefaults(gameId, { ...draft.config, trackId: nextGrandPrixTrack() }) })
                   }
                 >
-                  לאמן שם
+                  {s.trainThere}
                 </button>
               </div>
             )}
             {gameId === 'racing' && (
               <div className="small muted">
-                האימון תמיד רץ על גריד מלא של {TRAINING_GRID} רכבים, {TRAINING_LAPS} הקפות ומגע בין רכבים -
-                בדיוק כמו באליפות.
+                {s.fullGrid(TRAINING_GRID, TRAINING_LAPS)}
               </div>
             )}
           </div>
@@ -240,12 +243,11 @@ export function TrainSetup() {
             )}
             {multi && (
               <div className="small" style={{ marginBottom: 8 }}>
-                המחוונים של <b>{slot.name.trim() || suggestFor(slotIndex)}</b> בלבד
+                {s.slidersOf} <b>{slot.name.trim() || suggestFor(slotIndex)}</b> {s.only}
                 {slotIndex > 0 && !slot.modelId && (
                   <span className="muted">
                     {' '}
-                    - הוא מתחיל קצת יותר נועז מהראשון (מהירות, מגע ועקיפות), כדי שיהיה מעניין לראות אותם
-                    נוהגים אחרת.
+                    {s.bolder}
                   </span>
                 )}
               </div>
@@ -287,20 +289,22 @@ function SlotCard({
   // Algorithm and network shape are baked into saved weights, so a model that is
   // being continued cannot switch either without throwing the training away.
   const locked = slot.modelId !== null && !slot.restart;
+  const s = useT().trainSetup;
+  const nameId = useId();
 
   return (
     <div className="slot-card">
       <div className="row" style={{ marginBottom: 8 }}>
-        <span className="pill small">רכב {index + 1}</span>
+        <span className="pill small">{s.car(index + 1)}</span>
         <div style={{ flex: 1 }} />
         {slot.modelId && (
           <span className={`pill small ${slot.restart ? 'warn' : 'good'}`}>
-            {slot.restart ? 'המשקולות יימחקו' : 'ממשיך מודל קיים'}
+            {slot.restart ? s.wipe : s.continuing}
           </span>
         )}
         {removable && (
-          <button className="ghost small" onClick={onRemove} title="הסר מהמגרש">
-            הסר
+          <button className="ghost small" onClick={onRemove} title={s.removeTitle}>
+            {s.remove}
           </button>
         )}
       </div>
@@ -310,14 +314,17 @@ function SlotCard({
           here. Renaming lives in the garage; starting over is a new model. */}
       {slot.modelId ? (
         <div className="field">
-          <label>ממשיכים לאמן את</label>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{slot.name}</div>
+          <label>{s.continueTraining}</label>
+          <div style={{ fontWeight: 800, fontSize: 16 }}>
+            <Name>{slot.name}</Name>
+          </div>
         </div>
       ) : (
       <div className="cols-2">
         <div className="field">
-          <label>שם המודל - כך הוא יופיע כנהג בטבלה</label>
+          <label htmlFor={nameId}>{s.nameLabel}</label>
           <input
+            id={nameId}
             type="text"
             value={slot.name}
             placeholder={placeholder}
@@ -326,15 +333,15 @@ function SlotCard({
         </div>
 
         <div className="field">
-          <label>מאיפה מתחילים</label>
+          <label>{s.from}</label>
           <select
             value={slot.modelId ?? ''}
             onChange={(e) => onPick(saved.find((m) => m.id === e.target.value) ?? null)}
           >
-            <option value="">מודל חדש מאפס</option>
+            <option value="">{s.fromScratch}</option>
             {saved.map((m) => (
               <option key={m.id} value={m.id}>
-                המשך את {m.name}
+                {s.continueModel(m.name)}
               </option>
             ))}
           </select>
@@ -346,7 +353,7 @@ function SlotCard({
           the first words a newcomer did not understand. */}
       <details className="field" style={{ marginBottom: 0 }}>
         <summary className="small muted" style={{ cursor: 'pointer' }}>
-          שיטת הלמידה: <b>{ALGORITHMS[slot.algorithm].name}</b> {locked ? '(נקבעה כשהמודל נוצר)' : '- אפשר להשאיר כך'}
+          {s.method} <b>{ALGORITHMS[slot.algorithm].name}</b> {locked ? s.locked : s.keep}
         </summary>
         <div className="segmented" style={{ width: '100%' }}>
           {(Object.keys(ALGORITHMS) as AlgorithmId[]).map((id) => (
@@ -373,6 +380,7 @@ function SlotCard({
  * gap is not predictable, so the only honest estimate is a measured one.
  */
 function Estimate() {
+  const s = useT().trainSetup;
   const { gameId, draft } = useApp();
   const [result, setResult] = useState<TimeEstimate | null>(null);
   const [measuring, setMeasuring] = useState(true);
@@ -404,33 +412,33 @@ function Estimate() {
 
   return (
     <div className="estimate">
-      <div className="eyebrow">כמה זמן זה ייקח</div>
+      <div className="eyebrow">{s.howLong}</div>
       {/* The same two lines whether measured yet or not: swapping a short
           "measuring" note for a big number and a sentence moved the start
           button out from under a finger that was on its way to it. */}
       {(measuring || result) && (
         <>
           {measuring ? (
-            <span className="skel" style={{ width: 120, height: 30, display: 'inline-block' }} aria-label="מודד את המכשיר" />
+            <span className="skel" style={{ width: 120, height: 30, display: 'inline-block' }} aria-label={s.measuringLabel} />
           ) : (
             <strong
               className="mono"
               style={{ fontSize: 24, lineHeight: '30px', color: 'var(--accent-2)' }}
-              title={`נמדד על המכשיר הזה: ${Math.round(result!.rate).toLocaleString('he-IL')} ${result!.rateLabel}`}
+              title={s.measured(Math.round(result!.rate).toLocaleString(locale()), result!.rateLabel)}
             >
               {formatEstimate(result!.seconds)}
             </strong>
           )}
           <span className="muted small">
-            {slots > 1 ? `עד ש-${slots} המודלים נוסעים טוב, במצב טורבו` : 'עד שהמודל נוסע טוב, במצב טורבו'}
+            {slots > 1 ? s.untilGoodMany(slots) : s.untilGood}
             {' · '}
-            {measuring ? 'מודדים את המכשיר…' : 'נמדד על המכשיר הזה, ולכן בקירוב'}
+            {measuring ? s.measuring : s.approx}
           </span>
         </>
       )}
-      {!measuring && !result && <span className="muted small">לא הצלחתי למדוד את המכשיר.</span>}
+      {!measuring && !result && <span className="muted small">{s.measureFailed}</span>}
       {isMobileClass && (
-        <span className="pill warn small">זוהה מכשיר נייד - נבחרו ברירות מחדל קלות יותר</span>
+        <span className="pill warn small">{s.mobile}</span>
       )}
     </div>
   );
@@ -445,21 +453,29 @@ function Estimate() {
  * something that works instead of something that quietly stops.
  */
 function TimeLimit() {
+  const s = useT().trainSetup;
   const { draft, patchDraft } = useApp();
   return (
     <div style={{ display: 'grid', gap: 6 }}>
-      <div className="eyebrow">עצירה ושמירה אוטומטית</div>
+      <div className="eyebrow">{s.autoStop}</div>
       <div className="segmented">
         {TIME_LIMITS.map((m) => (
-          <button key={m} className={draft.timeLimitMin === m ? 'on' : ''} onClick={() => patchDraft({ timeLimitMin: m })}>
-            {m === 0 ? 'בלי הגבלה' : `${m} דק׳`}
+          <button
+            key={m}
+            className={draft.timeLimitMin === m ? 'on' : ''}
+            onClick={() => {
+              chooseTimeLimit(m);
+              patchDraft({ timeLimitMin: m });
+            }}
+          >
+            {m === 0 ? s.noLimit : s.minutes(m)}
           </button>
         ))}
       </div>
       <span className="muted small">
         {isMobileClass
-          ? 'האימון רץ רק כשהמסך דולק והלשונית פתוחה. אם המסך נכבה האימון נעצר, אז עדיף אימון קצר שנגמר בשמירה.'
-          : 'האימון רץ רק כשהלשונית פתוחה. כשהזמן נגמר המודל נשמר, ואפשר להמשיך משם.'}
+          ? s.mobileNote
+          : s.desktopNote}
       </span>
     </div>
   );

@@ -6,6 +6,7 @@ import { earnedCoins } from '../../core/champ/coins';
 import {
   ITEM_BY_ID,
   SHOP_ITEMS,
+  normalizeShop,
   paintOf,
   spent,
   type Equipped,
@@ -17,16 +18,12 @@ import { settledResults } from '../../core/champ/timing';
 import { teamColor, teamLook } from '../../core/champ/livery';
 import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
 import { myShop, saveShop } from '../../storage/shop';
+import { useT } from '../../i18n';
 
 type SlotKind = Exclude<ItemKind, 'number'>;
 
-const SECTIONS: Array<{ kind: SlotKind; title: string; hint?: string }> = [
-  { kind: 'color', title: 'צבע הרכב', hint: 'בלי סגול, ירוק וצהוב - הם שמורים לזמני הקפה.' },
-  { kind: 'pattern', title: 'עיצוב' },
-  { kind: 'secondary', title: 'צבע שני', hint: 'הפס, החצי האחורי בשני גוונים, והכנפיים.' },
-  { kind: 'helmet', title: 'קסדה' },
-  { kind: 'smoke', title: 'עשן בדריפט' },
-];
+/** In the order they are shown; titles and hints are in the dictionary (`shop.sections`). */
+const SECTIONS: SlotKind[] = ['color', 'pattern', 'secondary', 'helmet', 'smoke'];
 
 /**
  * The shop: coins earned from races, spent on paint. Nothing here changes how
@@ -39,8 +36,9 @@ const SECTIONS: Array<{ kind: SlotKind; title: string; hint?: string }> = [
  * the coins the team has earned before painting it.
  */
 export function Shop() {
+  const s = useT().shop;
   const { competitor, showToast } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const [doc, setDoc] = useState<ShopDoc | null>(null);
   const [trial, setTrial] = useState<Equipped>({});
   const [busy, setBusy] = useState(false);
@@ -49,7 +47,9 @@ export function Shop() {
 
   useEffect(() => {
     if (!uid) return;
-    void myShop(uid).then(setDoc);
+    // Through the same check every other reader uses: a document of the wrong
+    // shape is an empty shop, not a crash.
+    void myShop(uid).then((d) => setDoc(normalizeShop(d)));
   }, [uid]);
 
   const wallet = useMemo(() => {
@@ -58,11 +58,12 @@ export function Shop() {
     return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
   }, [state, uid]);
 
-  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" note={progress} />;
+  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" />;
 
   const balance = wallet.total - spent(doc.purchases);
   const owned = new Set(doc.purchases);
   const has = (id: string) => (ITEM_BY_ID.get(id)?.price ?? 0) === 0 || owned.has(id);
+  // A seed for the colour and look, not shown: the same in every language.
   const team = competitor || 'הקבוצה שלי';
 
   // What the preview shows: what is on the car, with whatever is being tried on top.
@@ -93,8 +94,8 @@ export function Shop() {
       const code = (e as { code?: string })?.code;
       setError(
         code === 'permission-denied'
-          ? 'השרת סירב לשמור: החנות עוד לא הופעלה ב-Firestore (חסר הכלל של shop). אחרי שהכלל יפורסם זה יעבוד.'
-          : 'השמירה נכשלה. בדקו את החיבור ונסו שוב.',
+          ? s.denied
+          : s.saveFailed,
       );
     } finally {
       setBusy(false);
@@ -108,7 +109,7 @@ export function Shop() {
       const rest = { ...trial };
       delete rest[kind];
       setTrial(rest);
-      void persist({ ...doc, equipped: { ...equipped, ...pickOwned(rest, has) } }, `${item.label} על הרכב`);
+      void persist({ ...doc, equipped: { ...equipped, ...pickOwned(rest, has) } }, s.onCar(item.label));
       return;
     }
     setTrial({ ...trial, [kind]: item.id });
@@ -117,14 +118,14 @@ export function Shop() {
   const reset = (kind: SlotKind) => {
     const equipped = { ...doc.equipped };
     delete equipped[kind];
-    void persist({ ...doc, equipped }, 'הוחזר לברירת המחדל');
+    void persist({ ...doc, equipped }, s.backToDefault);
   };
 
   const buyAll = () => {
     if (cost > balance) return;
     void persist(
       { ...doc, purchases: [...doc.purchases, ...toBuy], equipped: { ...doc.equipped, ...trial } },
-      'נקנה ועל הרכב',
+      s.bought,
     );
   };
 
@@ -132,13 +133,14 @@ export function Shop() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">החנות</div>
-          <h1 className="display">מראה, לא מהירות.</h1>
-          <div className="muted small">מטבעות קונים מראה. שום דבר כאן לא משנה איך הרכב נוהג.</div>
+          <div className="eyebrow">{s.eyebrow}</div>
+          <h1 className="display">{s.title}</h1>
+          <div className="muted small">{s.intro}</div>
+          <div className="muted small">{s.noMoney}</div>
         </div>
         <div className="actions">
           <span className="pill" style={{ fontSize: 15 }}>
-            <Coin /> <span className="mono" style={{ fontWeight: 800 }}>{balance}</span> מטבעות
+            <Coin /> <span className="mono" style={{ fontWeight: 800 }}>{balance}</span> {s.coins}
           </span>
         </div>
       </div>
@@ -150,25 +152,25 @@ export function Shop() {
           {toBuy.length > 0 ? (
             <div className="row wrap" style={{ marginTop: 10, gap: 8 }}>
               <span className="small">
-                מנסים על הרכב: <b>{toBuy.map((id) => ITEM_BY_ID.get(id)?.label).join(' · ')}</b>
+                {s.trying} <b>{toBuy.map((id) => ITEM_BY_ID.get(id)?.label).join(' · ')}</b>
               </span>
               <div style={{ flex: 1 }} />
               <button className="ghost small" disabled={busy} onClick={() => setTrial({})}>
-                ביטול
+                {s.cancel}
               </button>
               <button className="primary small" disabled={busy || cost > balance} onClick={buyAll}>
                 {cost > balance ? (
-                  `חסרים ${cost - balance} מטבעות`
+                  s.missing(cost - balance)
                 ) : (
                   <>
-                    קנייה · <Coin /> {cost}
+                    {s.buy} <Coin /> {cost}
                   </>
                 )}
               </button>
             </div>
           ) : (
             <div className="small muted" style={{ marginTop: 8 }}>
-              לחצו על משהו כדי לראות אותו על הרכב. קונים רק אם זה מוצא חן.
+              {s.tapToTry}
             </div>
           )}
           {error && (
@@ -179,33 +181,33 @@ export function Shop() {
         </div>
 
         <div className="grid">
-          {SECTIONS.map((section) => (
-            <div className="card notched" key={section.kind}>
+          {SECTIONS.map((kind) => (
+            <div className="card notched" key={kind}>
               <div className="head">
-                <div className="eyebrow">{section.title}</div>
+                <div className="eyebrow">{s.sections[kind].title}</div>
                 <div className="fill" />
-                {doc.equipped[section.kind] !== undefined && (
-                  <button className="ghost small" disabled={busy} onClick={() => reset(section.kind)}>
-                    ברירת מחדל
+                {doc.equipped[kind] !== undefined && (
+                  <button className="ghost small" disabled={busy} onClick={() => reset(kind)}>
+                    {s.default}
                   </button>
                 )}
               </div>
-              {section.hint && (
+              {s.sections[kind].hint && (
                 <div className="muted small" style={{ marginBottom: 10 }}>
-                  {section.hint}
+                  {s.sections[kind].hint}
                 </div>
               )}
               <div className="swatches">
-                {SHOP_ITEMS.filter((i) => i.kind === section.kind).map((item) => (
+                {SHOP_ITEMS.filter((i) => i.kind === kind).map((item) => (
                   <Swatch
                     key={item.id}
                     item={item}
                     owned={has(item.id)}
-                    on={wearing[section.kind] === item.id}
-                    trying={trial[section.kind] === item.id}
+                    on={wearing[kind] === item.id}
+                    trying={trial[kind] === item.id}
                     previewColor={previewColor}
                     previewLook={previewLook}
-                    onTap={() => tap(item, section.kind)}
+                    onTap={() => tap(item, kind)}
                   />
                 ))}
               </div>
@@ -214,7 +216,7 @@ export function Shop() {
 
           <div className="card notched">
             <div className="eyebrow" style={{ marginBottom: 8 }}>
-              מספר
+              {s.number}
             </div>
             <NumberPicker
               owned={owned.has('number')}
@@ -223,18 +225,18 @@ export function Shop() {
               busy={busy}
               onTry={(n) => setTrial({ ...trial, number: n })}
               onSave={(n) =>
-                void persist({ ...doc, equipped: { ...doc.equipped, number: n } }, n ? `מספר ${n} על הרכב` : 'בלי מספר משלכם')
+                void persist({ ...doc, equipped: { ...doc.equipped, number: n } }, n ? s.numberOn(n) : s.noNumber)
               }
             />
           </div>
 
           <div className="card notched">
             <div className="eyebrow" style={{ marginBottom: 8 }}>
-              איך הרווחתם
+              {s.earned}
             </div>
             {wallet.breakdown.length === 0 && (
               <div className="muted small">
-                עוד אין מטבעות. כל רכב שיוצא למרוץ מרוויח, גם במקום האחרון, ועוד לפי הנקודות שצבר.
+                {s.noCoins}
               </div>
             )}
             {wallet.breakdown.map((e, i) => (
@@ -246,13 +248,13 @@ export function Shop() {
             ))}
             {doc.purchases.length > 0 && (
               <div className="row small" style={{ padding: '3px 0', borderTop: '1px solid var(--line)', marginTop: 4 }}>
-                <span className="muted">נקנה</span>
+                <span className="muted">{s.spent}</span>
                 <div style={{ flex: 1 }} />
                 <span className="mono muted">-{spent(doc.purchases)}</span>
               </div>
             )}
             <div className="dim tiny" style={{ marginTop: 8 }}>
-              המטבעות מחושבים מהתוצאות שפורסמו, אצל כל אחד בנפרד, ולכן אי אפשר לזייף אותם.
+              {s.honest}
             </div>
           </div>
         </div>
@@ -293,11 +295,12 @@ function Swatch({
   previewLook: CarLook;
   onTap(): void;
 }) {
+  const s = useT().shop;
   return (
     <button
       className={`swatch ${on ? 'on' : ''} ${trying ? 'trying' : ''}`}
       onClick={onTap}
-      title={`${item.label}${owned ? '' : ` · ${item.price} מטבעות`}`}
+      title={`${item.label}${owned ? '' : s.price(item.price)}`}
       aria-label={item.label}
       aria-pressed={on}
     >
@@ -362,6 +365,7 @@ function NumberPicker({
   onTry(n: number | undefined): void;
   onSave(n: number | undefined): void;
 }) {
+  const s = useT().shop;
   const [draft, setDraft] = useState(String(value ?? ''));
   const n = Number(draft);
   const ok = Number.isInteger(n) && n >= 1 && n <= 99;
@@ -381,21 +385,21 @@ function NumberPicker({
             onTry(Number.isInteger(v) && v >= 1 && v <= 99 ? v : undefined);
           }}
           style={{ width: 100 }}
-          aria-label="מספר הרכב"
+          aria-label={s.numberLabel}
         />
         {owned && (
           <button className="small" disabled={busy || !ok || n === value} onClick={() => onSave(n)}>
-            שמירה
+            {s.save}
           </button>
         )}
         {owned && value !== undefined && (
           <button className="ghost small" disabled={busy} onClick={() => onSave(undefined)}>
-            להסיר
+            {s.remove}
           </button>
         )}
       </div>
       <div className="small muted" style={{ marginTop: 6 }}>
-        {owned ? 'המספר על כיסוי המנוע.' : `הקלידו מספר כדי לראות אותו על הרכב. מספר לבחירה עולה ${price} מטבעות.`}
+        {owned ? s.numberWhere : s.numberTry(price)}
       </div>
     </>
   );

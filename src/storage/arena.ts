@@ -1,4 +1,5 @@
 import type { ArenaEntry, RaceCard, RaceResult } from '../core/champ/types';
+import type { DayReplay } from '../core/champ/replay';
 import { seasonOfRaceId } from '../core/champ/schedule';
 import { firebaseConfigured } from './firebase';
 import { cloudDisabled, setCloudError, setCloudOk } from './cloudStatus';
@@ -28,12 +29,20 @@ export interface ArenaStore {
   /** `null` weights update only the entry's metadata and leave the car as it is. */
   putEntry(entry: ArenaEntry, weightsB64: string | null): Promise<void>;
   removeEntry(id: string): Promise<void>;
+  /** Readable by the entry's owner only, in the cloud: nobody gets a rival's network. */
   loadEntryWeights(id: string): Promise<string | null>;
 
   getCard(raceId: string): Promise<RaceCard | null>;
   /** Create-only: a card that already exists is left exactly as it was. */
   putCard(card: RaceCard, cars: Map<string, string>): Promise<RaceCard>;
+  /** The server's only, in the cloud. A browser watches a race from its replay. */
   loadRaceWeights(raceId: string): Promise<Map<string, string>>;
+  /**
+   * What every car did in each session, written by the server when it races
+   * the day. `null` when there is none: a local championship, which watches
+   * from its own weights, or a race nobody could record.
+   */
+  loadReplay(raceId: string): Promise<DayReplay | null>;
 
   getResult(raceId: string): Promise<RaceResult | null>;
   /** Create-only, for the same reason: the first result computed is the result. */
@@ -173,6 +182,10 @@ class LocalArena implements ArenaStore {
     return this.get<RaceResult>(`result:${raceId}`);
   }
 
+  async loadReplay(): Promise<DayReplay | null> {
+    return null;
+  }
+
   async putResult(result: RaceResult): Promise<RaceResult> {
     const existing = await this.getResult(result.raceId);
     if (existing) return existing;
@@ -295,6 +308,19 @@ class FirestoreArena implements ArenaStore {
     return out;
   }
 
+  async loadReplay(raceId: string): Promise<DayReplay | null> {
+    const { getDocs, collection, db } = await this.fs();
+    const snap = await getDocs(collection(db, 'seasons', seasonOfRaceId(raceId), 'races', raceId, 'replay'));
+    const out: DayReplay = new Map();
+    snap.forEach((d) => {
+      // `index` lists the sessions; the rest are the sessions themselves.
+      if (d.id === 'index') return;
+      const data = d.data() as { sessionId: string; cars: Record<string, string> };
+      out.set(data.sessionId, data.cars);
+    });
+    return out.size ? out : null;
+  }
+
   async getResult(raceId: string): Promise<RaceResult | null> {
     const { doc, getDoc, db } = await this.fs();
     const snap = await getDoc(doc(db, 'seasons', seasonOfRaceId(raceId), 'races', raceId, 'result', 'final'));
@@ -392,6 +418,19 @@ class ArenaFacade implements ArenaStore {
       this.raceWeights.set(raceId, pending);
     }
     return pending;
+  }
+  /**
+   * Unguarded: a replay read refused because the race has not started is not
+   * the cloud being down. Kept once found - a replay never changes.
+   */
+  private readonly replays = new Map<string, DayReplay>();
+
+  async loadReplay(raceId: string) {
+    const known = this.replays.get(raceId);
+    if (known) return known;
+    const replay = await this.inner.loadReplay(raceId);
+    if (replay) this.replays.set(raceId, replay);
+    return replay;
   }
   getResult(raceId: string) {
     return this.guard(() => this.inner.getResult(raceId), null as RaceResult | null);

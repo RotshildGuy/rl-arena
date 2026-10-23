@@ -1,6 +1,7 @@
 import { decodeWeights } from '../core/nn/serialize';
 import { getGame } from '../core/games/registry';
 import { getStore, newModelId, type ModelRecord } from '../storage';
+import { t } from '../i18n';
 
 /**
  * Models as files.
@@ -32,7 +33,7 @@ function filename(name: string): string {
 export async function exportModel(id: string): Promise<string> {
   const store = await getStore();
   const model = await store.load(id);
-  if (!model) throw new ModelFileError('לא הצלחתי לטעון את המודל');
+  if (!model) throw new ModelFileError(t().modelFile.cannotLoad);
 
   const payload: ModelFile = { format: FORMAT, version: VERSION, exportedAt: Date.now(), model };
   const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -54,24 +55,24 @@ export async function exportModel(id: string): Promise<string> {
  * sentence rather than a stack trace, or worse, a model that races as garbage.
  */
 function validate(raw: unknown): ModelRecord {
-  if (typeof raw !== 'object' || raw === null) throw new ModelFileError('הקובץ אינו קובץ מודל');
+  if (typeof raw !== 'object' || raw === null) throw new ModelFileError(t().modelFile.notModel);
   const file = raw as Partial<ModelFile>;
-  if (file.format !== FORMAT) throw new ModelFileError('הקובץ אינו קובץ מודל של RL Arena');
+  if (file.format !== FORMAT) throw new ModelFileError(t().modelFile.notOurs);
   if (typeof file.version !== 'number' || file.version > VERSION) {
-    throw new ModelFileError('הקובץ נוצר בגרסה חדשה יותר של האתר');
+    throw new ModelFileError(t().modelFile.newer);
   }
 
   const m = file.model as Partial<ModelRecord> | undefined;
-  if (!m || typeof m !== 'object') throw new ModelFileError('הקובץ אינו מכיל מודל');
+  if (!m || typeof m !== 'object') throw new ModelFileError(t().modelFile.noModel);
   if (typeof m.name !== 'string' || typeof m.gameId !== 'string') {
-    throw new ModelFileError('פרטי המודל חסרים בקובץ');
+    throw new ModelFileError(t().modelFile.missingDetails);
   }
 
   let game;
   try {
     game = getGame(m.gameId);
   } catch {
-    throw new ModelFileError(`המודל שייך למשחק שאינו קיים באתר (${m.gameId})`);
+    throw new ModelFileError(t().modelFile.unknownGame(m.gameId));
   }
 
   const arch = m.arch;
@@ -81,13 +82,13 @@ function validate(raw: unknown): ModelRecord {
     typeof arch.nActions !== 'number' ||
     !Array.isArray(arch.hidden)
   ) {
-    throw new ModelFileError('הארכיטקטורה בקובץ אינה תקינה');
+    throw new ModelFileError(t().modelFile.badArch);
   }
   if (arch.obsSize !== game.spec.obsSize || arch.nActions !== game.spec.actions.length) {
-    throw new ModelFileError('המודל אומן על פריסת תצפית שאינה תואמת לגרסה הנוכחית');
+    throw new ModelFileError(t().modelFile.badObs);
   }
   if (typeof m.weightsB64 !== 'string' || m.weightsB64.length === 0) {
-    throw new ModelFileError('המשקולות חסרות בקובץ');
+    throw new ModelFileError(t().modelFile.noWeights);
   }
 
   // The decisive check: the weights must decode to exactly the parameter count
@@ -99,10 +100,10 @@ function validate(raw: unknown): ModelRecord {
   try {
     actual = decodeWeights(m.weightsB64).length;
   } catch {
-    throw new ModelFileError('לא הצלחתי לקרוא את המשקולות מהקובץ');
+    throw new ModelFileError(t().modelFile.unreadable);
   }
   if (actual !== expected) {
-    throw new ModelFileError(`המשקולות אינן תואמות לארכיטקטורה (${actual} במקום ${expected})`);
+    throw new ModelFileError(t().modelFile.sizeMismatch(actual, expected));
   }
 
   return m as ModelRecord;
@@ -118,7 +119,7 @@ export async function importModel(file: File): Promise<ModelRecord> {
   try {
     parsed = JSON.parse(await file.text());
   } catch {
-    throw new ModelFileError('הקובץ אינו JSON תקין');
+    throw new ModelFileError(t().modelFile.badJson);
   }
 
   const model = validate(parsed);

@@ -1,4 +1,5 @@
 import type { CarLook } from '../games/racing/render';
+import { t, translated } from '../../i18n/dict';
 
 /**
  * The catalogue. Everything here is paint: it changes how a car is drawn and
@@ -20,46 +21,43 @@ export interface ShopItem {
   value: string;
 }
 
-const color = (id: string, label: string, value: string, price = 120): ShopItem => ({ id, kind: 'color', label, price, value });
+/** An item whose label is read from the dictionary by its id. */
+const item = (base: Omit<ShopItem, 'label'>): ShopItem => translated(base, () => ({ label: t().shopItems[base.id] ?? base.id }));
+
+const color = (id: string, value: string, price = 120): ShopItem => item({ id, kind: 'color', price, value });
 /** The second colour: the stripe, the rear half of a two-tone, and the wings. */
-const second = (id: string, label: string, value: string, price = 60): ShopItem => ({
-  id,
-  kind: 'secondary',
-  label,
-  price,
-  value,
-});
+const second = (id: string, value: string, price = 60): ShopItem => item({ id, kind: 'secondary', price, value });
 
 export const SHOP_ITEMS: ShopItem[] = [
-  color('color-scarlet', 'ארגמן', '#ff2e4d'),
-  color('color-crimson', 'בורדו', '#b3122e'),
-  color('color-orange', 'כתום מרוץ', '#ff7a1a'),
-  color('color-sky', 'תכלת', '#38bdf8'),
-  color('color-navy', 'כחול לילה', '#2346c8'),
-  color('color-teal', 'טורקיז', '#14b8a6'),
-  color('color-pink', 'ורוד', '#ff5fa2'),
-  color('color-silver', 'כסף', '#c8d0de', 160),
-  color('color-graphite', 'גרפיט', '#3a404f', 160),
-  color('color-white', 'לבן', '#f4f6fb', 160),
-  second('second-white', 'לבן', '#f4f6fb'),
-  second('second-black', 'שחור', '#14161d'),
-  second('second-scarlet', 'ארגמן', '#ff2e4d'),
-  second('second-orange', 'כתום', '#ff7a1a'),
-  second('second-sky', 'תכלת', '#38bdf8'),
-  second('second-navy', 'כחול לילה', '#2346c8'),
-  second('second-teal', 'טורקיז', '#14b8a6'),
-  second('second-pink', 'ורוד', '#ff5fa2'),
-  second('second-silver', 'כסף', '#c8d0de'),
-  { id: 'pattern-stripe', kind: 'pattern', label: 'פס מרכזי', price: 80, value: 'stripe' },
-  { id: 'pattern-twotone', kind: 'pattern', label: 'שני גוונים', price: 80, value: 'twotone' },
-  { id: 'pattern-solid', kind: 'pattern', label: 'חלק', price: 0, value: 'solid' },
-  { id: 'number', kind: 'number', label: 'מספר לבחירה', price: 60, value: '' },
-  { id: 'helmet-gold', kind: 'helmet', label: 'קסדה מוזהבת', price: 50, value: '#e6b422' },
-  { id: 'helmet-black', kind: 'helmet', label: 'קסדה שחורה', price: 40, value: '#14161d' },
-  { id: 'helmet-red', kind: 'helmet', label: 'קסדה אדומה', price: 40, value: '#ff2e4d' },
-  { id: 'smoke-blue', kind: 'smoke', label: 'עשן כחול בדריפט', price: 70, value: 'rgba(80, 150, 255, 0.28)' },
-  { id: 'smoke-red', kind: 'smoke', label: 'עשן אדום בדריפט', price: 70, value: 'rgba(255, 70, 90, 0.26)' },
-  { id: 'smoke-white', kind: 'smoke', label: 'עשן לבן סמיך', price: 50, value: 'rgba(235, 240, 250, 0.32)' },
+  color('color-scarlet', '#ff2e4d'),
+  color('color-crimson', '#b3122e'),
+  color('color-orange', '#ff7a1a'),
+  color('color-sky', '#38bdf8'),
+  color('color-navy', '#2346c8'),
+  color('color-teal', '#14b8a6'),
+  color('color-pink', '#ff5fa2'),
+  color('color-silver', '#c8d0de', 160),
+  color('color-graphite', '#3a404f', 160),
+  color('color-white', '#f4f6fb', 160),
+  second('second-white', '#f4f6fb'),
+  second('second-black', '#14161d'),
+  second('second-scarlet', '#ff2e4d'),
+  second('second-orange', '#ff7a1a'),
+  second('second-sky', '#38bdf8'),
+  second('second-navy', '#2346c8'),
+  second('second-teal', '#14b8a6'),
+  second('second-pink', '#ff5fa2'),
+  second('second-silver', '#c8d0de'),
+  item({ id: 'pattern-stripe', kind: 'pattern', price: 80, value: 'stripe' }),
+  item({ id: 'pattern-twotone', kind: 'pattern', price: 80, value: 'twotone' }),
+  item({ id: 'pattern-solid', kind: 'pattern', price: 0, value: 'solid' }),
+  item({ id: 'number', kind: 'number', price: 60, value: '' }),
+  item({ id: 'helmet-gold', kind: 'helmet', price: 50, value: '#e6b422' }),
+  item({ id: 'helmet-black', kind: 'helmet', price: 40, value: '#14161d' }),
+  item({ id: 'helmet-red', kind: 'helmet', price: 40, value: '#ff2e4d' }),
+  item({ id: 'smoke-blue', kind: 'smoke', price: 70, value: 'rgba(80, 150, 255, 0.28)' }),
+  item({ id: 'smoke-red', kind: 'smoke', price: 70, value: 'rgba(255, 70, 90, 0.26)' }),
+  item({ id: 'smoke-white', kind: 'smoke', price: 50, value: 'rgba(235, 240, 250, 0.32)' }),
 ];
 
 export const ITEM_BY_ID = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
@@ -81,6 +79,27 @@ export interface ShopDoc {
   updatedAt: number;
 }
 
+const KINDS = ['color', 'secondary', 'pattern', 'helmet', 'smoke'] as const;
+
+/**
+ * A shop document as read: anybody can write their own, so its shape is not
+ * trusted either. A `purchases` that is not a list, an `equipped` that is not
+ * an object, a field of the wrong type - each reads as empty rather than
+ * throwing somewhere in the middle of drawing a grid.
+ */
+export function normalizeShop(raw: unknown): ShopDoc {
+  const d = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const purchases = Array.isArray(d.purchases) ? d.purchases.filter((p): p is string => typeof p === 'string') : [];
+  const src = d.equipped && typeof d.equipped === 'object' && !Array.isArray(d.equipped) ? (d.equipped as Record<string, unknown>) : {};
+  const equipped: Equipped = {};
+  for (const kind of KINDS) {
+    const id = src[kind];
+    if (typeof id === 'string') equipped[kind] = id;
+  }
+  if (typeof src.number === 'number' && Number.isFinite(src.number)) equipped.number = src.number;
+  return { purchases, equipped, updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0 };
+}
+
 export function spent(purchases: string[]): number {
   return [...new Set(purchases)].reduce((s, id) => s + (ITEM_BY_ID.get(id)?.price ?? 0), 0);
 }
@@ -93,12 +112,13 @@ export function spent(purchases: string[]): number {
  * has earned. If either fails, the whole look is ignored - not just the bad
  * item - because a forged purchase list says nothing trustworthy about any of it.
  */
-export function validLook(doc: ShopDoc | null | undefined, earned: number): { look: CarLook; color?: string } | null {
-  if (!doc) return null;
+export function validLook(raw: unknown, earned: number): { look: CarLook; color?: string } | null {
+  if (!raw) return null;
+  const doc = normalizeShop(raw);
   const owned = new Set(doc.purchases);
   if (spent(doc.purchases) > earned) return null;
   const e = doc.equipped;
-  for (const kind of ['color', 'secondary', 'pattern', 'helmet', 'smoke'] as const) {
+  for (const kind of KINDS) {
     const id = e[kind];
     if (!id) continue;
     const it = ITEM_BY_ID.get(id);

@@ -2,6 +2,7 @@ import { buildStandings } from './points';
 import { hallOfFame, seasonCards } from './seasons';
 import { HOUSE_UID } from './house';
 import type { RaceCard, RaceResult } from './types';
+import { t } from '../../i18n/dict';
 
 /**
  * Coins: what a team has earned, and nothing else.
@@ -62,9 +63,10 @@ export function earnedCoins(uid: string, cards: RaceCard[], settled: Map<string,
     }
   }
 
+  const words = t().coins;
   const breakdown: Earning[] = [];
-  if (points) breakdown.push({ label: `נקודות במרוצים (${points})`, coins: points });
-  if (starts) breakdown.push({ label: `השתתפות (${starts} זינוקים)`, coins: starts * COINS_PER_START });
+  if (points) breakdown.push({ label: words.points(points), coins: points });
+  if (starts) breakdown.push({ label: words.starts(starts), coins: starts * COINS_PER_START });
 
   // Season-end bonus, by the team's place in each finished season.
   for (const h of hallOfFame(cards, settled, now)) {
@@ -72,16 +74,16 @@ export function earnedCoins(uid: string, cards: RaceCard[], settled: Map<string,
     const team = table.teams.find((t) => t.uid === uid);
     if (!team) continue;
     const bonus = SEASON_BONUS[team.position - 1] ?? 5;
-    breakdown.push({ label: `סיום עונה ${h.season} במקום ${team.position}`, coins: bonus });
+    breakdown.push({ label: words.season(h.season, team.position), coins: bonus });
   }
 
   // One-off achievements.
   const once: Array<[boolean, string, number]> = [
-    [finishes >= 1, 'מרוץ ראשון עד הדגל', 20],
-    [podiums >= 1, 'פודיום ראשון', 40],
-    [wins >= 1, 'ניצחון ראשון', 75],
-    [clean >= 1, 'מרוץ שלם בלי לגעת בקיר', 30],
-    [starts >= 10, 'עשרה מרוצים', 50],
+    [finishes >= 1, words.firstFinish, 20],
+    [podiums >= 1, words.firstPodium, 40],
+    [wins >= 1, words.firstWin, 75],
+    [clean >= 1, words.clean, 30],
+    [starts >= 10, words.tenRaces, 50],
   ];
   for (const [got, label, coins] of once) if (got) breakdown.push({ label, coins });
 

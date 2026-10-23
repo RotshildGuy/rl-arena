@@ -11,7 +11,6 @@ import {
   displaySeason,
   roundInSeason,
   seasonNumber,
-  grandPrixName,
   lockAtForRound,
   startsAtForRound,
   trackForRound,
@@ -21,12 +20,10 @@ import { carRecaps, type CarRecap } from '../../core/champ/recap';
 import { diagnoseCar } from '../../core/champ/diagnose';
 import { AdviceLine } from '../components/AdviceLine';
 import { shareResult } from '../shareCard';
-import { PushToggle } from '../components/PushToggle';
 import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
-import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import type { ArenaEntry, RaceCard, RaceResult } from '../../core/champ/types';
 import { DriverCell } from '../components/Livery';
 import { TeamNameForm } from '../components/TeamNameForm';
@@ -35,6 +32,11 @@ import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateText, dateTimeText, lapTime, posClass, timeText, untilText, untilWords } from '../format';
 import { googleCalendarUrl } from '../calendar';
+import { SeasonTracks } from '../components/SeasonTracks';
+import { Welcome, hasSeenWelcome, markWelcomeSeen } from '../components/Welcome';
+import { locale, useT } from '../../i18n';
+import { driverName, driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
+import { isolated, Name } from '../components/Name';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -58,13 +60,16 @@ function useMyModels(): ModelMeta[] {
 }
 
 export function Championship() {
+  const t = useT();
+  const c = t.championship;
   const { go, openRace, competitor, nameTaken } = useApp();
-  const { state, progress, error, reload } = useChampionship();
+  const { state, error, reload } = useChampionship();
   const now = useNow();
   const [editingName, setEditingName] = useState(!competitor);
   /** Whether this person has started typing a name of their own. */
   const typed = useRef(false);
   const coach = useCoachStep();
+  const [welcome, setWelcome] = useState(() => !hasSeenWelcome());
 
   /**
    * On a device this account has never been used on, the team name arrives from
@@ -142,28 +147,31 @@ export function Championship() {
 
   return (
     <>
+      {welcome && (
+        <Welcome
+          onClose={() => {
+            markWelcomeSeen();
+            setWelcome(false);
+          }}
+        />
+      )}
       <div className="page-head">
-        <div className="eyebrow">עונה {season} · אליפות המודלים</div>
+        <div className="eyebrow">{c.eyebrow(season)}</div>
         <h1 className="display">
-          מרוץ אחד ביום.
+          {t.signin.headline1}
           <br />
-          המודלים נוהגים, אתם בונים אותם.
+          {t.signin.headline2}
         </h1>
-        <p className="muted" style={{ margin: 0, maxWidth: 620 }}>
-          <b>מודל</b> הוא נהג ממוחשב שלומד לנהוג לבד, מניסוי וטעייה. לא מתכנתים אותו - רק קובעים על מה
-          הוא מקבל נקודות, והוא מתאמן בדפדפן עד שהוא נוסע טוב. אחר כך רושמים אותו לאליפות, ופעם ביום
-          כל הנהגים הרשומים מתחרים בגרנד פרי בשידור חי.
-        </p>
       </div>
 
       {/* Not while on the way to the broadcast: the name form flashing past
           for a moment, unexplained, was the first thing a watcher saw. */}
       {editingName || nameTaken ? (
         <div className="card notched" style={{ marginBottom: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>מי אתם</div>
+          <div className="eyebrow" style={{ marginBottom: 10 }}>{c.whoAreYou}</div>
           {nameTaken && (
             <div className="small" style={{ marginBottom: 10, color: 'var(--warn)' }}>
-              השם "{competitor}" כבר שייך למתחרה אחר. בחרו שם אחר לקבוצה - הרכבים והנקודות שלכם נשארים.
+              {c.nameTaken(competitor)}
             </div>
           )}
           <TeamNameForm
@@ -178,34 +186,26 @@ export function Championship() {
               <CoachAnchor
                 step={coach === 'name' ? coach : null}
                 className="field-anchor"
-                text="מתחילים כאן: כתבו שם ולחצו שמור. אחר כך נאמן מודל שינהג בשבילכם ונרשום אותו לאליפות."
+                text={c.coachName}
               >
                 {field}
               </CoachAnchor>
             )}
           />
           <div className="small muted" style={{ marginTop: 8 }}>
-            כל המודלים שתאמנו ירוצו תחת השם הזה, והנקודות שלהם יצטברו לטבלת הקבוצות.
+            {c.nameNote}
           </div>
         </div>
       ) : null}
 
-      {progress && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="row">
-            <span className="pill hot">מחשב</span>
-            <span className="muted small">{progress}</span>
-          </div>
-        </div>
-      )}
       {error && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="row">
-            <span className="pill warn">שגיאה</span>
+            <span className="pill warn">{c.error}</span>
             <span className="small">{error}</span>
             <div style={{ flex: 1 }} />
             <button className="small" onClick={reload}>
-              נסו שוב
+              {c.retry}
             </button>
           </div>
         </div>
@@ -226,7 +226,7 @@ export function Championship() {
           the live banner above already offers that. */}
       {!liveCard && lastFinished && (
         <button className="wide last-race-link" onClick={() => openRace(lastFinished.id, 'broadcast')}>
-          <span aria-hidden="true">🎬</span> צפו במרוץ האחרון · {lastFinished.name}
+          <span aria-hidden="true">🎬</span> {c.watchLast(grandPrixTitle(lastFinished.trackId))}
         </button>
       )}
 
@@ -283,10 +283,10 @@ export function Championship() {
         <div className="split">
           <div className="card notched">
             <div className="head">
-              <div className="eyebrow">אליפות הנהגים</div>
+              <div className="eyebrow">{c.drivers}</div>
               <div className="fill" />
               <button className="ghost small" onClick={() => go('standings')}>
-                הטבלה המלאה →
+                {c.fullTable}
               </button>
             </div>
             <table className="timing">
@@ -297,7 +297,7 @@ export function Championship() {
                       <span className={posClass(d.position)}>{d.position}</span>
                     </td>
                     <td>
-                      <DriverCell driver={d.driver} team={d.team} tag={d.tag} />
+                      <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} />
                     </td>
                     <td className="mono num" style={{ width: 60, fontWeight: 700 }}>
                       {d.points}
@@ -310,28 +310,30 @@ export function Championship() {
 
           <div className="card notched">
             <div className="head">
-              <div className="eyebrow">אליפות הקבוצות</div>
+              <div className="eyebrow">{c.teams}</div>
             </div>
             <table className="timing">
               <tbody>
-                {standings.teams.slice(0, 6).map((t) => (
-                  <tr key={t.uid || t.team}>
+                {standings.teams.slice(0, 6).map((team) => (
+                  <tr key={team.uid || team.team}>
                     <td style={{ width: 40 }}>
-                      <span className={posClass(t.position)}>{t.position}</span>
+                      <span className={posClass(team.position)}>{team.position}</span>
                     </td>
                     <td>
                       <div className="driver">
-                        <span className="livery" style={{ background: teamColor(t.team) }} />
+                        <span className="livery" style={{ background: teamColor(team.team) }} />
                         <div className="names">
-                          <span className="who">{t.team}</span>
+                          <span className="who">
+                            <Name>{teamName(team.team)}</Name>
+                          </span>
                           <span className="team">
-                            {t.entries.length} {t.entries.length === 1 ? 'מודל' : 'מודלים'}
+                            {c.models(team.entries.length)}
                           </span>
                         </div>
                       </div>
                     </td>
                     <td className="mono num" style={{ width: 60, fontWeight: 700 }}>
-                      {t.points}
+                      {team.points}
                     </td>
                   </tr>
                 ))}
@@ -341,20 +343,20 @@ export function Championship() {
         </div>
       )}
 
-      {state && state.cards.length === 0 && !progress && (
+      {state && state.cards.length === 0 && (
         <div className="empty">
           <h2 style={{ marginBottom: 8 }}>
-            {nextField.length >= MIN_ENTRIES ? 'הגרנד פרי הראשון עוד לא נערך' : 'האליפות עוד לא התחילה'}
+            {nextField.length >= MIN_ENTRIES ? c.firstNotYet : c.notStarted}
           </h2>
           <p style={{ margin: '0 0 14px' }}>
             {nextField.length >= MIN_ENTRIES
-              ? 'הטבלאות ייבנו מיד אחרי שהאורות ייכבו.'
+              ? c.tablesAfter
               : upcoming >= HOUSE_FROM_ROUND
-                ? `רשמו מודל אחד, ו${HOUSE_TEAM} תשלים את הגריד עד ${HOUSE_GRID} רכבים - יהיה מרוץ כבר הערב.`
-                : `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שייערך גרנד פרי. אמנו מודל ורשמו אותו.`}
+                ? c.houseFills(teamName(HOUSE_TEAM), HOUSE_GRID)
+                : c.needEntries(MIN_ENTRIES)}
           </p>
           <button className="primary" onClick={() => go('library')}>
-            למוסך
+            {c.toGarage}
           </button>
         </div>
       )}
@@ -385,6 +387,7 @@ function StaleCarNotice({
   round: number;
   onFix(): void;
 }) {
+  const c = useT().championship;
   const stale = useMemo(() => {
     const byId = new Map(models.map((m) => [m.id, m]));
     return entries
@@ -401,15 +404,14 @@ function StaleCarNotice({
   return (
     <div className="card notched" style={{ marginBottom: 14, borderColor: 'var(--warn)' }}>
       <div className="row wrap">
-        <span className="pill warn">לא מעודכן על המסלול</span>
+        <span className="pill warn">{c.stale}</span>
         <span style={{ minWidth: 0 }}>
-          {stale.length === 1 ? `"${stale[0]}" השתנה` : `${stale.length} מהרכבים שלכם השתנו`} במוסך
-          מאז הרישום האחרון - שם, משקולות או שניהם. בלי עדכון, הגרסה הישנה היא זו שתתחרה.
+          {stale.length === 1 ? c.staleOne(stale[0]) : c.staleMany(stale.length)} {c.staleBody}
         </span>
         <div style={{ flex: 1 }} />
-        <span className="dim tiny">עד {timeText(lockAt)}</span>
+        <span className="dim tiny">{c.until(timeText(lockAt))}</span>
         <button className="primary" onClick={onFix}>
-          עדכן רכב
+          {c.update}
         </button>
       </div>
     </div>
@@ -435,6 +437,7 @@ function LiveBanner({
   onWatch(): void;
   onReport(): void;
 }) {
+  const c = useT().championship;
   const { state } = useChampionship();
   const status = dayStatus(card, state?.results.get(card.id), now);
   const racing = status.phase === 'racing';
@@ -449,42 +452,42 @@ function LiveBanner({
         <span className={`pill ${racing ? 'live' : preStart ? 'hot' : ''}`}>
           {racing ? (
             <>
-              <span className="blip" /> שידור חי
+              <span className="blip" /> {c.live}
             </>
           ) : preStart ? (
-            'עולה לאוויר'
+            c.goingLive
           ) : (
-            'בין מקצים'
+            c.between
           )}
         </span>
         <div style={{ minWidth: 0 }}>
-          <h2 style={{ fontSize: 20 }}>{card.name}</h2>
+          <h2 style={{ fontSize: 20 }}>{grandPrixTitle(card.trackId)}</h2>
           <div className="small muted">
             {racing ? (
               <>
-                {status.current?.session.name} · {Math.floor(elapsed / 1000)} שניות מהזינוק
+                {c.sinceStart(status.current?.session.name ?? '', Math.floor(elapsed / 1000))}
               </>
             ) : preStart && status.next ? (
               <>
-                {status.next.session.name} · הזינוק בעוד{' '}
+                {c.startIn(status.next.session.name)}{' '}
                 <span className="mono">{untilText(status.next.startsAt - now)}</span>
               </>
             ) : status.next ? (
               <>
-                {status.current?.session.name} הסתיים · {status.next.session.name} מתחיל בעוד{' '}
+                {c.endedNext(status.current?.session.name ?? '', status.next.session.name)}{' '}
                 <span className="mono">{untilText(status.next.startsAt - now)}</span>
               </>
             ) : (
-              'היום הסתיים'
+              c.dayOver
             )}
           </div>
         </div>
         <div style={{ flex: 1 }} />
         {!racing && status.current && (
-          <button onClick={onReport}>תוצאות {status.current.session.name}</button>
+          <button onClick={onReport}>{c.sessionResults(status.current.session.name)}</button>
         )}
         <button className="primary" onClick={onWatch}>
-          {racing ? 'צפה עכשיו' : preStart ? 'צפייה מהזינוק' : 'לשידור'}
+          {racing ? c.watchNow : preStart ? c.watchFromStart : c.toBroadcast}
         </button>
       </div>
     </div>
@@ -507,7 +510,8 @@ function NextRace({
 }) {
   const startsAt = startsAtForRound(round);
   const lockAt = lockAtForRound(round);
-  const track = TRACK_DEFS.find((t) => t.id === trackForRound(round));
+  const c = useT().championship;
+  const trackId = trackForRound(round);
   const locked = now >= lockAt;
   const sessions = planSessions(field.map((e) => e.id));
   const heats = sessions.filter((s) => s.kind === 'heat').length;
@@ -516,20 +520,22 @@ function NextRace({
     <div className="hero">
       <div style={{ position: 'relative' }}>
         <div className="eyebrow">
-          סבב {round}
-          {seasonNumber(round) > 1 &&
-            ` · ${roundInSeason(round).index} מתוך ${roundInSeason(round).of} בעונה ${seasonNumber(round)}`}{' '}
-          · המרוץ הבא
+          {c.round(round)}
+          {seasonNumber(round) > 1 && c.inSeason(roundInSeason(round).index, roundInSeason(round).of, seasonNumber(round))}{' '}
+          {c.nextRace}
         </div>
         <h1 className="display" style={{ margin: '8px 0 4px' }}>
-          {grandPrixName(round)}
+          {grandPrixTitle(trackId)}
         </h1>
-        <div className="muted small" style={{ marginBottom: 16 }}>
-          {dateTimeText(startsAt)} · מסלול {track?.name ?? '-'}
+        <div className="muted small" style={{ marginBottom: 8 }}>
+          {dateTimeText(startsAt)} · {c.track(trackName(trackId))}
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <SeasonTracks season={seasonNumber(round)} round={round} />
         </div>
 
         <div className="dim small" style={{ marginBottom: 2 }}>
-          כיבוי האורות בעוד
+          {c.lightsOut}
         </div>
         <div className="countdown-big" style={{ marginBottom: 18 }}>
           {untilWords(startsAt - now)}
@@ -537,24 +543,24 @@ function NextRace({
 
         <div className="cols-3" style={{ gap: 10, marginBottom: 16 }}>
           <div className="stat">
-            <div className="k">רשומים</div>
+            <div className="k">{c.entered}</div>
             <div className="v">
               {field.filter((e) => !isHouse(e)).length}
               {field.some(isHouse) && (
-                <span className="dim" style={{ fontSize: 13 }} title={HOUSE_TEAM}>
-                  {' '}+{field.filter(isHouse).length} בית
+                <span className="dim" style={{ fontSize: 13 }} title={teamName(HOUSE_TEAM)}>
+                  {c.house(field.filter(isHouse).length)}
                 </span>
               )}
             </div>
           </div>
           <div className="stat">
-            <div className="k">פורמט</div>
+            <div className="k">{c.format}</div>
             <div className="v" style={{ fontSize: 15 }}>
-              {heats ? `${heats} מקצים + גמר` : 'מרוץ יחיד'}
+              {heats ? c.heats(heats) : c.single}
             </div>
           </div>
           <div className="stat">
-            <div className="k">סגירת רישום</div>
+            <div className="k">{c.closes}</div>
             <div className="v" style={{ fontSize: 15 }}>
               {timeText(lockAt)}
             </div>
@@ -563,18 +569,18 @@ function NextRace({
 
         <div className="small muted" style={{ marginBottom: 14 }}>
           {field.length === 0 && round >= HOUSE_FROM_ROUND
-            ? `מספיק מודל אחד רשום: ${HOUSE_TEAM} משלימה את הגריד עד ${HOUSE_GRID} רכבים.`
+            ? c.oneEnough(teamName(HOUSE_TEAM), HOUSE_GRID)
             : field.length < MIN_ENTRIES
-            ? `צריך לפחות ${MIN_ENTRIES} מודלים רשומים כדי שהמרוץ ייערך.`
+            ? c.needForRace(MIN_ENTRIES)
             : field.length <= GRID_SIZE
-              ? `כל ${field.length} המודלים מזניקים יחד. המוקדמות קובעות את סדר הזינוק.`
-              : `יותר מ-${GRID_SIZE} רשומים, ולכן היום מתחלק ל-${heats} מקצים והמובילים עולים לגמר.`}
-          {locked && ' הרישום לסבב הזה כבר נסגר - מודל שיירשם עכשיו יתחרה בסבב הבא.'}
+              ? c.allTogether(field.length)
+              : c.splitHeats(GRID_SIZE, heats)}
+          {locked && c.lockedNote}
         </div>
 
         {field.length >= MIN_ENTRIES && (
           <div className="timetable">
-            <div className="eyebrow" style={{ marginBottom: 6 }}>לוח הזמנים של היום</div>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>{c.timetable}</div>
             {sessions.map((s) => {
               const at = startsAt + s.offsetMs;
               const over = now >= at + SESSION_GAP_MS;
@@ -584,26 +590,25 @@ function NextRace({
                   <span className="mono">{timeText(at)}</span>
                   <span>{s.name}</span>
                   <span className="dim tiny">
-                    {s.kind === 'heat' ? `${lapsFor(s)} הקפות · ${s.advance} הראשונים עולים` : `${lapsFor(s)} הקפות`}
+                    {s.kind === 'heat' ? c.heatInfo(lapsFor(s), s.advance) : c.laps(lapsFor(s))}
                   </span>
                   <div style={{ flex: 1 }} />
-                  {live && <span className="pill good small">משודר עכשיו</span>}
-                  {over && <span className="dim tiny">הסתיים</span>}
+                  {live && <span className="pill good small">{c.onAir}</span>}
+                  {over && <span className="dim tiny">{c.ended}</span>}
                 </div>
               );
             })}
             <div className="small muted" style={{ marginTop: 6 }}>
-              כל מקצה משודר בשידור חי במשבצת שלו, {SESSION_GAP_MS / 60000} דקות אחרי הקודם.
+              {c.slots(SESSION_GAP_MS / 60000)}
             </div>
           </div>
         )}
 
         <div className="row wrap">
           <button className="primary" onClick={onEnter}>
-            {mine > 0 ? 'למוסך - הרכבים שלי' : 'רשמו מודל לאליפות'}
+            {mine > 0 ? c.myCars : c.enterModel}
           </button>
           <AddToCalendar round={round} />
-          <PushToggle />
         </div>
       </div>
     </div>
@@ -619,13 +624,14 @@ function AddToCalendar({ round }: { round: number }) {
   // A Google Calendar event rather than a downloaded .ics: a file lands in the
   // downloads folder on most phones and has to be found and opened, where the
   // link opens the calendar with the event filled in, one tap from saved.
+  const c = useT().championship;
   const site = window.location.origin;
   return (
     <button
       onClick={() => window.open(googleCalendarUrl(round, site), '_blank', 'noopener')}
-      title="אירוע יומי ב-20:00 ב-Google Calendar"
+      title={c.calendarTitle(timeText(startsAtForRound(round)))}
     >
-      📅 הוסף ליומן
+      {c.addCalendar}
     </button>
   );
 }
@@ -652,6 +658,7 @@ function MyTeam({
   const team = useApp((s) => s.competitor);
   const showToast = useApp((s) => s.showToast);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const c = useT().championship;
   const known = useMemo(() => new Set(models.map((m) => m.id)), [models]);
 
   /**
@@ -679,31 +686,31 @@ function MyTeam({
     setConfirming(null);
     try {
       await removeEntry(entry);
-      showToast(`${entry.driver} הוסר מהאליפות`);
+      showToast(c.removed(entry.driver));
       onChanged();
     } catch {
-      showToast('ההסרה נכשלה');
+      showToast(c.removeFailed);
     }
   };
 
   return (
     <div className="card notched">
       <div className="head">
-        <div className="eyebrow">הקבוצה שלי</div>
+        <div className="eyebrow">{c.myTeam}</div>
         <div className="fill" />
         {team && (
           <button className="ghost small" onClick={onRename}>
-            שינוי שם
+            {c.rename}
           </button>
         )}
         <button className="ghost small" onClick={onManage}>
-          ניהול
+          {c.manage}
         </button>
       </div>
-      {!team && <div className="muted small">עדיין לא הגדרתם שם מתחרה.</div>}
+      {!team && <div className="muted small">{c.noName}</div>}
       {team && entries.length === 0 && (
         <div className="muted small">
-          {team} - עוד אין מודלים רשומים. אמנו מודל במוסך ורשמו אותו לאליפות.
+          {c.noEntries(team)}
         </div>
       )}
       {entries.map((e) => {
@@ -713,34 +720,34 @@ function MyTeam({
             <DriverCell driver={e.driver} team={e.team} tag={e.tag} />
             <div style={{ flex: 1 }} />
             {orphan && (
-              <span className="pill warn small" title="המודל שממנו נרשם הרכב כבר לא במוסך">
-                אין מודל
+              <span className="pill warn small" title={c.orphanTitle}>
+                {c.orphan}
               </span>
             )}
             {duplicates.has(e.id) && (
               <span
                 className="pill warn small"
-                title="אותו נהג רשום פעמיים. הרשומה הישנה היא זו שעולה לגריד - כדאי להסיר אותה. הנקודות והתוצאות שלה נשארות בטבלה, מאוחדות תחת אותו נהג"
+                title={c.dupTitle}
               >
-                רישום כפול
+                {c.dup}
               </span>
             )}
-            <span className="mono small muted">{e.episodes.toLocaleString('he-IL')} ניסיונות</span>
+            <span className="mono small muted">{c.attempts(e.episodes.toLocaleString(locale()))}</span>
             {/* Kept together: a lone "remove" orphaned onto its own line reads
                 as if it belonged to the row below it. */}
             <div className="row" style={{ gap: 6, flex: '0 0 auto' }}>
               {confirming === e.id ? (
                 <>
                   <button className="danger small" onClick={() => void drop(e)}>
-                    להסיר לצמיתות?
+                    {c.removeForever}
                   </button>
                   <button className="ghost small" onClick={() => setConfirming(null)}>
-                    ביטול
+                    {c.cancel}
                   </button>
                 </>
               ) : (
-                <button className="ghost small" onClick={() => setConfirming(e.id)} title="הסרה מהאליפות">
-                  הסר
+                <button className="ghost small" onClick={() => setConfirming(e.id)} title={c.removeTitle}>
+                  {c.remove}
                 </button>
               )}
             </div>
@@ -762,6 +769,7 @@ function LastRace({
   onOpen(): void;
   onRewatch(): void;
 }) {
+  const c = useT().championship;
   const { state } = useChampionship();
   const result = state?.results.get(card.id) ?? null;
   const visible = resultsVisible(card, now, result);
@@ -774,13 +782,13 @@ function LastRace({
     <div className="card notched">
       <div className="checkers" style={{ margin: '-16px -16px 12px' }} />
       <div className="head">
-        <div className="eyebrow">התוצאה האחרונה</div>
+        <div className="eyebrow">{c.lastResult}</div>
         <div className="fill" />
         <span className="muted tiny">{dateTimeText(card.startsAt)}</span>
       </div>
-      <h2 style={{ marginBottom: 10 }}>{card.name}</h2>
+      <h2 style={{ marginBottom: 10 }}>{grandPrixTitle(card.trackId)}</h2>
 
-      {!visible && <div className="muted small">התוצאות יפורסמו בתום השידור.</div>}
+      {!visible && <div className="muted small">{c.afterBroadcast}</div>}
 
       {visible &&
         podium.map((p) => {
@@ -788,7 +796,7 @@ function LastRace({
           return (
             <div className="row" key={p.entryId} style={{ padding: '5px 0' }}>
               <span className={posClass(p.position, p.status === 'dnf')}>{p.position}</span>
-              <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} />
+              <DriverCell driver={driverOf(e) ?? '-'} team={teamOf(e) ?? '-'} tag={e?.tag} />
               <div style={{ flex: 1 }} />
               <span className="mono small" style={{ fontWeight: 700 }}>
                 {p.points}
@@ -799,18 +807,18 @@ function LastRace({
 
       {visible && (
         <div className="small muted" style={{ marginTop: 10 }}>
-          עמדת זינוק ראשונה: {pole?.driver ?? '-'}
-          {result?.fastestLap && ` · הקפה מהירה ${lapTime(result.fastestLap.ms)}`}
-          {quali.length > 0 && ` · ${quali.length} משתתפים`}
+          {c.pole(driverOf(pole ?? undefined) ?? '-')}
+          {result?.fastestLap && c.fastLap(lapTime(result.fastestLap.ms))}
+          {quali.length > 0 && c.entrants(quali.length)}
         </div>
       )}
 
       <div className="row" style={{ marginTop: 12 }}>
         <button className="small" onClick={onOpen} disabled={!visible}>
-          דוח מרוץ מלא
+          {c.fullReport}
         </button>
         <button className="small cyan" onClick={onRewatch}>
-          צפייה חוזרת
+          {c.replay}
         </button>
       </div>
     </div>
@@ -835,40 +843,41 @@ function MyRaceCard({
   recaps: CarRecap[];
   onOpen(): void;
 }) {
+  const c = useT().championship;
   return (
     <div className="card notched" style={{ marginBottom: 14 }}>
       <div className="head">
-        <div className="eyebrow">מה קרה לרכב שלכם · {card.name}</div>
+        <div className="eyebrow">{c.whatHappened(grandPrixTitle(card.trackId))}</div>
         <div className="fill" />
         <button className="ghost small" onClick={onOpen}>
-          הדוח המלא →
+          {c.reportArrow}
         </button>
       </div>
       {recaps.map((r) => (
         <div className="row wrap" key={r.entryId} style={{ padding: '6px 0' }}>
           <span className={posClass(r.position, r.status === 'dnf')}>{r.position}</span>
-          <DriverCell driver={r.driver} team={r.team} tag={r.tag} />
+          <DriverCell driver={driverName({ id: r.entryId, driver: r.driver })} team={teamName(r.team)} tag={r.tag} />
           <div style={{ flex: 1 }} />
           {(r.status === 'dnf' || !r.classified) && (
-            <span className="pill warn small">{r.status === 'dnf' ? 'פרש' : 'לא מדורג'}</span>
+            <span className="pill warn small">{r.status === 'dnf' ? c.retired : c.unclassified}</span>
           )}
-          <span className="mono small" style={{ fontWeight: 700 }} title="נקודות בסבב">
+          <span className="mono small" style={{ fontWeight: 700 }} title={c.pointsTitle}>
             +{r.points}
           </span>
           {r.gained !== null && (
             <span
               className="mono small"
               style={{ color: r.gained > 0 ? 'var(--good)' : r.gained < 0 ? 'var(--warn)' : undefined }}
-              title={`זינק ממקום ${r.startPos}`}
+              title={c.startedFrom(r.startPos ?? 0)}
             >
-              {r.gained > 0 ? `▲${r.gained}` : r.gained < 0 ? `▼${-r.gained}` : '＝'} מהזינוק
+              {r.gained > 0 ? `▲${r.gained}` : r.gained < 0 ? `▼${-r.gained}` : '＝'} {c.fromStart}
             </span>
           )}
           {r.bestLapMs !== null && (
             <span
               className="mono small"
               style={r.fastestOfDay ? { color: 'var(--purple)' } : undefined}
-              title={r.fastestOfDay ? 'ההקפה המהירה של היום' : 'ההקפה המהירה שלו'}
+              title={r.fastestOfDay ? c.fastestOfDay : c.ownFastest}
             >
               {lapTime(r.bestLapMs)}
             </span>
@@ -891,11 +900,12 @@ function MyRaceCard({
 }
 
 function StandingMove({ now, before }: { now: number; before: number | null }) {
+  const c = useT().championship;
   const moved = before === null ? null : before - now;
   return (
-    <span className="small muted" title="המקום באליפות הנהגים">
-      בטבלה: <span className="mono">{now}</span>
-      {moved === null ? ' (חדש)' : moved > 0 ? ` ▲${moved}` : moved < 0 ? ` ▼${-moved}` : ''}
+    <span className="small muted" title={c.standingTitle}>
+      {c.inTable} <span className="mono">{now}</span>
+      {moved === null ? c.isNew : moved > 0 ? ` ▲${moved}` : moved < 0 ? ` ▼${-moved}` : ''}
     </span>
   );
 }
@@ -906,27 +916,36 @@ function StandingMove({ now, before }: { now: number; before: number | null }) {
  * this the only trace of the champions would be a tab nobody visits.
  */
 function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen(): void }) {
+  const c = useT().championship;
   const { driver, team, runnerUp } = honours;
   if (!driver) return null;
   return (
     <div className="card notched" style={{ marginBottom: 14, borderColor: 'var(--p1)' }}>
       <div className="row wrap">
         <span className="pill" style={{ color: 'var(--p1)', borderColor: 'var(--p1)' }}>
-          🏆 אלופי עונה {honours.season}
+          {c.champions(honours.season)}
         </span>
         <span style={{ minWidth: 0, flex: '1 1 260px' }}>
-          <b>{driver.driver}</b> ({driver.team}) אלוף הנהגים עם {driver.points} נקודות
-          {runnerUp ? `, ${driver.points - runnerUp.points} לפני ${runnerUp.driver}` : ''}.
+          <b>
+            <Name>{driverName({ id: driver.entryId, driver: driver.driver })}</Name>
+          </b>{' '}
+          (<Name>{teamName(driver.team)}</Name>)
+          {c.champion(driver.points)}
+          {runnerUp ? c.ahead(driver.points - runnerUp.points, isolated(driverName({ id: runnerUp.entryId, driver: runnerUp.driver }))) : ''}.
           {team && (
             <>
               {' '}
-              אליפות הקבוצות: <b>{team.team}</b>.
+              {c.teamsTitle}{' '}
+              <b>
+                <Name>{teamName(team.team)}</Name>
+              </b>
+              .
             </>
           )}{' '}
-          בעונה {honours.season + 1} הטבלה מתחילה מאפס.
+          {c.fresh(honours.season + 1)}
         </span>
         <button className="ghost small" onClick={onOpen}>
-          לטבלאות →
+          {c.toTables}
         </button>
       </div>
     </div>
@@ -935,35 +954,36 @@ function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen()
 
 /** One tap to a picture of this car's race, for a group chat. */
 function ShareButton({ card, recap }: { card: RaceCard; recap: CarRecap }) {
+  const c = useT().championship;
   const showToast = useApp((s) => s.showToast);
   const [busy, setBusy] = useState(false);
   const share = async () => {
     setBusy(true);
     try {
       const outcome = await shareResult({
-        driver: recap.driver,
-        team: recap.team,
+        driver: driverName({ id: recap.entryId, driver: recap.driver }),
+        team: teamName(recap.team),
         color: teamColor(recap.team),
         position: recap.position,
         dnf: recap.status === 'dnf',
         points: recap.points,
-        raceName: card.name,
-        trackName: TRACK_DEFS.find((t) => t.id === card.trackId)?.name ?? card.trackId,
+        raceName: grandPrixTitle(card.trackId),
+        trackName: trackName(card.trackId),
         date: dateText(card.startsAt),
         bestLap: recap.bestLapMs !== null ? lapTime(recap.bestLapMs) : null,
         gained: recap.gained,
         site: window.location.origin,
       });
-      if (outcome === 'downloaded') showToast('התמונה ירדה - אפשר לשלוח אותה לכל מקום');
+      if (outcome === 'downloaded') showToast(c.downloaded);
     } catch {
-      showToast('לא הצלחתי ליצור את התמונה');
+      showToast(c.shareFailed);
     } finally {
       setBusy(false);
     }
   };
   return (
-    <button className="ghost small" onClick={() => void share()} disabled={busy} title="תמונה של התוצאה, לשליחה">
-      {busy ? '…' : '↗ שתף'}
+    <button className="ghost small" onClick={() => void share()} disabled={busy} title={c.shareTitle}>
+      {busy ? '…' : c.share}
     </button>
   );
 }

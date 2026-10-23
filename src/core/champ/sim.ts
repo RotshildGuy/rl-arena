@@ -1,9 +1,11 @@
 import { RacingEnv, STEP_MS, type RacingSnapshot } from '../games/racing/env';
+import { hasTrack } from '../games/racing/tracks';
 import { OBS_SIZE, RACING_SPEC } from '../games/racing/rewards';
 import { defaultRewards } from '../games/types';
 import { Policy } from '../rl/policy';
 import { lapsFor, planSessions, snakeSeed } from './format';
 import { awardPoints } from './points';
+import { encodeActions, RecordingDriver, ReplayDriver, type DayReplay } from './replay';
 import type {
   ArenaEntry,
   DayPlace,
@@ -32,9 +34,14 @@ function maxStepsFor(laps: number): number {
  */
 const RACE_REWARDS = defaultRewards(RACING_SPEC);
 
+/** Whatever chooses a car's action each step: a network, or a recording of one. */
+export interface Driver {
+  act(obs: Float32Array): number;
+}
+
 export interface SimCar {
   entryId: string;
-  policy: Policy;
+  policy: Driver;
 }
 
 /**
@@ -173,11 +180,11 @@ export function runQualifying(
   const laps: QualiLap[] = [];
   for (const e of entries) {
     const w = weights.get(e.id);
-    if (!w) {
+    const policy = w ? policyOf(e, w) : null;
+    if (!policy) {
       laps.push({ entryId: e.id, bestLapMs: null, sectorsMs: [null, null, null], topSpeed: 0 });
       continue;
     }
-    const policy = Policy.fromBase64(e.arch.obsSize, e.arch.hidden, e.arch.nActions, w);
     const sim = new SessionSim(trackId, QUALI_LAPS, [{ entryId: e.id, policy }], seed, physics);
     sim.runToEnd();
     const t = sim.env.telemetry(0);
@@ -205,8 +212,31 @@ export function policiesFor(
   for (const id of ids) {
     const e = entries.get(id);
     const w = weights.get(id);
-    if (!e || !w) continue;
-    out.push({ entryId: id, policy: Policy.fromBase64(e.arch.obsSize, e.arch.hidden, e.arch.nActions, w) });
+    const policy = e && w ? policyOf(e, w) : null;
+    if (policy) out.push({ entryId: id, policy });
+  }
+  return out;
+}
+
+/**
+ * A car's network, or null when its weights do not fit its declared shape. One
+ * broken car is left in the garage; it must never stop the whole race day.
+ */
+function policyOf(e: ArenaEntry, weightsB64: string): Policy | null {
+  try {
+    return Policy.fromBase64(e.arch.obsSize, e.arch.hidden, e.arch.nActions, weightsB64);
+  } catch {
+    return null;
+  }
+}
+
+/** The cars of a session driven from its replay, in grid order. */
+export function replayDriversFor(ids: string[], replay: Record<string, string>): SimCar[] {
+  const out: SimCar[] = [];
+  for (const id of ids) {
+    const actions = replay[id];
+    if (actions === undefined) continue;
+    out.push({ entryId: id, policy: new ReplayDriver(actions) });
   }
   return out;
 }
@@ -248,10 +278,16 @@ export function roundsOf(sessions: SessionPlan[]): Map<number, SessionPlan[]> {
 
 /**
  * Run a whole race day and classify it. Deterministic: the same card and the
- * same weights always produce the same result, which is what lets anyone replay
- * a race and watch exactly what the timing sheet recorded.
+ * same weights always produce the same result.
+ *
+ * Given `replay`, it also records every session's actions into it, so the day
+ * can be watched again without anybody's weights (`replay.ts`).
  */
-export function runRaceDay(card: RaceCard, weights: Map<string, string>): RaceResult {
+export function runRaceDay(card: RaceCard, weights: Map<string, string>, replay?: DayReplay): RaceResult {
+  // Code that does not know the circuit would race the card on the fallback
+  // track and write a wrong result. Refuse instead; the round is retried by
+  // code that knows the circuit.
+  if (!hasTrack(card.trackId)) throw new Error(`unknown track ${card.trackId}`);
   const entries = new Map(card.entries.map((e) => [e.id, e]));
   const order = qualifyingOrder(card.qualifying);
   const sessions = planSessions(order);
@@ -267,8 +303,13 @@ export function runRaceDay(card: RaceCard, weights: Map<string, string>): RaceRe
       const grid = gridFor(session, resolved);
       const cars = policiesFor(grid, entries, weights);
       if (cars.length === 0) continue;
-      const sim = new SessionSim(card.trackId, lapsFor(session), cars, card.seed + session.offsetMs, card.physics);
+      const recorders = replay ? cars.map((c) => new RecordingDriver(c.policy)) : null;
+      const driven = recorders ? cars.map((c, i) => ({ ...c, policy: recorders[i] })) : cars;
+      const sim = new SessionSim(card.trackId, lapsFor(session), driven, card.seed + session.offsetMs, card.physics);
       sim.runToEnd();
+      if (replay && recorders) {
+        replay.set(session.id, Object.fromEntries(cars.map((c, i) => [c.entryId, encodeActions(recorders[i].actions)])));
+      }
       const res = sim.result(session.id, grid);
       results.set(session.id, res);
       sessionResults.push(res);

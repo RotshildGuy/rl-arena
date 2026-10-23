@@ -6,3 +6,5 @@ dist
 .firebase
 firestore.rules
 functions/node_modules
+functions/raceDay.js
+functions/house

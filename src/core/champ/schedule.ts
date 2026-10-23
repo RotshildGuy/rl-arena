@@ -1,4 +1,6 @@
 import { TRACK_DEFS } from '../games/racing/tracks';
+import { LEGACY_ROTATION, TRACK_POOL_FROM_SEASON, drawRotation, fitRotation } from './rotation';
+import { t } from '../../i18n/dict';
 
 /**
  * Seasons.
@@ -46,7 +48,7 @@ export function displaySeason(now = Date.now()): number {
   return seasonNumber(Math.max(1, airingRound(now)));
 }
 
-/** "סבב 3 מתוך 8" - where a round sits in its season. */
+/** "Round 3 of 8" - where a round sits in its season. */
 export function roundInSeason(round: number): { index: number; of: number } {
   const n = seasonNumber(round);
   const { first, last } = seasonRange(n);
@@ -101,9 +103,10 @@ export const LOCK_BEFORE_MS = 5 * 60 * 1000;
 /** The lead time in words, for the one sentence that has to spell it out. */
 export function lockLeadText(): string {
   const minutes = Math.round(LOCK_BEFORE_MS / 60_000);
-  if (minutes < 60) return `${minutes} דקות`;
+  const c = t().champ;
+  if (minutes < 60) return c.minutes(minutes);
   const hours = Math.round(minutes / 60);
-  return hours === 1 ? 'שעה' : `${hours} שעות`;
+  return hours === 1 ? c.hour : c.hours(hours);
 }
 
 /**
@@ -178,13 +181,48 @@ export function physicsForRound(round: number): number {
   return round >= PHYSICS_V2_ROUND ? 2 : 1;
 }
 
-/** Circuits rotate through the calendar, the way a real season does. */
+/**
+ * Circuits rotate through the calendar, the way a real season does: the
+ * original four in turn until season 3, then each season's own draw from the
+ * pool (see `rotation.ts`). Rounds already raced keep their track forever -
+ * and their card records it besides, which is what a replay reads.
+ */
 export function trackForRound(round: number): string {
-  return TRACK_DEFS[(round - 1) % TRACK_DEFS.length].id;
+  const n = seasonNumber(round);
+  if (n < TRACK_POOL_FROM_SEASON) return LEGACY_ROTATION[(round - 1) % LEGACY_ROTATION.length];
+  const rotation = seasonRotation(n);
+  return rotation[(round - seasonRange(n).first) % rotation.length];
 }
 
+const rotations = new Map<number, readonly string[]>();
+
+/** The circuits a season visits, in the order it races them. */
+export function seasonRotation(n: number): readonly string[] {
+  let rotation = rotations.get(n);
+  if (!rotation) {
+    const { first, last } = seasonRange(n);
+    if (n < TRACK_POOL_FROM_SEASON) {
+      const seen: string[] = [];
+      for (let r = first; r <= last && seen.length < LEGACY_ROTATION.length; r++) {
+        const id = trackForRound(r);
+        if (!seen.includes(id)) seen.push(id);
+      }
+      rotation = seen;
+    } else {
+      rotation = fitRotation(drawRotation(n), trackForRound(first - 1));
+    }
+    rotations.set(n, rotation);
+  }
+  return rotation;
+}
+
+/**
+ * The name stored on the round's card. Always the Hebrew one, so every client
+ * writes the same card; screens show `grandPrixTitle` (i18n/names) instead.
+ */
 export function grandPrixName(round: number): string {
-  const track = TRACK_DEFS[(round - 1) % TRACK_DEFS.length];
+  const id = trackForRound(round);
+  const track = TRACK_DEFS.find((t) => t.id === id) ?? TRACK_DEFS[0];
   return `גרנד פרי ${track.name}`;
 }
 

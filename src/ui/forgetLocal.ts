@@ -8,20 +8,20 @@
  * in the local mirror, which the synced store then helpfully uploaded into the
  * newcomer's account.
  *
- * Kept: the theme, which is a preference of the screen rather than of the
- * person. Everything else under the app's prefix goes.
+ * Kept: the theme and the language, which are preferences of the screen rather
+ * than of the person. Everything else under the app's prefix goes.
  */
-const KEEP = new Set(['rl-arena-theme', 'rl-arena-epoch']);
+const KEEP = new Set(['rl-arena-theme', 'rl-arena-lang', 'rl-arena-epoch']);
 
 /** Every IndexedDB database the app opens. */
 const DATABASES = ['rl-arena', 'rl-arena-champ'];
 
-export async function forgetThisBrowser(alsoKeep: string[] = []): Promise<void> {
+export async function forgetThisBrowser(): Promise<void> {
   try {
     const doomed: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith('rl-arena') && !KEEP.has(key) && !alsoKeep.includes(key)) doomed.push(key);
+      if (key && key.startsWith('rl-arena') && !KEEP.has(key)) doomed.push(key);
     }
     doomed.forEach((key) => localStorage.removeItem(key));
   } catch {
@@ -51,9 +51,8 @@ const EPOCH = '2';
 const EPOCH_KEY = 'rl-arena-epoch';
 
 /**
- * Run before anything reads local storage. Signing in survives it (Firebase
- * keeps its session in a database of its own), and so does the push switch:
- * the device's token is kept on the server across a fresh start.
+ * Run before anything reads local storage. Signing in survives it: Firebase
+ * keeps its session in a database of its own.
  */
 export async function startFreshIfNewEpoch(): Promise<void> {
   try {
@@ -61,7 +60,7 @@ export async function startFreshIfNewEpoch(): Promise<void> {
   } catch {
     return; // Storage blocked: nothing was kept to forget.
   }
-  await forgetThisBrowser(['rl-arena-push']);
+  await forgetThisBrowser();
   try {
     localStorage.setItem(EPOCH_KEY, EPOCH);
   } catch {

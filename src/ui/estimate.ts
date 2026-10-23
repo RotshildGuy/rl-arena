@@ -4,6 +4,7 @@ import { getGame } from '../core/games/registry';
 import { defaultRewards } from '../core/games/types';
 import { mulberry32, randInt } from '../core/rng';
 import type { AlgorithmId } from '../core/rl/algorithms';
+import { t } from '../i18n';
 
 export interface TimeEstimate {
   /** Seconds until the model is competent, on *this* device. */
@@ -52,7 +53,7 @@ function estimateDqn(obsSize: number, nActions: number, hyper: DqnHyper, target:
     steps++;
   }
   const rate = steps / ((performance.now() - t0) / 1000);
-  return { seconds: target / rate, rate, rateLabel: 'צעדי אימון לשנייה' };
+  return { seconds: target / rate, rate, rateLabel: t().estimate.trainRate };
 }
 
 function estimateGa(
@@ -78,13 +79,14 @@ function estimateGa(
     for (let i = 0; i < 50; i++) trainer.stepOnce();
   }
   const rate = (trainer.envSteps - before) / ((performance.now() - t0) / 1000);
-  return { seconds: target / rate, rate, rateLabel: 'צעדי סביבה לשנייה' };
+  return { seconds: target / rate, rate, rateLabel: t().estimate.envRate };
 }
 
 export function formatEstimate(seconds: number): string {
-  if (seconds < 90) return 'פחות מדקה וחצי';
+  const e = t().estimate;
+  if (seconds < 90) return e.underMinute;
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `בערך ${minutes} דקות`;
+  if (minutes < 60) return e.minutes(minutes);
   const hours = (minutes / 60).toFixed(1).replace('.0', '');
-  return `בערך ${hours} שעות`;
+  return e.hours(hours);
 }

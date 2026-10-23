@@ -1,97 +1,64 @@
 /*
- * Race notifications. The only code in RL Arena that runs on a server, and it
- * does no racing: the races are still run by whoever opens the site. These two
- * jobs only read what is already in Firestore and send a push:
+/*
+ * The only code in RL Arena that runs on a server: the race day itself.
  *
- *   19:45 Israel time  "the race starts in a quarter of an hour", to everyone
- *                      who turned reminders on;
- *   20:45 Israel time  how each person's best car finished, if the result has
- *                      been published by then (somebody has to have opened
- *                      the site to run it) - otherwise nothing.
+ *   from 19:55 Israel time  the day's race. From the moment the entry list
+ *                           closes, every minute to 21:59, the job makes sure
+ *                           the round has its card, its replay and its result,
+ *                           running them itself (`raceDay.js`). This is the only
+ *                           place the championship is raced: the security rules
+ *                           let no browser write a card, a car or a result, and
+ *                           no browser can read anybody else's weights - they
+ *                           watch from the replay, and read a result only once
+ *                           the lights are out, at 20:00.
  *
- * Tokens live in pushTokens/{token} = { uid, token, createdAt, seenAt }:
- * createdAt is when the account was made, seenAt the last load that saved it.
- * A token the push service no longer knows is deleted on the spot.
+ * The push notifications that used to live here were removed (Chrome on
+ * Android held them until the phone woke, so they arrived too late to help).
  *
- * Deploy: `cd functions && npm install && cd .. && firebase deploy --only functions`.
+ * `raceDay.js` and `house/` are built from the app (`src/server/raceDay.ts`,
+ * `public/house/`) by `npm run build:functions`, which `firebase deploy` runs
+ * first (`predeploy` in firebase.json). They are not in the repository.
+ *
+ * Deploy: `npm ci && (cd functions && npm install) && firebase deploy --only functions`.
  * Scheduled functions need the Blaze (pay-as-you-go) plan.
  */
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
-const { getMessaging } = require('firebase-admin/messaging');
-const { raceIdForRound, roundOfDay } = require('./race');
+const { lockAtForRound, raceIdForRound, roundOfDay } = require('./race');
+const { raceRound, HOUSE_IDS } = require('./raceDay');
+const { makeArena } = require('./arena');
 
 initializeApp();
 const db = getFirestore();
-const SITE = 'https://reinforcement-learning-ed0ed.web.app/';
 const REGION = 'me-west1';
 
-async function allTokens() {
-  const snap = await db.collection('pushTokens').get();
-  return snap.docs.map((d) => d.data());
-}
+// The house cars, from the copies of public/house/ the build puts here.
+const HOUSE = new Map(HOUSE_IDS.map((id) => [id, require(`./house/${id}.json`).weightsB64]));
 
-/** Send one message per token; forget the ones that are dead. */
-async function send(messages) {
-  for (let i = 0; i < messages.length; i += 500) {
-    const batch = messages.slice(i, i + 500);
-    const res = await getMessaging().sendEach(batch);
-    await Promise.all(
-      res.responses.map((r, j) => {
-        const code = r.error && r.error.code;
-        if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
-          return db.collection('pushTokens').doc(batch[j].token).delete();
-        }
-        return null;
-      }),
-    );
-  }
-}
+const arena = makeArena(db);
 
-function message(token, title, body, tag) {
-  return {
-    token,
-    notification: { title, body },
-    data: { url: SITE, tag },
-    webpush: { fcmOptions: { link: SITE } },
-  };
-}
+/*
+ * A six-car day simulates in under a second; a full grid with heats takes a
+ * few. The timeout is room for that on a cold start, not an expectation.
+ *
+ * Cron cannot say "19:55 to 21:59", so it runs from 19:00 and the ticks before
+ * the lock return at once, without touching Firestore. Once the day has its
+ * result and replay, a tick costs three reads.
+ */
+const RACE_OPTIONS = { schedule: '* 19-21 * * *', timeZone: 'Asia/Jerusalem', region: REGION, memory: '512MiB', timeoutSeconds: 300 };
 
-exports.raceReminder = onSchedule({ schedule: '45 19 * * *', timeZone: 'Asia/Jerusalem', region: REGION }, async () => {
-  const tokens = await allTokens();
-  await send(tokens.map((t) => message(t.token, 'RL Arena', 'המרוץ מתחיל בעוד רבע שעה. השידור נפתח דקה לפני.', 'reminder')));
-});
-
-exports.raceResult = onSchedule({ schedule: '45 20 * * *', timeZone: 'Asia/Jerusalem', region: REGION }, async () => {
-  const round = roundOfDay(Date.now());
+exports.raceResult = onSchedule(RACE_OPTIONS, async () => {
+  const now = Date.now();
+  const round = roundOfDay(now);
+  // Not while the entry list is open: the field is only final from the lock.
+  if (now < lockAtForRound(round)) return;
   const raceId = raceIdForRound(round);
-  const season = raceId.split('-')[0];
-  const race = db.collection('seasons').doc(season).collection('races').doc(raceId);
-  const [cardSnap, resultSnap] = await Promise.all([race.get(), race.collection('result').doc('final').get()]);
-  if (!cardSnap.exists || !resultSnap.exists) return;
-  const card = cardSnap.data();
-  const result = resultSnap.data();
-  const owner = new Map(card.entries.map((e) => [e.id, e]));
-
-  // Each account's best-placed car.
-  const best = new Map();
-  for (const p of result.places) {
-    const e = owner.get(p.entryId);
-    if (!e || e.uid === 'house') continue;
-    const had = best.get(e.uid);
-    if (!had || p.position < had.place.position) best.set(e.uid, { place: p, entry: e });
+  try {
+    const outcome = await raceRound(arena, round, HOUSE);
+    if (outcome !== 'already') console.log(`${raceId}: ${outcome}`);
+  } catch (err) {
+    // Next minute tries again.
+    console.error(`${raceId}: race day failed`, err);
   }
-
-  const tokens = await allTokens();
-  const messages = [];
-  for (const t of tokens) {
-    const mine = best.get(t.uid);
-    if (!mine) continue;
-    const { place, entry } = mine;
-    const how = place.status === 'dnf' ? 'פרש' : `סיים במקום ${place.position}`;
-    const points = place.points ? ` (${place.points} נקודות)` : '';
-    messages.push(message(t.token, card.name, `${entry.driver} ${how}${points}.`, 'result'));
-  }
-  await send(messages);
 });

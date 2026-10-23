@@ -17,7 +17,7 @@ import { getGame } from '../src/core/games/registry';
 import { buildRaceCard } from '../src/core/champ/card';
 import { runRaceDay } from '../src/core/champ/sim';
 import { planSessions } from '../src/core/champ/format';
-import { OBS_SIZE, OBS_VERSION, ACTION_LABELS, RACING_SPEC } from '../src/core/games/racing/rewards';
+import { OBS_SIZE, OBS_VERSION, ACTION_COUNT, RACING_SPEC } from '../src/core/games/racing/rewards';
 import type { ArenaEntry } from '../src/core/champ/types';
 
 const N = Number(process.argv[2] ?? 5);
@@ -56,7 +56,7 @@ for (let i = 0; i < N; i++) {
     team: `קבוצה ${String.fromCharCode(65 + (i % 3))}`,
     gameId: 'racing',
     algorithm: 'ga',
-    arch: { obsSize: OBS_SIZE, hidden, nActions: ACTION_LABELS.length },
+    arch: { obsSize: OBS_SIZE, hidden, nActions: ACTION_COUNT },
     obsVersion: OBS_VERSION,
     tag: `M${i + 1}`,
     createdAt: 0,

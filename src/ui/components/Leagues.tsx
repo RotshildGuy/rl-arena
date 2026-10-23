@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '../store';
 import { LEAGUE_NAME_MAX, type League } from '../../core/champ/league';
 import { createLeague, inviteLink, leaguesAvailable, leaveLeague, myLeagues } from '../../storage/leagues';
+import { useT } from '../../i18n';
+import { Name } from './Name';
 
 /** This account's leagues, re-read on demand. Empty without the cloud. */
 export function useLeagues(): { leagues: League[]; reload(): void } {
@@ -22,14 +24,15 @@ export function useLeagues(): { leagues: League[]; reload(): void } {
  */
 export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChanged(): void }) {
   const { showToast, setLeague, leagueId } = useApp();
+  const l10n = useT().leagues;
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
 
   if (!leaguesAvailable()) {
     return (
       <div className="card notched" style={{ marginTop: 14 }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>ליגת חברים</div>
-        <div className="muted small">ליגות דורשות חיבור לענן, והאתר רץ כרגע בלעדיו.</div>
+        <div className="eyebrow" style={{ marginBottom: 6 }}>{l10n.title}</div>
+        <div className="muted small">{l10n.needsCloud}</div>
       </div>
     );
   }
@@ -44,7 +47,7 @@ export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChang
       setLeague(league.id);
       await copy(league);
     } catch {
-      showToast('יצירת הליגה נכשלה');
+      showToast(l10n.createFailed);
     } finally {
       setBusy(false);
     }
@@ -55,11 +58,11 @@ export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChang
     const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string; url?: string }) => Promise<void> };
     try {
       if (nav.share && /Mobi|Android/i.test(navigator.userAgent)) {
-        await nav.share({ title: league.name, text: `הצטרפו לליגה "${league.name}" ב-RL Arena`, url: link });
+        await nav.share({ title: league.name, text: l10n.shareText(league.name), url: link });
         return;
       }
       await navigator.clipboard.writeText(link);
-      showToast('קישור ההזמנה הועתק');
+      showToast(l10n.copied);
     } catch {
       showToast(link);
     }
@@ -70,31 +73,30 @@ export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChang
       await leaveLeague(league.id);
       if (leagueId === league.id) setLeague(null);
       onChanged();
-      showToast(`יצאתם מ"${league.name}"`);
+      showToast(l10n.left(league.name));
     } catch {
-      showToast('היציאה נכשלה');
+      showToast(l10n.leaveFailed);
     }
   };
 
   return (
     <div className="card notched" style={{ marginTop: 14 }}>
-      <div className="eyebrow" style={{ marginBottom: 6 }}>ליגת חברים</div>
+      <div className="eyebrow" style={{ marginBottom: 6 }}>{l10n.title}</div>
       <p className="muted small" style={{ margin: '0 0 10px' }}>
-        אותם מרוצים, טבלה רק שלכם: ליגה סופרת רק את הרכבים של החברים בה, עם הנקודות שהם באמת צברו.
-        מי שיש לו את הקישור יכול להצטרף.
+        {l10n.intro}
       </p>
       {leagues.map((l) => (
         <div className="row wrap" key={l.id} style={{ padding: '6px 0', borderTop: '1px solid var(--line)' }}>
           <button className={`small ${leagueId === l.id ? 'cyan' : 'ghost'}`} onClick={() => setLeague(l.id)}>
-            {l.name}
+            <Name>{l.name}</Name>
           </button>
-          <span className="dim tiny">{l.members.length} חברים</span>
+          <span className="dim tiny">{l10n.members(l.members.length)}</span>
           <div style={{ flex: 1 }} />
           <button className="ghost small" onClick={() => void copy(l)}>
-            הזמנה
+            {l10n.invite}
           </button>
           <button className="ghost small" onClick={() => void leave(l)}>
-            יציאה
+            {l10n.leave}
           </button>
         </div>
       ))}
@@ -103,11 +105,12 @@ export function LeaguePanel({ leagues, onChanged }: { leagues: League[]; onChang
           type="text"
           value={name}
           maxLength={LEAGUE_NAME_MAX}
-          placeholder="שם לליגה חדשה"
+          placeholder={l10n.newName}
+          aria-label={l10n.newName}
           onChange={(e) => setName(e.target.value)}
         />
         <button className="primary" onClick={() => void create()} disabled={busy || name.trim().length < 2}>
-          יצירה
+          {l10n.create}
         </button>
       </div>
     </div>

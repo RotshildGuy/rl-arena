@@ -1,0 +1,41 @@
+# Record a replay for every race run before replays existed, so old races can
+# still be watched once the rules stop browsers from reading weights. Run once
+# from the Actions tab after the functions are deployed; running it again only
+# skips what is done.
+name: Backfill replays
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: Only count the races without a replay, write nothing
+        type: boolean
+        default: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:functions
+
+      - run: npm ci
+        working-directory: functions
+
+      - name: Backfill
+        working-directory: functions
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || 'reinforcement-learning-ed0ed' }}
+          DRY: ${{ inputs.dry && '--dry' || '' }}
+        run: |
+          key="$RUNNER_TEMP/sa.json"
+          printf '%s' "$SERVICE_ACCOUNT" > "$key"
+          GOOGLE_APPLICATION_CREDENTIALS="$key" node backfillReplays.js $DRY

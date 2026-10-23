@@ -34,6 +34,7 @@ export function hasCompetitor(): boolean {
 }
 
 export function myColor(): string {
+  // The fallback is a colour seed, never shown: the same in every language.
   return teamColor(getCompetitor() || 'אני');
 }
 

@@ -4,6 +4,8 @@ import { getStore } from '../storage';
 import { useApp } from './store';
 import { useChampionship } from './useChampionship';
 import { coachStepFor, type CoachStep } from './coachStep';
+import { useT } from '../i18n';
+import { useDialogOpen } from './components/Modal';
 
 export type { CoachStep };
 
@@ -36,13 +38,13 @@ function getVersion(): number {
 }
 
 /**
- * Bubbles somebody closed.
+ * Whether the guide was turned off.
  *
  * The guide follows the account's state and remembers nothing - except this.
- * A bubble that cannot be closed covers whatever happens to be under it, and
- * reviewers found one sitting on the race's start button; so every bubble has
- * a close, and closing it is remembered on this device. "Skip the guide" turns
- * the whole thing off. Signing out wipes both, with everything else local.
+ * A bubble has no close of its own: closing one only brought the next, which
+ * read as the close not working. "Skip the guide" turns the whole thing off,
+ * on this device. Signing out wipes that, with everything else local. Steps
+ * closed one at a time by an earlier version stay closed.
  */
 const DISMISSED_KEY = 'rl-arena.coach.dismissed';
 const OFF = 'all';
@@ -66,10 +68,6 @@ function dismiss(what: string): void {
     // Closed for this visit only.
   }
   modelsChanged();
-}
-
-export function dismissCoach(step: Exclude<CoachStep, null>): void {
-  dismiss(step);
 }
 
 export function skipCoach(): void {
@@ -127,7 +125,8 @@ const MAX_WIDTH = 280;
  * what the clamping below is for: the bubble is kept inside the viewport, and
  * the arrow slides along it to go on pointing at the right place.
  */
-function CoachBubble({ anchor, text, step }: { anchor: HTMLElement; text: string; step: Exclude<CoachStep, null> }) {
+function CoachBubble({ anchor, text }: { anchor: HTMLElement; text: string }) {
+  const t = useT();
   const [bubble, setBubble] = useState<HTMLDivElement | null>(null);
   const [, bump] = useState(0);
 
@@ -166,15 +165,6 @@ function CoachBubble({ anchor, text, step }: { anchor: HTMLElement; text: string
       cancelAnimationFrame(id);
     };
   }, [anchor]);
-
-  // Escape closes it, unless a dialog is open - that Escape is the dialog's.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) dismissCoach(step);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [step]);
 
   // The visible area, which is not `innerWidth`: that counts the scrollbar,
   // and on an RTL page the scrollbar is on the left.
@@ -250,12 +240,9 @@ function CoachBubble({ anchor, text, step }: { anchor: HTMLElement; text: string
 
   return createPortal(
     <div ref={setBubble} className={`coach ${below ? 'below' : 'above'}`} style={style} role="status" aria-live="polite">
-      <button className="coach-x" onClick={() => dismissCoach(step)} aria-label="סגירת ההסבר">
-        ✕
-      </button>
       <div className="coach-text">{text}</div>
       <button className="coach-skip" onClick={skipCoach}>
-        דלגו על ההדרכה
+        {t.misc.coachSkip}
       </button>
     </div>,
     document.body,
@@ -276,10 +263,12 @@ export function CoachAnchor({
   children: React.ReactNode;
 }) {
   const [el, setEl] = useState<HTMLSpanElement | null>(null);
+  // A dialog comes first: the bubble waits until it is closed.
+  const shown = useDialogOpen() ? null : step;
   return (
-    <span ref={setEl} className={`coach-anchor ${step ? 'lit' : ''} ${className}`.trim()}>
+    <span ref={setEl} className={`coach-anchor ${shown ? 'lit' : ''} ${className}`.trim()}>
       {children}
-      {step && el && <CoachBubble anchor={el} text={text} step={step} />}
+      {shown && el && <CoachBubble anchor={el} text={text} />}
     </span>
   );
 }

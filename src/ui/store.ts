@@ -76,6 +76,33 @@ export interface RivalPick {
 
 export const TIME_LIMITS = [0, 5, 15, 30];
 
+/**
+ * The auto-stop a new training run starts with: whatever was picked last on
+ * this browser, or a quarter of an hour. "No limit" was the old default, and a
+ * run nobody remembered to stop just kept a laptop busy all night. A phone
+ * starts shorter still, for the reason under `timeLimitMin`.
+ */
+const TIME_LIMIT_KEY = 'rl-arena-time-limit';
+
+function defaultTimeLimit(): number {
+  try {
+    const kept = Number(localStorage.getItem(TIME_LIMIT_KEY) ?? NaN);
+    if (TIME_LIMITS.includes(kept)) return kept;
+  } catch {
+    // Storage blocked: fall through to the default.
+  }
+  return isMobileClass ? 5 : 15;
+}
+
+/** Remember an explicit pick, so the next run starts with it too. */
+export function chooseTimeLimit(min: number): void {
+  try {
+    localStorage.setItem(TIME_LIMIT_KEY, String(min));
+  } catch {
+    // Not remembered; this run still has it.
+  }
+}
+
 /** More than this and a single phone cannot keep up with the grid. */
 export const MAX_TRAIN_SLOTS = 4;
 
@@ -206,7 +233,7 @@ function freshDraft(gameId: GameId): TrainDraft {
       // chart actually moves while someone is watching it on a phone.
       populationSize: isMobileClass ? 20 : DEFAULT_GA_HYPER.populationSize,
     },
-    timeLimitMin: isMobileClass ? 5 : 0,
+    timeLimitMin: defaultTimeLimit(),
     rival: null,
   };
 }

@@ -21,15 +21,15 @@ import { CoachAnchor, useCoachStep } from '../coach';
 import { track } from '../../storage/metrics';
 import { useChampionship } from '../useChampionship';
 import { trainingTarget, type TrainingTarget } from '../../core/champ/records';
+import { locale, t as words, useT } from '../../i18n';
+import { driverName, grandPrixTitle, teamName, trackName } from '../../i18n/names';
+import { isolated, Ltr, Name } from '../components/Name';
 
 /** Finish and go, a checkpoint from the button, or one taken because the page was hidden. */
 type SaveMode = 'leave' | 'checkpoint' | 'quiet';
 
-const SPEEDS: Array<{ id: SpeedMode; label: string; hint: string }> = [
-  { id: 'watch', label: '×1', hint: 'זמן אמת - לראות מה המודל עושה' },
-  { id: 'fast', label: '×4', hint: 'מואץ פי ארבעה, עדיין מצויר' },
-  { id: 'turbo', label: 'טורבו', hint: 'ללא ציור וללא הגבלת קצב - מהיר ככל שהמעבד מרשה' },
-];
+/** In the order they are shown; labels and hints are in the dictionary (`dashboard.speeds`). */
+const SPEEDS: SpeedMode[] = ['watch', 'fast', 'turbo'];
 
 /** What the boot step recovered about one model before training started. */
 interface SlotBoot {
@@ -42,6 +42,7 @@ interface SlotBoot {
 }
 
 export function TrainDashboard() {
+  const d = useT().dashboard;
   const { gameId, draft, patchSlot, showToast } = useApp();
   const coach = useCoachStep();
   const game = getGame(gameId);
@@ -89,7 +90,7 @@ export function TrainDashboard() {
           const rec = await store.load(slot.modelId);
           if (rec && !slot.restart) {
             if (rec.obsVersion !== game.spec.obsVersion || rec.arch.obsSize !== game.spec.obsSize) {
-              showToast(`${rec.name} אומן על גרסת תצפית ישנה - מתחילים מאפס`);
+              showToast(words().dashboard.oldObs(rec.name));
             } else {
               init.weightsB64 = rec.weightsB64;
               init.envSteps = rec.training.envSteps;
@@ -125,10 +126,10 @@ export function TrainDashboard() {
             const cars = Number(config.nCars ?? 1);
             config = { ...config, nCars: Math.max(cars, models.length + 1) };
           } else {
-            showToast('לא הצלחתי לטעון את היריב - מתאמנים בלעדיו');
+            showToast(words().dashboard.noRival);
           }
         } catch {
-          showToast('לא הצלחתי לטעון את היריב - מתאמנים בלעדיו');
+          showToast(words().dashboard.noRival);
         }
       }
 
@@ -169,7 +170,7 @@ export function TrainDashboard() {
       if (limitHit.current || status !== 'running' || trainer.elapsedMs() < limitMs) return;
       limitHit.current = true;
       trainer.pause();
-      void saveRef.current('checkpoint').then(() => showToast(`${draft.timeLimitMin} דקות הסתיימו - המודל נשמר. אפשר להמשיך או לסיים.`));
+      void saveRef.current('checkpoint').then(() => showToast(words().dashboard.timeUp(draft.timeLimitMin)));
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -219,16 +220,16 @@ export function TrainDashboard() {
       track('save');
       showToast(
         thenLeave
-          ? `נשמר: ${saved.join(' · ')}`
+          ? words().dashboard.savedList(saved.join(' · '))
           : mode === 'quiet'
-            ? 'האימון נשמר אוטומטית'
+            ? words().dashboard.autoSaved
             : saved.length > 1
-              ? `${saved.length} המודלים נשמרו - האימון ממשיך`
-              : 'נשמר - האימון ממשיך',
+              ? words().dashboard.savedMany(saved.length)
+              : words().dashboard.savedOne,
       );
       if (thenLeave) leaveNow(leaveTo?.run ?? (() => useApp.getState().go('library')));
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'השמירה נכשלה');
+      showToast(e instanceof Error ? e.message : words().dashboard.saveFailed);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -336,10 +337,11 @@ export function TrainDashboard() {
     told.current.set(slotIndex, now);
     // The first look at a model only records where it already is.
     if (!was) return;
-    const who = slot.name || `מודל ${slotIndex + 1}`;
-    if (now.target && !was.target) showToast(`⚡ ${who} מהיר מהיעד!`);
-    else if (now.race && !was.race) showToast(`🏁 ${who} סיים מרוץ מלא!`);
-    else if (now.lap && !was.lap) showToast(`🎉 ההקפה השלמה הראשונה של ${who}!`);
+    const w = words().dashboard;
+    const who = slot.name || w.model(slotIndex + 1);
+    if (now.target && !was.target) showToast(w.beatTarget(who));
+    else if (now.race && !was.race) showToast(w.fullRace(who));
+    else if (now.lap && !was.lap) showToast(w.firstLap(who));
   };
 
   // The season is usually already loaded by the time anybody trains - the app
@@ -360,51 +362,51 @@ export function TrainDashboard() {
       <div className="toolbar">
         <div className="title">
           <div className="eyebrow">
-            אימון · {game.describeConfig(draft.config)}
+            {d.training} · {game.describeConfig(draft.config)}
             {draft.owner ? ` · ${draft.owner}` : ''}
           </div>
-          <h1 className="display">{multi ? `${models.length} מודלים יחד` : slot.name || 'אימון'}</h1>
+          <h1 className="display">{multi ? d.together(models.length) : slot.name || d.training}</h1>
           <div className="row wrap small muted">
-            {status === 'error' && <span className="pill warn">שגיאה: {error}</span>}
-            {booting && <span className="pill">מאתחל…</span>}
+            {status === 'error' && <span className="pill warn">{d.error(error ?? '')}</span>}
+            {booting && <span className="pill">{d.booting}</span>}
             {draft.rival && (
-              <span className="pill" title="רכב מהאליפות, קפוא, במושב האחרון">
-                🏁 יריב: {draft.rival.driver} · {draft.rival.team}
+              <span className="pill" title={d.rivalTitle}>
+                {d.rival(isolated(draft.rival.driver), isolated(teamName(draft.rival.team)))}
               </span>
             )}
             {remainingMs !== null && !limitHit.current && (
-              <span className="pill" title="עצירה ושמירה אוטומטית">
-                ⏱ <span className="mono">{durationText(remainingMs)}</span> עד שמירה
+              <span className="pill" title={d.autoStop}>
+                ⏱ <span className="mono">{durationText(remainingMs)}</span> {d.untilSave}
               </span>
             )}
-            {limitHit.current && <span className="pill good">הזמן נגמר - נשמר</span>}
+            {limitHit.current && <span className="pill good">{d.timeUpSaved}</span>}
           </div>
         </div>
         <div className="actions">
           <div className="segmented">
-            {SPEEDS.map((s) => (
+            {SPEEDS.map((id) => (
               <button
-                key={s.id}
-                title={s.hint}
-                className={speed === s.id ? 'on' : ''}
-                onClick={() => trainer.setSpeed(s.id)}
+                key={id}
+                title={d.speeds[id].hint}
+                className={speed === id ? 'on' : ''}
+                onClick={() => trainer.setSpeed(id)}
               >
-                {s.label}
+                {d.speeds[id].label}
               </button>
             ))}
           </div>
           <button onClick={() => (running ? trainer.pause() : trainer.play())} disabled={booting || status === 'error'}>
-            {running ? '⏸ השהה' : '▶ המשך'}
+            {running ? d.pause : d.resume}
           </button>
           <button onClick={() => save('checkpoint')} disabled={saving || booting}>
-            שמירה באמצע
+            {d.checkpoint}
           </button>
           <CoachAnchor
             step={coach === 'save' ? coach : null}
-            text="הרכב מתאמן מול העיניים - אפשר לצפות, להזיז מחוונים ולתת לו זמן. כשאתם מרוצים מהנהג, לחצו סיים ושמור."
+            text={d.coach}
           >
             <button className="primary" onClick={() => save('leave')} disabled={saving || booting}>
-              {saving ? 'שומר…' : 'סיים ושמור'}
+              {saving ? d.saving : d.finish}
             </button>
           </CoachAnchor>
         </div>
@@ -412,24 +414,23 @@ export function TrainDashboard() {
 
       {leaveTo && (
         <Modal
-          eyebrow="האימון עדיין רץ"
-          title="לשמור לפני שיוצאים?"
+          eyebrow={d.stillRunning}
+          title={d.saveFirst}
           onClose={() => setLeaveTo(null)}
           footer={
             <>
               <button className="ghost" onClick={() => setLeaveTo(null)}>
-                להמשיך לאמן
+                {d.keepTraining}
               </button>
-              <button onClick={() => leaveNow(leaveTo.run)}>לצאת בלי לשמור</button>
+              <button onClick={() => leaveNow(leaveTo.run)}>{d.leaveNoSave}</button>
               <button className="primary" disabled={saving} onClick={() => void save('leave')}>
-                {saving ? 'שומר…' : 'לשמור ולצאת'}
+                {saving ? d.saving : d.saveLeave}
               </button>
             </>
           }
         >
           <p className="small" style={{ margin: 0 }}>
-            האימון רץ רק כשהמסך הזה פתוח. יציאה עוצרת אותו, ומה שהמודל למד מאז השמירה האחרונה יאבד אם לא
-            תשמרו.
+            {d.leaveWarning}
           </p>
         </Modal>
       )}
@@ -442,11 +443,11 @@ export function TrainDashboard() {
               draw={(ctx) => {
                 const snap = snapRef.current;
                 if (speed === 'turbo' && !snap) {
-                  drawPlaceholder(ctx, ['מצב טורבו - מאמן הכי מהר', 'תמונה מהמסלול פעם בשנייה.']);
+                  drawPlaceholder(ctx, [words().dashboard.turboTitle, words().dashboard.turboNote]);
                   return;
                 }
                 if (!snap) {
-                  drawPlaceholder(ctx, ['ממתין לסימולציה…']);
+                  drawPlaceholder(ctx, [words().dashboard.waiting]);
                   return;
                 }
                 renderGame(gameId, ctx, snap, { showSensors: true, dimDone: true, colors: carColors });
@@ -455,14 +456,14 @@ export function TrainDashboard() {
             {hasLaps && speed !== 'turbo' && <LiveTiming snapRef={snapRef} />}
             {speed === 'turbo' && (
               <div className="stage-overlay-end">
-                <span className="pill">⚡ טורבו · תמונה פעם בשנייה</span>
+                <span className="pill">{d.turboPill}</span>
               </div>
             )}
           </div>
 
           {multi && (
             <div className="card notched">
-              <div className="eyebrow" style={{ marginBottom: 8 }}>מי נוהג במה</div>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>{d.whoDrives}</div>
               <div className="row wrap">
                 {models.map((m, i) => (
                   <span key={i} className="pill small">
@@ -470,13 +471,13 @@ export function TrainDashboard() {
                       className="livery"
                       style={{ background: CAR_COLORS[i % CAR_COLORS.length], width: 4, height: 12 }}
                     />
-                    {m.name || `מודל ${i + 1}`}
+                    {m.name || d.model(i + 1)}
                     <span className="dim"> · {(seats[i] ?? []).map((s) => s + 1).join(', ') || '-'}</span>
                   </span>
                 ))}
               </div>
               <div className="small muted" style={{ marginTop: 6 }}>
-                הרכבים מחולקים בין המודלים. מה שקורה ביניהם על המסלול הוא חלק מהאימון של כולם.
+                {d.shared}
               </div>
             </div>
           )}
@@ -484,10 +485,10 @@ export function TrainDashboard() {
           <div className="card notched">
             {multi && <ModelTabs models={models} current={slotIndex} onPick={setTab} />}
             <div className="head">
-              <div className="eyebrow">ההתקדמות של {slot.name || `מודל ${slotIndex + 1}`}</div>
+              <div className="eyebrow">{d.progressOf(slot.name || d.model(slotIndex + 1))}</div>
             </div>
             <div className="small muted" style={{ marginBottom: 4 }}>
-              נקודות ל{algo.episodeLabel} - כמה הוא צובר לפי המחוונים שלו
+              {d.pointsPer(algo.episodeLabel)}
             </div>
             <LineChart
               height={140}
@@ -496,20 +497,19 @@ export function TrainDashboard() {
             />
             {retuned[slotIndex] !== undefined && (
               <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
-                הקו המקווקו: כאן שיניתם מחוונים. מאז הנקודות נספרות אחרת, אז קפיצה
-                בקו הזה לא אומרת שהנהיגה השתנתה - את זה מראה גרף ההקפה.
+                {d.retuned}
               </div>
             )}
 
             {hasLaps && (
               <>
                 <div className="small muted" style={{ marginTop: 10 }}>
-                  ההקפה המהירה שלו ל{algo.episodeLabel} (שניות) - זה מה שהאליפות מודדת
+                  {d.lapPer(algo.episodeLabel)}
                 </div>
                 <LineChart
                   height={110}
                   nonNegative
-                  emptyText="עוד אין הקפה שלמה - הקו יופיע אחרי ההקפה הראשונה"
+                  emptyText={d.noLapYet}
                   series={[{ label: 'lap', color: '--purple', values: charts.laps }]}
                 />
               </>
@@ -527,17 +527,17 @@ export function TrainDashboard() {
           {hasLaps && (
             <div className="card notched">
               <div className="eyebrow" style={{ marginBottom: 10 }}>
-                השיאים שלו על {setupLabel(draft.config)}
+                {d.recordsOn(setupLabel(draft.config))}
               </div>
               <div className="cols-2">
-                <Stat k="הקפה מהירה" v={lapTime(records.lap)} accent />
-                <Stat k="מרוץ מלא" v={raceTime(records.race)} />
+                <Stat k={d.fastLap} v={lapTime(records.lap)} accent />
+                <Stat k={d.fullRaceStat} v={raceTime(records.race)} />
               </div>
-              {target && <TargetLine target={target} lap={records.lap} />}
+              {target && <TargetLine target={target} trackId={String(draft.config.trackId)} lap={records.lap} />}
               <div className="small muted" style={{ marginTop: 8 }}>
                 {records.race === null
-                  ? `עוד לא הושלמו ${String(draft.config.laps ?? 3)} הקפות ברצף. השיא ייקבע ברגע שהרכב יראה את הדגל המשובץ.`
-                  : `שיא נשמר בנפרד לכל מפה ולכל מספר הקפות - מסלול אחר הוא שיא אחר.`}
+                  ? d.noRaceYet(String(draft.config.laps ?? 3))
+                  : d.perSetup}
               </div>
             </div>
           )}
@@ -548,9 +548,9 @@ export function TrainDashboard() {
               change, and the README promises a screen without them. */}
           <div className="card notched">
             <div className="cols-3">
-              <Stat k={algo.episodesLabel} v={(slotLive?.live.episode ?? 0).toLocaleString('he-IL')} />
-              <Stat k={`${game.spec.scoreLabel} בניסיון האחרון`} v={history.length ? history[history.length - 1].score.toFixed(1) : '-'} />
-              <Stat k="זמן אימון" v={durationText((boot.current[slotIndex]?.baseTrainedMs ?? 0) + trainer.elapsedMs())} />
+              <Stat k={algo.episodesLabel} v={(slotLive?.live.episode ?? 0).toLocaleString(locale())} />
+              <Stat k={d.lastScore(game.spec.scoreLabel)} v={history.length ? history[history.length - 1].score.toFixed(1) : '-'} />
+              <Stat k={d.trainTime} v={durationText((boot.current[slotIndex]?.baseTrainedMs ?? 0) + trainer.elapsedMs())} />
             </div>
           </div>
 
@@ -562,16 +562,16 @@ export function TrainDashboard() {
             extra={
               slot.algorithm === 'ga'
                 ? [
-                    ['גודל אוכלוסייה', String(draft.gaHyper.populationSize)],
-                    ['שורדים בכל דור', `${Math.round(draft.gaHyper.eliteFraction * 100)}%`],
-                    ['עוצמת מוטציה', String(draft.gaHyper.mutationScale)],
+                    [d.population, String(draft.gaHyper.populationSize)],
+                    [d.survivors, `${Math.round(draft.gaHyper.eliteFraction * 100)}%`],
+                    [d.mutation, String(draft.gaHyper.mutationScale)],
                   ]
                 : [
-                    ['קצב למידה', String(draft.hyper.lr)],
+                    [d.learningRate, String(draft.hyper.lr)],
                     ['gamma', String(draft.hyper.gamma)],
                     ['batch', String(draft.hyper.batchSize)],
-                    ['זיכרון חוויות', draft.hyper.bufferSize.toLocaleString('he-IL')],
-                    ['epsilon', `${draft.hyper.epsStart} עד ${draft.hyper.epsEnd}`],
+                    [d.replay, draft.hyper.bufferSize.toLocaleString(locale())],
+                    ['epsilon', d.epsRange(draft.hyper.epsStart, draft.hyper.epsEnd)],
                   ]
             }
           />
@@ -579,7 +579,7 @@ export function TrainDashboard() {
           <div className="card notched">
             {multi && (
               <div className="small" style={{ marginBottom: 8 }}>
-                המחוונים של <b>{slot.name || `מודל ${slotIndex + 1}`}</b> בלבד - שינוי כאן לא נוגע במודלים האחרים
+                {d.slidersOf} <b>{slot.name || d.model(slotIndex + 1)}</b> {d.slidersOnly}
               </div>
             )}
             <RewardEditor
@@ -609,6 +609,7 @@ function ModelTabs({
   current: number;
   onPick: (i: number) => void;
 }) {
+  const d = useT().dashboard;
   return (
     <div className="segmented" style={{ width: '100%', marginBottom: 10 }}>
       {models.map((m, i) => (
@@ -617,7 +618,7 @@ function ModelTabs({
             className="livery"
             style={{ background: CAR_COLORS[i % CAR_COLORS.length], width: 4, height: 10, marginInlineEnd: 6 }}
           />
-          {m.name || `מודל ${i + 1}`}
+          {m.name || d.model(i + 1)}
         </button>
       ))}
     </div>
@@ -633,6 +634,7 @@ function ModelTabs({
  * faster than this needs to redraw.
  */
 function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
+  const d = useT().dashboard;
   const [, bump] = useState(0);
   useEffect(() => {
     const id = setInterval(() => bump((n) => n + 1), 200);
@@ -646,16 +648,20 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
 
   return (
     <div className="stage-overlay-end train-timing">
-      <div className="pill mono" title="זמן הניסיון הנוכחי">
+      <div className="pill mono" title={d.attemptTime}>
         {raceTime(snap.raceMs)}
       </div>
-      <div className="pill" title="ההקפה שהמוביל נוסע עכשיו">
-        הקפה <span className="mono">{leader.lap + 1}</span>/{snap.laps} ·{' '}
+      <div className="pill" title={d.leaderLap}>
+        {d.lap}{' '}
+        <Ltr className="mono">
+          {leader.lap + 1}/{snap.laps}
+        </Ltr>{' '}
+        ·{' '}
         <span className="mono">{lapTime(leader.currentLapMs)}</span>
       </div>
       {snap.fastestLap && (
         <div className="pill" style={{ borderColor: 'var(--purple)', color: 'var(--purple)' }}>
-          מהירה בניסיון · <span className="mono">{lapTime(snap.fastestLap.ms)}</span>
+          {d.fastestInAttempt} <span className="mono">{lapTime(snap.fastestLap.ms)}</span>
         </div>
       )}
     </div>
@@ -667,36 +673,41 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
  * number of cars or whether contact is on changes the traffic, not the yardstick.
  */
 function setupLabel(config: Record<string, unknown>): string {
-  const track = TRACK_DEFS.find((t) => t.id === config.trackId)?.name ?? String(config.trackId ?? '');
-  return `${track} · ${String(config.laps ?? '?')} הקפות`;
+  const known = TRACK_DEFS.some((def) => def.id === config.trackId);
+  const track = known ? trackName(String(config.trackId)) : String(config.trackId ?? '');
+  return words().dashboard.setup(track, String(config.laps ?? '?'));
 }
 
 /**
  * The one number that says when a model is good enough: how far its best lap is
  * from the pole of the last Grand Prix on this circuit.
  */
-function TargetLine({ target, lap }: { target: TrainingTarget; lap: number | null }) {
+function TargetLine({ target, trackId, lap }: { target: TrainingTarget; trackId: string; lap: number | null }) {
+  const d = useT().dashboard;
   const gap = lap === null ? null : (lap - target.ms) / 1000;
-  const label =
-    target.kind === 'pole' ? `ההקפה הכי מהירה במוקדמות של ${target.raceName} (סבב ${target.round})` : 'שיא ההקפה במסלול';
+  const label = target.kind === 'pole' ? d.poleOf(grandPrixTitle(trackId), target.round) : d.trackRecord;
   return (
     <div className="small" style={{ marginTop: 10 }}>
       <div>
         {label}: <span className="mono" style={{ color: 'var(--purple)' }}>{lapTime(target.ms)}</span>
-        <span className="dim"> · {target.driver}</span>
-        {' · '}שלכם: <span className="mono">{lapTime(lap)}</span>
+        <span className="dim">
+          {' · '}
+          <Name>{driverName({ id: target.entryId, driver: target.driver })}</Name>
+        </span>
+        {' · '}
+        {d.yours} <span className="mono">{lapTime(lap)}</span>
         {gap !== null && (
           <>
             {' · '}
             <b className="mono" style={{ color: gap <= 0 ? 'var(--good)' : 'var(--warn)' }}>
-              {gap <= 0 ? `מהיר ב-${(-gap).toFixed(1)} שנ׳` : `+${gap.toFixed(1)} שנ׳`}
+              {gap <= 0 ? d.fasterBy((-gap).toFixed(1)) : d.slowerBy(gap.toFixed(1))}
             </b>
           </>
         )}
       </div>
       {!target.samePhysics && (
         <div className="dim tiny" style={{ marginTop: 2 }}>
-          נקבע לפני שינוי בהתנהגות הרכבים, אז היעד האמיתי כנראה קצת איטי יותר.
+          {d.oldPhysics}
         </div>
       )}
     </div>
@@ -733,21 +744,22 @@ function UnderTheHood({
   extra: Array<[string, string]>;
 }) {
   const algo = ALGORITHMS[algorithm];
+  const d = useT().dashboard;
   return (
     <details className="card notched under-hood">
-      <summary className="eyebrow">מאחורי הקלעים</summary>
+      <summary className="eyebrow">{d.underHood}</summary>
       <div className="small" style={{ display: 'grid', gap: 4, marginTop: 10 }}>
         <div>
-          שיטה: <b>{algo.name}</b> <span className="muted">({algo.technical})</span>
+          {d.method} <b>{algo.name}</b> <span className="muted">({algo.technical})</span>
         </div>
         <div>
-          רשת: <span className="mono" dir="ltr">{[obsSize, ...hidden, actions.length].join(' → ')}</span>
+          {d.network} <Ltr className="mono">{[obsSize, ...hidden, actions.length].join(' → ')}</Ltr>
         </div>
         <div>
-          קלט: <span className="mono">{obsSize}</span> מספרים - חיישני מרחק לקיר, מהירות, כיוון והרכבים הקרובים
+          {d.input} <span className="mono">{obsSize}</span> {d.inputBody}
         </div>
         <div>
-          פעולות ({actions.length}): <span className="muted">{actions.join(' · ')}</span>
+          {d.actions(actions.length)} <span className="muted">{actions.join(' · ')}</span>
         </div>
         {extra.map(([k, v]) => (
           <div key={k}>
@@ -755,8 +767,7 @@ function UnderTheHood({
           </div>
         ))}
         <div className="muted">
-          הנקודות בכל צעד הן סכום המחוונים כפול מה שקרה בצעד הזה (התקדמות, מהירות, פגיעות וכו׳). המשקל
-          של כל דרגה במחוון קבוע בקוד.
+          {d.rewardSum}
         </div>
       </div>
     </details>

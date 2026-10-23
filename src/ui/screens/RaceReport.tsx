@@ -12,34 +12,35 @@ import { PositionChart, type PositionLine } from '../components/PositionChart';
 import { shadeFor, teamColor } from '../../core/champ/livery';
 import { lapsFor } from '../../core/champ/format';
 import { dayStatus, sessionWindows } from '../../core/champ/timing';
-import { TRACK_DEFS } from '../../core/games/racing/tracks';
 import { diagnoseDay } from '../../core/champ/diagnose';
 import { AdviceLine } from '../components/AdviceLine';
 import type { ArenaEntry, Finish, RaceCard, RaceResult, SessionResult } from '../../core/champ/types';
 import { dateTimeText, gapTime, lapClass, lapTime, posClass, raceTime, speedText, untilText } from '../format';
+import { t as words, useLang, useT } from '../../i18n';
+import { driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
 
 export function RaceReport() {
+  const r = useT().report;
   const { viewRaceId, go, openRace } = useApp();
-  const { state, progress } = useChampionship();
+  const { state } = useChampionship();
   const now = useNow(1000);
 
   const card = state?.cards.find((c) => c.id === viewRaceId) ?? null;
   const result = card ? (state?.results.get(card.id) ?? null) : null;
 
-  if (!state) return <PageSkeleton variant="race" note={progress} />;
+  if (!state) return <PageSkeleton variant="race" />;
   if (!card) {
     return (
       <div className="empty">
-        {progress ?? 'לא נמצא מרוץ.'}
+        {r.notFound}
         <div style={{ marginTop: 14 }}>
-          <button onClick={() => go('championship')}>חזרה לאליפות</button>
+          <button onClick={() => go('championship')}>{r.backToChamp}</button>
         </div>
       </div>
     );
   }
 
   const status = dayStatus(card, result, now);
-  const track = TRACK_DEFS.find((t) => t.id === card.trackId);
 
   /**
    * Only the sessions that have already taken the flag.
@@ -70,19 +71,19 @@ export function RaceReport() {
       <div className="toolbar">
         <div className="title">
           <div className="eyebrow">
-            סבב {card.round} · {track?.name ?? card.trackId}
+            {r.round(card.round, trackName(card.trackId))}
           </div>
-          <h1 className="display">{card.name}</h1>
+          <h1 className="display">{grandPrixTitle(card.trackId)}</h1>
           <div className="muted small">
-            {dateTimeText(card.startsAt)} · {card.entries.length} משתתפים
+            {dateTimeText(card.startsAt)} · {r.entrants(card.entries.length)}
           </div>
         </div>
         <div className="actions">
           <button className="cyan" onClick={() => openRace(card.id, 'broadcast')}>
-            צפייה בשידור
+            {r.watch}
           </button>
           <button className="ghost" onClick={() => go('championship')}>
-            חזרה
+            {r.back}
           </button>
         </div>
       </div>
@@ -93,22 +94,22 @@ export function RaceReport() {
             <span className={`pill ${status.phase === 'racing' ? 'live' : ''}`}>
               {status.phase === 'racing' ? (
                 <>
-                  <span className="blip" /> בשידור
+                  <span className="blip" /> {r.onAir}
                 </>
               ) : (
-                'בין מקצים'
+                r.between
               )}
             </span>
             <span>
               {status.phase === 'racing'
-                ? `${status.current?.session.name ?? 'המקצה'} עוד רץ - התוצאות שלו ייחשפו כשיירד עליו הדגל.`
+                ? r.stillRunning(status.current?.session.name ?? r.theSession)
                 : status.next
-                  ? `${status.next.session.name} מתחיל בעוד ${untilText(status.next.startsAt - now)}.`
-                  : 'היום עוד לא הסתיים.'}
+                  ? r.startsIn(status.next.session.name, untilText(status.next.startsAt - now))
+                  : r.notOver}
             </span>
             <div style={{ flex: 1 }} />
             <button className="primary" onClick={() => openRace(card.id, 'broadcast')}>
-              לשידור
+              {r.toBroadcast}
             </button>
           </div>
         </div>
@@ -117,13 +118,11 @@ export function RaceReport() {
       {!state.entries.some((e) => e.uid === state.uid && !e.retired) && (
         <div className="card notched try-banner" style={{ marginBottom: 14 }}>
           <div style={{ display: 'grid', gap: 2, flex: '1 1 220px' }}>
-            <b>רוצים לנסות בעצמכם?</b>
-            <span className="small muted">
-              מאמנים נהג בדפדפן, בוחרים איך הוא ינהג, ורושמים אותו למרוץ של מחר. בלי תכנות.
-            </span>
+            <b>{r.tryTitle}</b>
+            <span className="small muted">{r.tryBody}</span>
           </div>
           <button className="primary" onClick={() => go('library')}>
-            🔧 לבנות נהג משלי
+            {r.tryButton}
           </button>
         </div>
       )}
@@ -147,15 +146,19 @@ function useCopyNote(card: RaceCard): (entryId: string) => string | undefined {
   const copies = useMemo(() => findCopies(state?.cards ?? [card]), [state, card]);
   return (entryId) => {
     const c = copies.get(`${card.id}/${entryId}`);
-    return c ? `עותק של ${c.driver} (${c.team})` : undefined;
+    return c ? words().report.copyOf(c.driver, teamName(c.team)) : undefined;
   };
 }
 
 function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
+  const r = useT().report;
+  const lang = useLang();
   const copyNote = useCopyNote(card);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
   const paint = useTeamPaint(card.entries.map((e) => e.uid));
-  const windows = useMemo(() => sessionWindows(card), [card]);
+  // Session names are in the reader's language, so they are worked out again when it changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const windows = useMemo(() => sessionWindows(card), [card, lang]);
   const [sessionId, setSessionId] = useState(result.sessions[result.sessions.length - 1]?.sessionId ?? '');
   const session = result.sessions.find((s) => s.sessionId === sessionId) ?? result.sessions[0];
   const plan = windows.find((w) => w.session.id === session?.sessionId)?.session;
@@ -181,21 +184,25 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
     const bought = e ? paint.get(e.uid) : undefined;
     return {
       position: f.position,
-      driver: e?.driver ?? '-',
-      team: e?.team ?? '-',
+      driver: driverOf(e) ?? '-',
+      team: teamOf(e) ?? '-',
       color: bought?.color ?? colorOf.get(f.entryId) ?? '#888',
       look: { ...teamLook(e?.team ?? '', e?.driver ?? ''), ...bought?.look },
-      detail: f.status === 'dnf' ? 'פרש' : f.position === 1 ? raceTime(f.totalMs) : f.gapMs !== null ? gapTime(f.gapMs) : undefined,
+      detail: f.status === 'dnf' ? r.retired : f.position === 1 ? raceTime(f.totalMs) : gapText(timeGapMs(f, session.classification[0])),
     };
   });
   const mostOvertakes = [...session.classification].sort((a, b) => b.overtakes - a.overtakes)[0];
   const mostLed = [...session.classification].sort((a, b) => b.lapsLed - a.lapsLed)[0];
+  // A car that retired was not clean, however few walls it touched first.
+  const cleanest = session.classification
+    .filter((f) => f.status !== 'dnf')
+    .sort((a, b) => a.wallHits + a.carHits - (b.wallHits + b.carHits))[0];
   const fastestTop = [...session.classification].sort((a, b) => b.topSpeed - a.topSpeed)[0];
   const sessionBest = session.fastestLap?.ms ?? null;
   const laps = plan ? lapsFor(plan) : Math.max(...session.classification.map((f) => f.laps), 1);
 
   const lines: PositionLine[] = session.classification.map((f) => ({
-    label: entries.get(f.entryId)?.driver ?? '-',
+    label: driverOf(entries.get(f.entryId)) ?? '-',
     color: colorOf.get(f.entryId) ?? '#888',
     positions: f.lapPositions,
     gridPos: f.gridPos || f.position,
@@ -206,33 +213,33 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
     <>
       <div className="card notched" style={{ marginBottom: 14 }}>
         <div className="eyebrow" style={{ marginBottom: 10 }}>
-          הפודיום{result.sessions.length > 1 ? ` · ${plan?.name ?? ''}` : ''}
+          {r.podium}{result.sessions.length > 1 ? ` · ${plan?.name ?? ''}` : ''}
         </div>
         <Podium places={podium} />
       </div>
 
       <div className="cols-4" style={{ marginBottom: 14 }}>
         <StatCard
-          label="מנצח"
-          value={entries.get(winner.entryId)?.driver ?? '-'}
-          sub={entries.get(winner.entryId)?.team}
+          label={r.winner}
+          value={driverOf(entries.get(winner.entryId)) ?? '-'}
+          sub={teamOf(entries.get(winner.entryId))}
           accent
         />
         <StatCard
-          label="עמדת זינוק ראשונה"
-          value={entries.get(result.pole ?? '')?.driver ?? '-'}
+          label={r.pole}
+          value={driverOf(entries.get(result.pole ?? '')) ?? '-'}
           sub={lapTime(card.qualifying[0]?.bestLapMs)}
         />
         <StatCard
-          label="הקפה מהירה"
+          label={r.fastLap}
           value={lapTime(result.fastestLap?.ms)}
-          sub={entries.get(result.fastestLap?.entryId ?? '')?.driver}
+          sub={driverOf(entries.get(result.fastestLap?.entryId ?? ''))}
           purple
         />
         <StatCard
-          label="הכי הרבה עקיפות"
+          label={r.overtakes}
           value={String(mostOvertakes?.overtakes ?? 0)}
-          sub={entries.get(mostOvertakes?.entryId ?? '')?.driver}
+          sub={driverOf(entries.get(mostOvertakes?.entryId ?? ''))}
         />
       </div>
 
@@ -255,16 +262,16 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
             <thead>
               <tr>
                 <th style={{ width: 46 }}>#</th>
-                <th>נהג</th>
-                <th className="num">זינוק</th>
-                <th className="num">הקפות</th>
-                <th className="num">זמן / פער</th>
-                <th className="num">הקפה מהירה</th>
-                <th className="num">מהירות שיא</th>
-                <th className="num" title="כל עקיפה נספרת, גם אם המקום אבד שוב אחר כך">עקיפות</th>
-                <th className="num" title="פגיעות בקיר ומגע עם רכבים אחרים, יחד">פגיעות (קיר+רכב)</th>
-                <th className="num">הובלה</th>
-                <th className="num">נק׳</th>
+                <th>{r.driver}</th>
+                <th className="num">{r.grid}</th>
+                <th className="num">{r.laps}</th>
+                <th className="num">{r.timeGap}</th>
+                <th className="num">{r.fastLap}</th>
+                <th className="num">{r.topSpeed}</th>
+                <th className="num" title={r.overtakesTitle}>{r.overtakesCol}</th>
+                <th className="num" title={r.hitsTitle}>{r.hitsCol}</th>
+                <th className="num">{r.led}</th>
+                <th className="num">{r.pts}</th>
               </tr>
             </thead>
             <tbody>
@@ -282,8 +289,8 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                     </td>
                     <td>
                       <DriverCell
-                        driver={e?.driver ?? '-'}
-                        team={e?.team ?? '-'}
+                        driver={driverOf(e) ?? '-'}
+                        team={teamOf(e) ?? '-'}
                         tag={e?.tag}
                         color={colorOf.get(f.entryId)}
                         note={copyNote(f.entryId)}
@@ -298,15 +305,11 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                     <td className="mono num">{f.laps}</td>
                     <td className="mono num">
                       {f.status === 'dnf' ? (
-                        <span className="muted">פרש</span>
+                        <span className="muted">{r.retired}</span>
                       ) : f.position === 1 ? (
                         raceTime(f.totalMs)
-                      ) : f.laps < (session.classification[0]?.laps ?? f.laps) ? (
-                        // A lapped car's time gap is measured at a different
-                        // line crossing and reads as smaller than it is.
-                        `+${session.classification[0].laps - f.laps} ${session.classification[0].laps - f.laps === 1 ? 'הקפה' : 'הקפות'}`
                       ) : (
-                        gapTime(f.gapMs)
+                        gapText(timeGapMs(f, session.classification[0]))
                       )}
                     </td>
                     <td className={`mono num ${lapClass(f.bestLapMs, sessionBest, f.bestLapMs)}`}>
@@ -322,7 +325,7 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
                       ) : place.classified ? (
                         place.points || <span className="dim">0</span>
                       ) : (
-                        <span className="dim" title="לא סווג - לא השלים מספיק מרחק">
+                        <span className="dim" title={r.ncTitle}>
                           NC
                         </span>
                       )}
@@ -336,36 +339,34 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
       </div>
 
       <div className="small muted" style={{ margin: '-6px 0 14px' }}>
-        NC - לא סווג: רכב שלא השלים לפחות מחצית מהמרחק של המנצח אינו צובר נקודות.
+        {r.ncNote}
       </div>
 
       <div className="split" style={{ marginBottom: 14 }}>
         <div className="card notched">
           <div className="head">
-            <div className="eyebrow">גרף המרוץ</div>
+            <div className="eyebrow">{r.chart}</div>
             <div className="fill" />
-            <span className="dim tiny">מיקום בסוף כל הקפה</span>
+            <span className="dim tiny">{r.chartNote}</span>
           </div>
           <PositionChart lines={lines} laps={laps} />
         </div>
 
         <div className="card notched">
           <div className="head">
-            <div className="eyebrow">כותרות</div>
+            <div className="eyebrow">{r.headlines}</div>
           </div>
-          <Headline label="הוביל הכי הרבה הקפות" who={entries.get(mostLed?.entryId ?? '')} value={`${mostLed?.lapsLed ?? 0} הקפות`} />
-          <Headline label="מהירות שיא" who={entries.get(fastestTop?.entryId ?? '')} value={speedText(fastestTop?.topSpeed ?? 0)} />
+          <Headline label={r.mostLed} who={entries.get(mostLed?.entryId ?? '')} value={r.lapsValue(mostLed?.lapsLed ?? 0)} />
+          <Headline label={r.topSpeed} who={entries.get(fastestTop?.entryId ?? '')} value={speedText(fastestTop?.topSpeed ?? 0)} />
           <Headline
-            label="הכי נקי"
-            who={entries.get(
-              [...session.classification].sort((a, b) => a.wallHits + a.carHits - (b.wallHits + b.carHits))[0]?.entryId ?? '',
-            )}
-            value={`${[...session.classification].sort((a, b) => a.wallHits + a.carHits - (b.wallHits + b.carHits))[0]?.wallHits ?? 0} פגיעות בקיר`}
+            label={r.cleanest}
+            who={entries.get(cleanest?.entryId ?? '')}
+            value={cleanest ? r.wallHits(cleanest.wallHits) : '-'}
           />
           <Headline
-            label="פרישות"
+            label={r.dnfs}
             who={undefined}
-            value={`${session.classification.filter((f) => f.status === 'dnf').length} מתוך ${session.classification.length}`}
+            value={r.ofTotal(session.classification.filter((f) => f.status === 'dnf').length, session.classification.length)}
           />
         </div>
       </div>
@@ -375,6 +376,24 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
   );
 }
 
+/**
+ * How far behind the winner a car was, always as time. For a car that finished
+ * on the winner's lap this is the gap at the flag. A lapped car crossed the line
+ * fewer times, so its own finish time is not comparable with the winner's;
+ * instead it is measured at the last line both crossed - the car's final lap
+ * against the winner's same lap.
+ */
+function timeGapMs(f: Finish, winner: Finish | undefined): number | null {
+  if (!winner || f.laps === 0) return null;
+  if (f.laps >= winner.laps) return f.gapMs;
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  return sum(f.lapTimesMs.slice(0, f.laps)) - sum(winner.lapTimesMs.slice(0, f.laps));
+}
+
+function gapText(ms: number | null): string {
+  return ms === null ? '-' : gapTime(ms);
+}
+
 function Headline({ label, who, value }: { label: string; who?: ArenaEntry; value: string }) {
   return (
     <div className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
@@ -382,7 +401,7 @@ function Headline({ label, who, value }: { label: string; who?: ArenaEntry; valu
         <div className="tiny dim" style={{ letterSpacing: '0.08em' }}>
           {label}
         </div>
-        <div style={{ fontWeight: 700 }}>{who?.driver ?? '-'}</div>
+        <div style={{ fontWeight: 700 }}>{driverOf(who) ?? '-'}</div>
       </div>
       <span className="mono small">{value}</span>
     </div>
@@ -432,6 +451,7 @@ function LapTimes({
   entries: Map<string, ArenaEntry>;
   colorOf: Map<string, string>;
 }) {
+  const r = useT().report;
   const maxLaps = Math.max(0, ...session.classification.map((f) => f.lapTimesMs.length));
   if (maxLaps === 0) return null;
   const best = session.fastestLap?.ms ?? null;
@@ -439,18 +459,18 @@ function LapTimes({
   return (
     <div className="card notched" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{ padding: '14px 16px 8px' }}>
-        <div className="eyebrow">זמני הקפות</div>
+        <div className="eyebrow">{r.lapTimes}</div>
         <div className="row wrap small" style={{ marginTop: 6 }}>
-          <span className="t-purple">■ המהירה במרוץ</span>
-          <span className="t-green">■ שיא אישי</span>
-          <span className="t-yellow">■ איטית יותר</span>
+          <span className="t-purple">{r.purple}</span>
+          <span className="t-green">{r.green}</span>
+          <span className="t-yellow">{r.yellow}</span>
         </div>
       </div>
       <ScrollX>
         <table className="timing pin-1">
           <thead>
             <tr>
-              <th>נהג</th>
+              <th>{r.driver}</th>
               {Array.from({ length: maxLaps }, (_, i) => (
                 <th key={i} className="num">
                   {i + 1}
@@ -465,8 +485,8 @@ function LapTimes({
                 <tr key={f.entryId}>
                   <td>
                     <DriverCell
-                      driver={e?.driver ?? '-'}
-                      team={e?.team ?? '-'}
+                      driver={driverOf(e) ?? '-'}
+                      team={teamOf(e) ?? '-'}
                       tag={e?.tag}
                       color={colorOf.get(f.entryId)}
                     />
@@ -491,6 +511,7 @@ function LapTimes({
 
 /** Qualifying: the session that sets the grid, and the source of pole positions. */
 function Qualifying({ card }: { card: RaceCard }) {
+  const r = useT().report;
   const copyNote = useCopyNote(card);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
   const pole = card.qualifying.find((q) => q.bestLapMs !== null)?.bestLapMs ?? null;
@@ -502,9 +523,9 @@ function Qualifying({ card }: { card: RaceCard }) {
   return (
     <div className="card notched" style={{ padding: 0, overflow: 'hidden', marginTop: 14 }}>
       <div style={{ padding: '14px 16px 8px' }}>
-        <div className="eyebrow">מוקדמות</div>
+        <div className="eyebrow">{r.quali}</div>
         <div className="small muted" style={{ marginTop: 4 }}>
-          כל מודל רץ לבד על מסלול ריק, שלוש הקפות. ההקפה המהירה ביותר קובעת את עמדת הזינוק.
+          {r.qualiNote}
         </div>
       </div>
       <ScrollX>
@@ -512,13 +533,13 @@ function Qualifying({ card }: { card: RaceCard }) {
           <thead>
             <tr>
               <th style={{ width: 46 }}>#</th>
-              <th>נהג</th>
-              <th className="num">זמן</th>
-              <th className="num">פער</th>
-              <th className="num">מקטע 1</th>
-              <th className="num">מקטע 2</th>
-              <th className="num">מקטע 3</th>
-              <th className="num">מהירות שיא</th>
+              <th>{r.driver}</th>
+              <th className="num">{r.time}</th>
+              <th className="num">{r.gap}</th>
+              <th className="num">{r.sector(1)}</th>
+              <th className="num">{r.sector(2)}</th>
+              <th className="num">{r.sector(3)}</th>
+              <th className="num">{r.topSpeed}</th>
             </tr>
           </thead>
           <tbody>
@@ -530,7 +551,7 @@ function Qualifying({ card }: { card: RaceCard }) {
                     <span className={posClass(i + 1, q.bestLapMs === null)}>{q.bestLapMs === null ? '-' : i + 1}</span>
                   </td>
                   <td>
-                    <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} note={copyNote(q.entryId)} />
+                    <DriverCell driver={driverOf(e) ?? '-'} team={teamOf(e) ?? '-'} tag={e?.tag} note={copyNote(q.entryId)} />
                   </td>
                   <td className={`mono num ${i === 0 ? 't-purple' : ''}`}>{lapTime(q.bestLapMs)}</td>
                   <td className="mono num muted">
@@ -558,7 +579,11 @@ function Qualifying({ card }: { card: RaceCard }) {
  * a rival lost is half of working out how to beat them.
  */
 function Diagnosis({ card, result, uid }: { card: RaceCard; result: RaceResult; uid: string }) {
-  const advice = useMemo(() => diagnoseDay(card, result), [card, result]);
+  const r = useT().report;
+  const lang = useLang();
+  // The advice is written in the reader's language, so it is worked out again when that changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const advice = useMemo(() => diagnoseDay(card, result), [card, result, lang]);
   const entries = useMemo(() => new Map(card.entries.map((e) => [e.id, e])), [card]);
   const [showAll, setShowAll] = useState(false);
   const rows = result.places
@@ -571,11 +596,11 @@ function Diagnosis({ card, result, uid }: { card: RaceCard; result: RaceResult; 
   return (
     <div className="card notched" style={{ marginTop: 14 }}>
       <div className="head">
-        <div className="eyebrow">אבחון - למה, ומה לשנות</div>
+        <div className="eyebrow">{r.diagnosis}</div>
         <div className="fill" />
         {mine.length > 0 && rows.length > mine.length && (
           <button className="ghost small" onClick={() => setShowAll((v) => !v)}>
-            {showAll ? 'רק שלי' : `כל ${rows.length} הרכבים`}
+            {showAll ? r.onlyMine : r.allCars(rows.length)}
           </button>
         )}
       </div>
@@ -585,7 +610,7 @@ function Diagnosis({ card, result, uid }: { card: RaceCard; result: RaceResult; 
           <div key={p.entryId} style={{ padding: '8px 0', borderTop: '1px solid var(--line)' }}>
             <div className="row" style={{ marginBottom: 4 }}>
               <span className={posClass(p.position, p.status === 'dnf')}>{p.position}</span>
-              <DriverCell driver={e?.driver ?? '-'} team={e?.team ?? '-'} tag={e?.tag} />
+              <DriverCell driver={driverOf(e) ?? '-'} team={teamOf(e) ?? '-'} tag={e?.tag} />
             </div>
             {advice.get(p.entryId)!.map((a, i) => (
               <AdviceLine key={i} advice={a} />

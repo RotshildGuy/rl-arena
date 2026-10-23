@@ -1,7 +1,10 @@
 import { Policy } from '../core/rl/policy';
 import { teamColor } from '../core/champ/livery';
+import { HOUSE_DRIVERS, houseWeightsUrl, isHouseId } from '../core/champ/house';
 import { getArena } from '../storage/arena';
 import { getStore } from '../storage';
+import { t } from '../i18n';
+import { driverName, teamName } from '../i18n/names';
 
 /**
  * Opponent ids carry their own source.
@@ -20,16 +23,33 @@ export interface LoadedOpponent {
 }
 
 export async function loadOpponent(id: string): Promise<LoadedOpponent | null> {
-  if (id.startsWith(ARENA_PREFIX)) {
-    const entryId = id.slice(ARENA_PREFIX.length);
-    const arena = await getArena();
-    const [entries, weights] = await Promise.all([arena.listEntries(), arena.loadEntryWeights(entryId)]);
-    const entry = entries.find((e) => e.id === entryId);
-    if (!entry || !weights) return null;
+  if (id.startsWith(ARENA_PREFIX) && isHouseId(id.slice(ARENA_PREFIX.length))) {
+    // The house team's weights are public files, like the site itself.
+    const entry = HOUSE_DRIVERS.find((h) => h.id === id.slice(ARENA_PREFIX.length))!;
+    const res = await fetch(houseWeightsUrl(entry.id));
+    if (!res.ok) return null;
+    const { weightsB64 } = (await res.json()) as { weightsB64: string };
     return {
-      policy: Policy.fromBase64(entry.arch.obsSize, entry.arch.hidden, entry.arch.nActions, weights),
+      policy: Policy.fromBase64(entry.arch.obsSize, entry.arch.hidden, entry.arch.nActions, weightsB64),
       name: entry.driver,
       team: entry.team,
+      color: teamColor(entry.team),
+    };
+  }
+  if (id.startsWith(ARENA_PREFIX)) {
+    // A championship car of your own: in the cloud, only its owner may read its weights.
+    const entryId = id.slice(ARENA_PREFIX.length);
+    const arena = await getArena();
+    const [entries, uid] = await Promise.all([arena.listEntries(), arena.uid()]);
+    const entry = entries.find((e) => e.id === entryId);
+    // Somebody else's car, picked before their weights were sealed: not asked for.
+    if (!entry || entry.uid !== uid) return null;
+    const weights = await arena.loadEntryWeights(entryId);
+    if (!weights) return null;
+    return {
+      policy: Policy.fromBase64(entry.arch.obsSize, entry.arch.hidden, entry.arch.nActions, weights),
+      name: driverName(entry),
+      team: teamName(entry.team),
       color: teamColor(entry.team),
     };
   }
@@ -40,7 +60,8 @@ export async function loadOpponent(id: string): Promise<LoadedOpponent | null> {
   return {
     policy: Policy.fromBase64(rec.arch.obsSize, rec.arch.hidden, rec.arch.nActions, rec.weightsB64),
     name: rec.name,
-    team: rec.owner || 'המוסך שלי',
+    team: rec.owner || t().misc.myGarage,
+    // The colour is seeded by the name the garage always had, so it stays the same in every language.
     color: teamColor(rec.owner || 'המוסך שלי'),
   };
 }
