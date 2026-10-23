@@ -345,6 +345,7 @@ function rotationTest(): void {
   );
 
   const PINNED: Record<number, string[]> = {
+    2: ['serpent', 'kidney', 'ring', 'oval'],
     3: ['kidney', 'ring', 'coast', 'clover'],
     4: ['serpent', 'stadium', 'clover', 'technical'],
     5: ['ring', 'technical', 'kidney', 'stadium'],
