@@ -34,9 +34,10 @@ export interface TrackPool {
  */
 export const TRACK_POOLS: readonly TrackPool[] = [
   {
-    // Season 2 opens on the new car physics and the house team; it keeps the
-    // tracks everybody is retraining on, and the pool waits a season.
-    fromSeason: 3,
+    // Season 1 (from the launch, 25.10) opens on the new car physics and the
+    // house team; it keeps the tracks everybody is retraining on, and the pool
+    // waits a season: season 2, from Monday 2.11.
+    fromSeason: 2,
     trackIds: [
       'oval', 'kidney', 'technical', 'speedway',
       'stadium', 'triangle', 'serpent', 'clover', 'coast', 'ring',

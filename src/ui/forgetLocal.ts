@@ -8,10 +8,10 @@
  * in the local mirror, which the synced store then helpfully uploaded into the
  * newcomer's account.
  *
- * Kept: the theme, which is a preference of the screen rather than of the
- * person. Everything else under the app's prefix goes.
+ * Kept: the theme and the language, which are preferences of the screen rather
+ * than of the person. Everything else under the app's prefix goes.
  */
-const KEEP = new Set(['rl-arena-theme']);
+const KEEP = new Set(['rl-arena-theme', 'rl-arena-lang', 'rl-arena-epoch']);
 
 /** Every IndexedDB database the app opens. */
 const DATABASES = ['rl-arena', 'rl-arena-champ'];
@@ -33,6 +33,39 @@ export async function forgetThisBrowser(): Promise<void> {
     // Same.
   }
   await Promise.all(DATABASES.map(emptyDatabase));
+}
+
+/**
+ * The data this browser holds belongs to an era of the database. When the
+ * database is emptied for a fresh start, this number goes up, and every
+ * browser forgets what it had the first time it loads the new build - once.
+ *
+ * Without it the empty database would not stay empty: the model library
+ * uploads whatever its local mirror has that the cloud lacks, the team name
+ * would come back from localStorage, and the championship cache would answer
+ * for race ids that now mean different races.
+ *
+ *   2 - 25.10.2026, the public launch: everything before it was a test run.
+ */
+const EPOCH = '2';
+const EPOCH_KEY = 'rl-arena-epoch';
+
+/**
+ * Run before anything reads local storage. Signing in survives it: Firebase
+ * keeps its session in a database of its own.
+ */
+export async function startFreshIfNewEpoch(): Promise<void> {
+  try {
+    if (localStorage.getItem(EPOCH_KEY) === EPOCH) return;
+  } catch {
+    return; // Storage blocked: nothing was kept to forget.
+  }
+  await forgetThisBrowser();
+  try {
+    localStorage.setItem(EPOCH_KEY, EPOCH);
+  } catch {
+    // Then it runs again next load, on storage that is already empty.
+  }
 }
 
 /**
