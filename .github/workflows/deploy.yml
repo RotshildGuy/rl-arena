@@ -34,6 +34,7 @@ jobs:
       # championship and the learning core (`scripts/sanity.ts`, ~5 seconds).
       - run: npm run typecheck
       - run: npm run sanity
+      - run: npm test
 
       # The Firebase web keys are public identifiers - they are served to every
       # browser that loads the site - so they may live in either repository

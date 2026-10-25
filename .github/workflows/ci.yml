@@ -1,0 +1,28 @@
+# Checks every push and pull request: types, the unit tests, and the
+# championship and learning-core sanity suite. Publishes nothing - deploy.yml
+# and preview.yml run the same gates before they publish.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run sanity

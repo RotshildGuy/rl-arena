@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "sanity": "tsx scripts/sanity.ts",
+    "test": "vitest run",
     "champ": "tsx scripts/champRace.ts",
     "build:functions": "tsx scripts/buildFunctions.ts"
   },
@@ -27,6 +28,8 @@
     "esbuild": "^0.28.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5"
-  }
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  },
+  "license": "MIT"
 }

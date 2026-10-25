@@ -32,6 +32,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run sanity
+      - run: npm test
 
       # Same rule as deploy.yml: a build without the keys runs local-only and
       # looks healthy, which would make a preview that tests the wrong app.
