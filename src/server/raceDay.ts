@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { buildRaceCard, eligibleEntries } from '../core/champ/card';
 import { MIN_ENTRIES } from '../core/champ/format';
 import { HOUSE_DRIVERS, isHouse } from '../core/champ/house';
@@ -50,7 +51,15 @@ export const HOUSE_IDS: readonly string[] = HOUSE_DRIVERS.map((h) => h.id);
 
 export type RaceDayOutcome = 'raced' | 'replayed' | 'already' | 'no-field' | 'no-card' | 'mismatch';
 
-export async function raceRound(store: RaceStore, round: number, house: ReadonlyMap<string, string>): Promise<RaceDayOutcome> {
+/** The seed a new card is drawn with: unpredictable, and only after the entry list is locked. */
+const drawSeed = (): number => randomInt(1, 1_000_000_007);
+
+export async function raceRound(
+  store: RaceStore,
+  round: number,
+  house: ReadonlyMap<string, string>,
+  seed: () => number = drawSeed,
+): Promise<RaceDayOutcome> {
   const raceId = raceIdForRound(round);
   let card = await store.getCard(raceId);
   if (!card) {
@@ -67,7 +76,7 @@ export async function raceRound(store: RaceStore, round: number, house: Readonly
     // As in the browser: a house car without its weights would be frozen onto
     // the card without a car to drive.
     if (weights.size < MIN_ENTRIES || field.some((e) => isHouse(e) && !weights.has(e.id))) return 'no-card';
-    card = await store.putCard(buildRaceCard(round, entries, weights, owners), weights);
+    card = await store.putCard(buildRaceCard(round, entries, weights, owners, seed()), weights);
   }
 
   const existing = await store.getResult(raceId);

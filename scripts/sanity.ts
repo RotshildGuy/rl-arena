@@ -36,7 +36,7 @@ import {
 } from '../src/core/champ/schedule';
 import { nextRoundOnTrack, trainingTarget } from '../src/core/champ/records';
 import { ROTATION_SIZE, TRACK_POOLS, TRACK_POOL_FROM_SEASON, drawRotation, poolForSeason } from '../src/core/champ/rotation';
-import { eligibleEntries, MAX_CARS_PER_TEAM } from '../src/core/champ/card';
+import { eligibleEntries, MAX_CARS_PER_TEAM, MAX_FIELD } from '../src/core/champ/card';
 import {
   broadcastOpensAt,
   dayState,
@@ -56,8 +56,8 @@ import { diagnoseCar, diagnoseDay } from '../src/core/champ/diagnose';
 import { buildRaceCard } from '../src/core/champ/card';
 import { runRaceDay } from '../src/core/champ/sim';
 import { hallOfFame, rookieUids, seasonCards, seasonComplete } from '../src/core/champ/seasons';
-import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, displaySeason } from '../src/core/champ/schedule';
-import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID } from '../src/core/champ/house';
+import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, displaySeason, seedForRound } from '../src/core/champ/schedule';
+import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID, isHouse } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
 import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
 import { leagueView, newLeagueId } from '../src/core/champ/league';
@@ -1735,6 +1735,8 @@ function leagueTest(): void {
   check('a race none of them ran is not in it', leagueView([card], new Map([[card.id, result]]), ['nobody']).cards.length === 0);
   const id = newLeagueId();
   check('an invitation code is ten readable characters', /^[a-km-z2-9]{10}$/.test(id) && !/[ilo01]/.test(id), id);
+  const ids = new Set(Array.from({ length: 500 }, () => newLeagueId()));
+  check('and invitation codes do not repeat', ids.size === 500 && [...ids].every((x) => /^[a-km-z2-9]{10}$/.test(x)));
 }
 
 function copiesTest(): void {
@@ -1808,7 +1810,7 @@ async function serverRaceDayTest(): Promise<void> {
 
   const t0 = Date.now();
   const source = memoryArena([entry], weights);
-  const outcome = await raceRound(source, round, house);
+  const outcome = await raceRound(source, round, house, () => 4242);
   const ms = Date.now() - t0;
   check('a day nobody opened is built and raced', outcome === 'raced', outcome);
   check('and a second run leaves it as it was', (await raceRound(source, round, house)) === 'already');
@@ -1816,7 +1818,7 @@ async function serverRaceDayTest(): Promise<void> {
 
   const bundled = createRequire(import.meta.url)(join(dir, 'raceDay.js')) as { raceRound: typeof raceRound };
   const built = memoryArena([entry], weights);
-  await bundled.raceRound(built, round, house);
+  await bundled.raceRound(built, round, house, () => 4242);
 
   const raceId = raceIdForRound(round);
   const strip = <T extends object>(x: T | undefined, key: string) => JSON.stringify({ ...x, [key]: 0 });
@@ -1862,6 +1864,25 @@ async function serverRaceDayTest(): Promise<void> {
   const field = [owned('mine1', 1, 'owner'), owned('mine2', 1, 'owner'), owned('fake1', 9e12, 'thief'), owned('fake2', 9e12, 'thief')];
   const seated = eligibleEntries(field, round, new Map([[nameKey('בעלים'), 'owner']])).map((e) => e.id);
   check("the name's owner keeps both seats", seated.includes('mine1') && seated.includes('mine2') && !seated.some((id) => id.startsWith('fake')), seated.join());
+
+  // One account writing cars under every team's name must not fuse the field into one team.
+  const victims = ['אלפא', 'בטא', 'גמא', 'דלתא'].flatMap((team, i) =>
+    [1, 2].map((n): ArenaEntry => ({ ...entry, id: `v${i}${n}`, uid: `victim${i}`, team, driver: `v${i}${n}`, createdAt: 0, updatedAt: 1 })),
+  );
+  const squatter = victims.map((v, i): ArenaEntry => ({ ...entry, id: `s${i}`, uid: 'squatter', team: v.team, driver: `s${i}`, createdAt: 1, updatedAt: 9e12 }));
+  const owners = new Map(victims.map((v) => [nameKey(v.team), v.uid] as [string, string]));
+  const fused = eligibleEntries([...victims, ...squatter], round, owners).map((e) => e.id);
+  check('one account wearing every team name neither fuses the teams nor races under them', victims.every((v) => fused.includes(v.id)) && !fused.some((id) => id.startsWith('s')), fused.join());
+
+  // And a field of thousands of fresh accounts cannot push out the teams that were there first.
+  const crowd = Array.from({ length: 500 }, (_, i): ArenaEntry => ({ ...entry, id: `c${i}`, uid: `crowd${i}`, team: `קבוצה ${i}`, driver: `c${i}`, createdAt: 1000 + i, updatedAt: 1000 + i }));
+  const veteran: ArenaEntry = { ...entry, id: 'old', uid: 'oldtimer', team: 'ותיקים', driver: 'old', createdAt: 1, updatedAt: 1 };
+  const capped = eligibleEntries([...crowd, veteran], round).filter((e) => !isHouse(e));
+  check(`a day takes at most ${MAX_FIELD} real cars, the oldest teams first`, capped.length <= MAX_FIELD && capped.some((e) => e.id === 'old') && capped.length > 0, String(capped.length));
+
+  // The seed comes from the server; the fixed one is only the offline default.
+  const sealed = hostile.cards.get(raceId);
+  check('a card keeps the seed it was drawn with', !!sealed && sealed.seed !== seedForRound(round), String(sealed?.seed));
 }
 
 /** The functions carry their own copy of the calendar; it must agree with the app's. */
