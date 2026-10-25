@@ -8,3 +8,8 @@ firestore.rules
 functions/node_modules
 functions/raceDay.js
 functions/house
+reel-out/
+
+# Operator notes kept off the public repo
+OWNER_TODO.local.md
+.claude/

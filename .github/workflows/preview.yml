@@ -80,10 +80,12 @@ jobs:
           # Pinned: 15.34.1 (21.10.2026) first asks the Service Usage API whether
           # Hosting is enabled, which the deploy service account may not do, and
           # every deploy failed with a 403. Unpin once the account has the
-          # "Service Usage Viewer" role (OWNER_TODO.md).
+          # "Service Usage Viewer" role.
           firebaseToolsVersion: 15.34.0
 
       - name: Preview address
+        env:
+          DETAILS_URL: ${{ steps.deploy.outputs.details_url }}
         run: |
-          echo "Preview: ${{ steps.deploy.outputs.details_url }}"
-          echo "### Preview: ${{ steps.deploy.outputs.details_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Preview: $DETAILS_URL"
+          echo "### Preview: $DETAILS_URL" >> "$GITHUB_STEP_SUMMARY"

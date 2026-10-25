@@ -265,25 +265,7 @@
 leagues/{id}   { name, owner, members: [uid...], createdAt }
 ```
 
-הכלל, בתוך `match /databases/{database}/documents`:
-
-```
-match /leagues/{id} {
-  allow read: if request.auth != null;
-  allow create: if request.auth != null
-    && request.resource.data.owner == request.auth.uid
-    && request.resource.data.members == [request.auth.uid]
-    && request.resource.data.name is string
-    && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 32;
-  // Join or leave: only your own uid moves in or out, and nothing else changes.
-  allow update: if request.auth != null
-    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
-    && request.resource.data.members.size() <= 50
-    && (request.resource.data.members.toSet() == resource.data.members.toSet().union([request.auth.uid].toSet())
-      || request.resource.data.members.toSet() == resource.data.members.toSet().difference([request.auth.uid].toSet()));
-  allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
-}
-```
+הכללים: ליגה נשלפת לפי קוד ההזמנה שלה (משתמש מחובר), ואת רשימת הליגות מותר לשלוף רק לפי חברות - אי אפשר לעבור על כל הליגות. קוד ההזמנה נוצר במחולל האקראי הקריפטוגרפי של הדפדפן. יוצרים ליגה רק כבעלים של עצמך ועם שם קצר, ורק ה-uid של המשתמש עצמו נכנס או יוצא מרשימת החברים, בלי שינוי של שום שדה אחר. מחיקה היא של הבעלים בלבד.
 
 ### רכב מועתק
 
@@ -387,35 +369,10 @@ arena/{entryId}/data/weights               המשקולות הנוכחיות (ה
 
 ### כללי Firestore לאליפות
 
-השרת כותב וקורא עם הרשאות admin ולא מושפע מהכללים. הדפדפן לא יכול לכתוב כרטיס, רכב, תוצאה או
-צפייה חוזרת, ולא יכול לקרוא משקולות של אף אחד חוץ משלו. אלה החלקים הרלוונטיים, בתוך
-`match /databases/{database}/documents` (הקובץ המלא, `firestore.rules`, נשמר אצל הבעלים ונבדק
-באמולטור של Firestore):
-
-```
-function raceStarted(seasonId, raceId) {
-  return get(/databases/$(database)/documents/seasons/$(seasonId)/races/$(raceId)).data.startsAt
-    <= request.time.toMillis();
-}
-
-match /seasons/{seasonId}/races/{raceId} {
-  allow read: if signedIn();
-  allow write: if false;
-  match /cars/{entryId} { allow read, write: if false; }
-  match /result/{docId} { allow read: if signedIn() && raceStarted(seasonId, raceId); allow write: if false; }
-  match /replay/{docId} { allow read: if signedIn() && raceStarted(seasonId, raceId); allow write: if false; }
-}
-
-match /arena/{entryId}/data/{docId} {
-  allow read, delete: if signedIn() && ownsEntry();
-  allow create, update: if signedIn() && ownsEntry() && docId == 'weights'
-    && request.resource.data.keys().hasOnly(['weightsB64'])
-    && request.resource.data.weightsB64 is string && request.resource.data.weightsB64.size() < 900000;
-}
-```
+השרת כותב וקורא עם הרשאות admin ולא מושפע מהכללים. הדפדפן לא יכול לכתוב כרטיס, רכב, תוצאה או צפייה חוזרת, ולא יכול לקרוא משקולות של אף אחד חוץ משלו. הכרטיס קריא למשתמשים מחוברים מההתחלה, והתוצאה והצפייה החוזרת רק מרגע כיבוי האורות. כללי Firestore עצמם נשמרים אצל הבעלים ואינם חלק מהריפו.
 
 ברשומת `arena/{entryId}` עצמה כל שדה מוגדר (`keys().hasOnly`), עם טיפוס ואורך מקסימלי, ותאריך
-הרישום הראשון (`createdAt`) לא זז בעדכון ולא יכול להיות בעתיד. גם `names`, `shop`, `leagues` ו-`feedback`
+הרישום הראשון (`createdAt`) לא זז בעדכון, לא יכול להיות בעתיד וברישום חדש גם לא רחוק בעבר. גם `names`, `shop`, `leagues` ו-`feedback`
 בודקים שדות וגדלים. השרת בודק בנוסף, לפני שרכב עולה לכרטיס, שצורת הרשת תקינה (`validArch` ב-`card.ts`),
 ורכב שהמשקולות שלו לא נטענות נשאר בחוץ במקום להפיל את יום המרוץ. מושבים של קבוצה הולכים קודם
 לחשבון שבבעלותו שם הקבוצה (`names/{key}`), כך שרכב שרק לובש שם של מישהו אחר לא יכול לדחוק אותו.
@@ -482,16 +439,7 @@ match /arena/{entryId}/data/{docId} {
 - **איפה רואים את זה:** על המסלול בשידור ובצפייה חוזרת. הטבלאות והמגדל ממשיכים להשתמש בצבע
   שנגזר מהשם.
 
-הכלל, בתוך `match /databases/{database}/documents`:
-
-```
-match /shop/{uid} {
-  allow read: if true;
-  allow write: if request.auth != null && request.auth.uid == uid
-    && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt'])
-    && request.resource.data.purchases.size() <= 100;
-}
-```
+הכלל: כולם קוראים, וכותבים רק את מסמך הקנייה של עצמם, עם שדות מוגדרים ומספר קניות מוגבל.
 
 ## אימון
 
@@ -709,20 +657,7 @@ epsilon, אין loss ואין ספירת גרדיאנטים - מספר שאי א
 שמגלה שהשם שלו כבר של מישהו אחר מתבקש לבחור שם חדש; הרכבים והנקודות נשארים, והשם החדש
 מועתק לכל הרכבים שלו על הגריד.
 
-זה דורש כלל חדש ב-`firestore.rules` (שלא נמצא בריפו), בתוך `match /databases/{database}/documents`:
-
-```
-match /names/{key} {
-  allow read: if true;
-  allow create: if request.auth != null
-    && request.resource.data.uid == request.auth.uid;
-  allow update: if request.auth != null
-    && resource.data.uid == request.auth.uid
-    && request.resource.data.uid == request.auth.uid;
-  allow delete: if request.auth != null
-    && (resource.data.uid == request.auth.uid || request.auth.uid in admins());
-}
-```
+הכלל: כולם קוראים שם. משתמש מחובר יוצר שם רק על שמו, ורק בעל השם מעדכן או מוחק אותו.
 
 עד שהכלל מתפרסם, Firestore דוחה כל גישה ל-`names` והאפליקציה ממשיכה כרגיל, בלי ייחודיות.
 היא לא נועלת אף אחד מחוץ לשם שלו בגלל כלל חסר.
@@ -736,22 +671,10 @@ match /names/{key} {
 את זה.
 
 `summarize` ב-`core/metrics.ts` מחשב מזה שימור ליום 1, 7 ו-30 ואת אחוז המבקרים שהגיעו לרישום,
-ונבדק ב-`npm run sanity`. מי שמופיע ב-`admins()` רואה את המספרים במידע ← קרדיטים; לכל אחד אחר
+ונבדק ב-`npm run sanity`. רק מפעיל רואה את המספרים במידע ← קרדיטים; לכל אחד אחר
 הקריאה נדחית והסעיף לא מופיע.
 
-הכלל, בתוך `match /databases/{database}/documents`:
-
-```
-match /metrics/{day}/events/{id} {
-  allow read: if request.auth != null && request.auth.uid in admins();
-  allow create: if request.auth != null
-    && id == request.auth.uid + '_' + request.resource.data.event
-    && request.resource.data.uid == request.auth.uid
-    && request.resource.data.day == day
-    && request.resource.data.event in ['visit', 'train', 'save', 'enter', 'watch']
-    && request.resource.data.keys().hasOnly(['uid', 'event', 'day']);
-}
-```
+הכלל: רק מפעיל קורא את המדדים. כל משתמש כותב לכל היותר אירוע אחד מכל סוג ליום, עם שלושה שדות מוגדרים בלבד.
 
 עד שהכלל מתפרסם, Firestore דוחה את הכתיבות והאפליקציה ממשיכה כרגיל - האירוע פשוט לא נספר.
 
@@ -772,28 +695,11 @@ match /metrics/{day}/events/{id} {
 
 בתחתית כל עמוד יש "באג או רעיון?", שפותח טופס (`ui/screens/Feedback.tsx`). פנייה נשמרת ב-
 `feedback/{id}` עם הטקסט, הסוג ושם המסך שממנו נפתח הטופס. פרטי דפדפן ודרך ליצור קשר מצורפים
-רק אם השולח בחר בהם. השולח רואה את הפניות שלו עם הסטטוס ותשובה, אם נכתבה; מי שב-`admins()`
+רק אם השולח בחר בהם. השולח רואה את הפניות שלו עם הסטטוס ותשובה, אם נכתבה; מפעיל
 רואה את כולן באותו עמוד, ויכול לכתוב תשובה ולסמן "טופלה". זו הדרך היחידה ליצור קשר: כתובת המייל
 של המפעיל לא מופיעה באתר, וגם בקשות פרטיות והסרה מגיעות דרך הטופס. בלי ענן הפנייה נשמרת רק בדפדפן.
 
-הכלל, בתוך `match /databases/{database}/documents`:
-
-```
-match /feedback/{id} {
-  allow create: if request.auth != null
-    && request.resource.data.uid == request.auth.uid
-    && request.resource.data.kind in ['bug', 'idea', 'other']
-    && request.resource.data.status == 'new'
-    && request.resource.data.text is string
-    && request.resource.data.text.size() >= 10
-    && request.resource.data.text.size() <= 2000
-    && request.resource.data.keys().hasOnly(['uid', 'kind', 'text', 'screen', 'device', 'contact', 'createdAt', 'status']);
-  allow read: if request.auth != null
-    && (resource.data.uid == request.auth.uid || request.auth.uid in admins());
-  allow update: if request.auth != null && request.auth.uid in admins()
-    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reply']);
-}
-```
+הכלל: משתמש מחובר שולח פנייה עם סוג מוגדר וטקסט באורך מוגבל. השולח קורא את הפניות שלו, ורק מפעיל משנה סטטוס ותשובה.
 
 ### מה קורה כשההתחברות עצמה שבורה
 
@@ -823,7 +729,7 @@ match /feedback/{id} {
 | **גופנים** | מוגשים מהשרת שלנו, לא מ-Google Fonts. גופן מרשת חיצונית מוסר את כתובת ה-IP של כל מבקר לצד שלישי לפני שהדף עשה משהו - ובגרמניה כבר נפסק קנס על בדיוק זה. הקבצים תחת רישיון OFL ומצורפים ל-`public/fonts` יחד עם הרישיונות |
 | **שמות מסחריים** | אין באפליקציה אזכור של סדרת מרוצים אמיתית. מבנה התחרות ושיטת הניקוד הם כללי משחק - לא יצירה מוגנת - ומתוארים ככאלה. מסך הקרדיטים כולל הצהרת אי־שיוך מפורשת |
 | **שמות משתמשים** | נבדקים ב-`core/champ/names.ts` לפני שהם מגיעים ללוח הפומבי: אורך, קישורים, כתובות דוא״ל ותווי bidi בלתי נראים. הגבול נאכף גם ב-`firestore.rules`, כי לקוח יכול לדלג על הבדיקה שבדפדפן |
-| **מודרציה** | `firestore.rules` מכיל רשימת `admins()`. מי שממלא בה את המזהה שלו יכול להסיר רישום של כל אחד. המזהה מוצג באפליקציה תחת מידע ← קרדיטים |
+| **מודרציה** | למפעיל יש כלי להסרת רישום פוגעני. הפרטים נשמרים אצל הבעלים ואינם חלק מהריפו |
 | **מחיקת נתונים** | כפתור במידע ← קרדיטים מוחק את כל המודלים ואת כל הרישומים, מקומית ובענן |
 
 ### מה שלא נמחק, ולמה
@@ -835,44 +741,7 @@ match /feedback/{id} {
 
 ### מודרציה
 
-`firestore.rules` מכיל רשימת `admins()` של מזהי מפעילים. מי שמופיע בה יכול להסיר רישום של
-כל אחד - הדרך היחידה להוריד שם פוגעני של משתמש אחר. מזהים אנונימיים הם פר פרופיל דפדפן,
-ולכן ניקוי נתוני האתר מייצר מזהה חדש ומאבד את ההרשאה; הוספת מזהה שני היא שורה אחת.
-המזהה של המשתמש מוצג באפליקציה תחת מידע ← קרדיטים.
-
-### התחלה מחדש (השקה, 25.10.2026)
-
-עד ההשקה האתר רץ כעונת ניסיון. ביום ההשקה מוחקים הכל, חוץ מחשבונות שנכנסו עם Google או
-דוא״ל, והמרוץ של אותו ערב הוא סבב 1 של עונה 1. שלושה חלקים:
-
-- **לוח הזמנים** מתחיל מ-25.10 (`core/champ/schedule.ts`, והעותק ב-`functions/race.js`). עד
-  20:00 של אותו יום אין סבב (`currentRound` הוא 0), ולכן אף לקוח לא מריץ ולא כותב שום מרוץ.
-- **כל דפדפן שוכח את מה ששמר**, פעם אחת, בטעינה הראשונה של הגרסה החדשה (`startFreshIfNewEpoch`
-  ב-`ui/forgetLocal.ts`): שם הקבוצה, ההדרכה, המטמון של האליפות, והגיבוי המקומי של המודלים -
-  שאחרת היה מעלה את המודלים הישנים בחזרה לענן הריק. נשארים רק ערכת הנושא, השפה, וההתחברות.
-- **מחיקת מסד הנתונים** היא `node scripts/freshStart.cjs`: בלי `--yes` הוא רק מראה מה יימחק. הוא
-  מוחק כל אוסף ב-Firestore חוץ מ-`pushTokens` (שארית מההתראות שהוסרו; מוחקים אותו ידנית, ראו `OWNER_TODO.md`), ואת כל
-  החשבונות האנונימיים ב-Firebase Auth. חשבון עם Google או דוא״ל נשאר, בלי שום דבר בתוכו - בכניסה
-  הבאה יתבקש שם קבוצה מחדש.
-
-**מראש (אפשר כבר בשבת):** `cd functions && npm install`, ואז הרשאות ל-Admin SDK: או
-`gcloud auth application-default login`, או מפתח של חשבון שירות (Firebase console ← Project
-settings ← Service accounts ← Generate new private key) עם
-`export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json`. ואז `node scripts/freshStart.cjs` בלי
-`--yes`, כדי לראות שההרשאות עובדות ושהרשימה נכונה.
-
-**ביום ראשון בבוקר, בסדר הזה:**
-
-1. ממזגים את ה-PR ל-`main` ומחכים שה-Deploy ב-GitHub Actions יסתיים (כדקה וחצי). קודם הקוד:
-   לשונית פתוחה עם הגרסה הישנה הייתה מעלה בחזרה את המודלים ששמרה לענן הריק.
-2. `node scripts/freshStart.cjs --yes`.
-3. `firebase deploy --only functions`, כדי שהשרת יריץ ב-19:55 את `S1-R001` ולא את `S2-R042`. ה-Deploy
-   ב-GitHub פורס רק את האתר, ובלי הצעד הזה אין מרוץ בערב. הכל לפני 19:00, כשהשרת מתחיל לבדוק.
-4. פותחים את האתר: עונה 1, "גרנד פרי" של 20:00, טבלאות ריקות.
-
-לשונית שהייתה פתוחה עוד לפני הפריסה ממשיכה להריץ את הקוד הישן עד שמרעננים אותה, ויכולה להעלות
-מודל ישן לענן. אם משהו ישן מופיע, אפשר להריץ את הסקריפט שוב - אבל לפני שאנשים מתחילים להירשם,
-כי הוא מוחק גם את מה שנוצר מאז.
+למפעיל יש הרשאה להסיר רישום של משתמש אחר - הדרך היחידה להוריד שם פוגעני. הכלי והפרטים שלו נשמרים אצל הבעלים ואינם חלק מהריפו.
 
 ## Firestore ואירוח
 
@@ -901,7 +770,7 @@ preview משלו ב-Firebase Hosting, דרך `.github/workflows/preview.yml`. ה
 | | איפה | מה |
 |---|---|---|
 | `VITE_FIREBASE_API_KEY` · `VITE_FIREBASE_AUTH_DOMAIN` · `VITE_FIREBASE_PROJECT_ID` · `VITE_FIREBASE_APP_ID` | **Variables** (או Secrets - ה-workflow קורא את שניהם) | מפתחות ה-Web של הפרויקט. הם מזהים ציבוריים שנשלחים ממילא לכל דפדפן, ולכן Variables הם המקום הטבעי שלהם |
-| `FIREBASE_SERVICE_ACCOUNT` | **Secrets** | JSON של service account עם הרשאת Firebase Hosting Admin. זה הסוד האמיתי היחיד כאן |
+| `FIREBASE_SERVICE_ACCOUNT` | **Secrets** | פרטי הפריסה ל-Firebase Hosting. סוד, לא נכנס לריפו |
 
 ה-workflow **מסרב לפרסם בילד בלי ענן**, בשתי בדיקות: שהמשתנים קיימים לפני הבנייה, ושמזהה
 הפרויקט באמת הגיע לבאנדל אחריה. זה לא הידור יתר - בלי המפתחות האפליקציה נבנית בהצלחה
