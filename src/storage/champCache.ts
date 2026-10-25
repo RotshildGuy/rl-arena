@@ -27,8 +27,17 @@ export interface ChampCache {
 const DB_NAME = 'rl-arena-champ';
 const DB_VERSION = 1;
 const STORE = 'kv';
-/** Prefix keeps this clear of the local-arena records in the same store. */
-const P = 'cc:';
+/**
+ * Prefix keeps this clear of the local-arena records in the same store.
+ *
+ * The number is the calendar. Since the restart on 25.10.2026 a race id like
+ * S1-R001 names a different race than it did in the test season, and the
+ * epoch wipe in `forgetLocal.ts` was not enough on its own: a tab still
+ * running the old build, opened after the wipe, wrote "S1-R001 never happened"
+ * into the old keys, and the phone then never asked about the launch race.
+ * Keys the old build cannot write are keys it cannot spoil.
+ */
+const P = 'cc2:';
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

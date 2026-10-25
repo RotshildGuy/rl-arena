@@ -154,7 +154,11 @@ export async function syncChampionship(): Promise<ChampionshipState> {
     const raceId = raceIdForRound(round);
     try {
       let card = await cache.getCard(raceId);
-      if (!card && !(await cache.isBlank(raceId))) {
+      // A card from another calendar under the same id is not this round's card.
+      if (card && card.startsAt !== startsAtForRound(round)) card = null;
+      // "Never happened" is only ever written outside the window, so inside it
+      // the mark is a leftover and the server is asked regardless.
+      if (!card && (buildable.has(round) || !(await cache.isBlank(raceId)))) {
         card = await arena.getCard(raceId);
         if (card) await cache.putCard(card);
       }
