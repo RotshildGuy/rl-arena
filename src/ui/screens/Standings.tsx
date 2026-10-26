@@ -261,7 +261,7 @@ export function Standings() {
             </div>
           ) : (
             <ScrollX>
-              <table className="timing pin-1">
+              <table className="timing pin-1 matrix">
                 <thead>
                   <tr>
                     <th>{s.driver}</th>

@@ -1176,6 +1176,19 @@ input[type='number'] { direction: ltr; text-align: end; }
    table ends up scrolling to show numbers nobody can attribute. */
 .timing .driver { min-width: 128px; }
 
+/* The season results grid (one column per round) is the exception. Its value
+   is the rounds, and early in a season there are only one or two of them, so
+   the 620px floor handed all the spare width to the name and pushed the results
+   off a phone screen. Here the name gets a fixed, modest column (ellipsis past
+   that), the table is only as wide as its rounds need, and it scrolls once the
+   season outgrows the screen. */
+.scroll-x > table.timing.matrix { min-width: 0; }
+.timing.matrix th:first-child,
+.timing.matrix td:first-child { width: 132px; min-width: 132px; max-width: 132px; }
+.timing.matrix .driver { min-width: 0; max-width: 118px; }
+.timing.matrix .driver .who,
+.timing.matrix .driver .team { white-space: nowrap; }
+
 /*
  * Model list.
  *
