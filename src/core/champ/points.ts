@@ -154,19 +154,50 @@ function teamKeys(d: { uid: string; team: string }): string[] {
  * one name in round 2 and another in round 9, and the second name is what ties
  * it to the duplicate. Joining ids through every name each of them ever wore
  * gets both cases right at once.
+ *
+ * Two entries that lined up in one race are never joined, whatever they are
+ * called: they were two cars on the grid at once. A team may well have two
+ * models of one name, and merging them dropped one from the table.
  */
 function sameDriver(cards: RaceCard[]): Map<string, string> {
   const { parent, find, union } = unionFind();
 
-  const byKey = new Map<string, string>();
+  // The races each group has a car in, kept on the group's root.
+  const races = new Map<string, Set<string>>();
+  const racesOf = (id: string): Set<string> => races.get(find(id)) ?? new Set();
+  const join = (a: string, b: string): boolean => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra === rb) return true;
+    const ia = racesOf(ra);
+    const ib = racesOf(rb);
+    for (const r of ia) if (ib.has(r)) return false;
+    union(ra, rb);
+    races.set(find(rb), new Set([...ia, ...ib]));
+    return true;
+  };
+
   const ordered = [...cards].sort((a, b) => a.round - b.round);
   for (const card of ordered) {
     for (const e of card.entries) {
-      find(e.id);
+      const own = racesOf(e.id);
+      own.add(card.id);
+      races.set(find(e.id), own);
+    }
+  }
+
+  const byKey = new Map<string, string[]>();
+  for (const card of ordered) {
+    for (const e of card.entries) {
       for (const key of driverKeys(e)) {
         const seen = byKey.get(key);
-        if (seen) union(e.id, seen);
-        else byKey.set(key, e.id);
+        if (!seen) {
+          byKey.set(key, [e.id]);
+          continue;
+        }
+        // Join the first group the car may belong to; a key that names two
+        // cars which raced each other keeps both of them.
+        if (!seen.some((id) => join(e.id, id))) seen.push(e.id);
       }
     }
   }
