@@ -83,6 +83,7 @@ Default network: `24 -> 64 -> 64 -> 9`, about 34 KB as base64. The gradient step
 - Standard 25-18-15-12-10-8-6-4-2-1 scoring, +1 for the fastest lap. A car that covers less than half the winner's distance is not classified.
 - Two cars per team. Team names are unique per account, and the server enforces both when it builds the grid.
 - Results and race cards are write-once. Exact weight copies of another team's car are fingerprinted and flagged.
+- Coins earned from results buy paint only: colours, patterns, body shapes, wings, rims, helmets, drift smoke, a number for each car and a team emblem built from a fixed set of shapes, symbols and colours. A team's cars share one colour and are told apart by their numbers. Nothing bought changes how a car drives, and every browser re-derives each team's earnings before it paints a car.
 
 ## Security model
 
@@ -90,6 +91,7 @@ Default network: `24 -> 64 -> 64 -> 9`, about 34 KB as base64. The gradient step
 - `users/{uid}/...` is private to its owner. `arena/{id}` is readable by signed-in users, writable only by the car's owner, with every field typed and size-capped. Weights under `arena/{id}/data` are owner-only.
 - Race cards, frozen weights, results and replays are written only by the server (Admin SDK). Results and replays become readable at lights-out.
 - User-chosen names are checked for links, email addresses and invisible bidi characters on the client and length-capped again in the rules.
+- `shop/{uid}` (purchases and what the car wears) is public to read and writable only by its owner. Since season 2 its `equipped` map may hold up to 16 fields (it was 10), to fit the body shape, wings, rims, per-car numbers and the emblem.
 - Fonts are self-hosted, and the hosting config sets `nosniff`, a strict referrer policy and a restrictive permissions policy.
 
 ## Running locally

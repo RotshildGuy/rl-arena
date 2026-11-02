@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { getGame } from '../../core/games/registry';
 import {
   chooseTimeLimit,
@@ -14,6 +14,10 @@ import {
 } from '../store';
 import { GameOptions } from '../components/GameOptions';
 import { RewardEditor } from '../components/RewardEditor';
+import { SlidersSheet } from '../components/SlidersSheet';
+import { Canvas } from '../components/Canvas';
+import { renderGame } from '../gameRenderers';
+import { CAR_COLORS } from '../../core/games/racing/render';
 import { ALGORITHMS, type AlgorithmId } from '../../core/rl/algorithms';
 import { estimateTraining, formatEstimate, type TimeEstimate } from '../estimate';
 import { isMobileClass } from '../device';
@@ -59,6 +63,27 @@ export function TrainSetup() {
   const continuing = slots.some((s) => s.modelId !== null && !s.restart);
   const slotIndex = Math.min(tab, slots.length - 1);
   const slot = slots[slotIndex];
+
+  /**
+   * The grid as it will line up, before a single step: the track that was
+   * picked, with every car on its slot in the colour of the model that will
+   * drive it (seats are dealt round-robin, as the trainer deals them).
+   */
+  const preview = useMemo(() => {
+    try {
+      const env = game.createEnv(draft.config, slot.rewards);
+      env.reset(1);
+      return env.snapshot();
+    } catch {
+      return null;
+    }
+    // Only the track and the grid change the picture, not the sliders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, draft.config]);
+  const previewColors = useMemo(
+    () => Array.from({ length: 32 }, (_, i) => CAR_COLORS[(i % slots.length) % CAR_COLORS.length]),
+    [slots.length],
+  );
 
   /**
    * A new model joins at the end of the list, and the screen follows it there:
@@ -226,40 +251,48 @@ export function TrainSetup() {
         </div>
 
         <div className="grid">
-          <div className="card notched">
-            {multi && (
-              <div className="segmented" style={{ width: '100%', marginBottom: 10 }}>
-                {slots.map((s, i) => (
-                  <button
-                    key={i}
-                    style={{ flex: 1 }}
-                    className={i === slotIndex ? 'on' : ''}
-                    onClick={() => setTab(i)}
-                  >
-                    {s.name.trim() || suggestFor(i)}
-                  </button>
-                ))}
-              </div>
-            )}
-            {multi && (
-              <div className="small" style={{ marginBottom: 8 }}>
-                {s.slidersOf} <b>{slot.name.trim() || suggestFor(slotIndex)}</b> {s.only}
-                {slotIndex > 0 && !slot.modelId && (
-                  <span className="muted">
-                    {' '}
-                    {s.bolder}
-                  </span>
-                )}
-              </div>
-            )}
-            {/* Keyed by slot: each model gets its own editor, so nothing the
-                last one had open or folded carries over to the next. */}
-            <RewardEditor
-              key={slotIndex}
-              spec={game.spec}
-              value={slot.rewards}
-              onChange={(rewards) => patchSlot(slotIndex, { rewards })}
+          <div style={{ position: 'relative' }}>
+            <Canvas
+              aspect={16 / 10}
+              draw={(ctx) => {
+                if (preview) renderGame(gameId, ctx, preview, { colors: previewColors });
+              }}
             />
+            <SlidersSheet>
+              {multi && (
+                <div className="segmented" style={{ width: '100%', marginBottom: 10 }}>
+                  {slots.map((s, i) => (
+                    <button
+                      key={i}
+                      style={{ flex: 1 }}
+                      className={i === slotIndex ? 'on' : ''}
+                      onClick={() => setTab(i)}
+                    >
+                      {s.name.trim() || suggestFor(i)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {multi && (
+                <div className="small" style={{ marginBottom: 8 }}>
+                  {s.slidersOf} <b>{slot.name.trim() || suggestFor(slotIndex)}</b> {s.only}
+                  {slotIndex > 0 && !slot.modelId && (
+                    <span className="muted">
+                      {' '}
+                      {s.bolder}
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Keyed by slot: each model gets its own editor, so nothing the
+                  last one had open or folded carries over to the next. */}
+              <RewardEditor
+                key={slotIndex}
+                spec={game.spec}
+                value={slot.rewards}
+                onChange={(rewards) => patchSlot(slotIndex, { rewards })}
+              />
+            </SlidersSheet>
           </div>
         </div>
       </div>

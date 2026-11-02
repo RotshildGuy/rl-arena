@@ -21,9 +21,16 @@ async function fs() {
 
 const cache = new Map<string, Promise<ShopDoc | null>>();
 
+/** The sample teams' shop documents, written by the dev server's `?demo` (`src/dev/demo.ts`). */
+export const DEMO_SHOP_KEY = 'rl-arena-demo-shop';
+
 export function getShop(uid: string): Promise<ShopDoc | null> {
   if (!online()) {
     try {
+      if (import.meta.env.DEV && uid !== 'local') {
+        const demo = JSON.parse(localStorage.getItem(DEMO_SHOP_KEY) ?? '{}') as Record<string, ShopDoc>;
+        return Promise.resolve(demo[uid] ?? null);
+      }
       const raw = localStorage.getItem(LOCAL_KEY);
       return Promise.resolve(uid === 'local' && raw ? (JSON.parse(raw) as ShopDoc) : null);
     } catch {

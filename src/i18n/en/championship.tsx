@@ -49,6 +49,8 @@ export const championship: typeof He.championship = {
   nextRace: '· next race',
   track: (name) => `${name} circuit`,
   seasonTracks: 'This season:',
+  newTrack: 'new',
+  nextSeasonTracks: 'Next season:',
   lightsOut: 'Lights out in',
   entered: 'Entered',
   house: (n) => ` +${n} house`,

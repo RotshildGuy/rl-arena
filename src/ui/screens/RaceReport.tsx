@@ -7,9 +7,8 @@ import { DriverCell } from '../components/Livery';
 import { findCopies } from '../../core/champ/copies';
 import { Podium } from '../components/Podium';
 import { useTeamPaint } from '../teamLooks';
-import { teamLook } from '../../core/champ/livery';
+import { fieldPaint } from '../../core/champ/paint';
 import { PositionChart, type PositionLine } from '../components/PositionChart';
-import { shadeFor, teamColor } from '../../core/champ/livery';
 import { lapsFor } from '../../core/champ/format';
 import { dayStatus, sessionWindows } from '../../core/champ/timing';
 import { diagnoseDay } from '../../core/champ/diagnose';
@@ -163,16 +162,8 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
   const session = result.sessions.find((s) => s.sessionId === sessionId) ?? result.sessions[0];
   const plan = windows.find((w) => w.session.id === session?.sessionId)?.session;
 
-  const colorOf = useMemo(() => {
-    const seen = new Map<string, number>();
-    const map = new Map<string, string>();
-    for (const e of card.entries) {
-      const n = seen.get(e.uid) ?? 0;
-      seen.set(e.uid, n + 1);
-      map.set(e.id, shadeFor(teamColor(e.team), n));
-    }
-    return map;
-  }, [card]);
+  const cars = useMemo(() => fieldPaint(card.entries, paint), [card, paint]);
+  const colorOf = useMemo(() => new Map([...cars].map(([id, c]) => [id, c.color])), [cars]);
 
   if (!session) return null;
 
@@ -181,13 +172,13 @@ function Report({ card, result }: { card: RaceCard; result: RaceResult }) {
   // one is picked - so a session still to come is never given away.
   const podium = session.classification.slice(0, 3).map((f) => {
     const e = entries.get(f.entryId);
-    const bought = e ? paint.get(e.uid) : undefined;
+    const car = cars.get(f.entryId);
     return {
       position: f.position,
       driver: driverOf(e) ?? '-',
       team: teamOf(e) ?? '-',
-      color: bought?.color ?? colorOf.get(f.entryId) ?? '#888',
-      look: { ...teamLook(e?.team ?? '', e?.driver ?? ''), ...bought?.look },
+      color: car?.color ?? '#888',
+      look: car?.look ?? {},
       detail: f.status === 'dnf' ? r.retired : f.position === 1 ? raceTime(f.totalMs) : gapText(timeGapMs(f, session.classification[0])),
     };
   });

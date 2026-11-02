@@ -1,6 +1,7 @@
 import { getTrack, type Track } from './tracks';
 import { CAR_RADIUS, type RacingSnapshot } from './env';
 import { SENSOR_COUNT, SENSOR_SPREAD } from './rewards';
+import { EMBLEM_SHAPES, EMBLEM_SYMBOLS, type Emblem } from '../../champ/emblem';
 
 export const CAR_COLORS = ['#38bdf8', '#f472b6', '#4ade80', '#fbbf24', '#a78bfa', '#fb7185', '#2dd4bf', '#f97316'];
 
@@ -79,11 +80,77 @@ function palette(opts: RenderOpts) {
 /** A car's paint. Drawing only: the car's size for the physics never changes. */
 export interface CarLook {
   secondary?: string;
-  pattern?: 'solid' | 'stripe' | 'twotone';
+  pattern?: 'solid' | 'stripe' | 'twotone' | 'chevron' | 'centerline' | 'fade';
   number?: number;
   helmet?: string;
   /** Drift smoke colour. */
   smoke?: string;
+  /** The body outline; every shape is the same `CAR_RADIUS` to the physics. */
+  shape?: CarShape;
+  /** Wings in their own colour, instead of the second colour. */
+  wing?: string;
+  /** Wheel rims and the band round each tyre wall. */
+  rim?: string;
+  /** The team emblem, on the nose once the car is big enough to show it. */
+  emblem?: Emblem;
+}
+
+export type CarShape = 'classic' | 'wedge' | 'arrow' | 'bulldog';
+
+/**
+ * Each body as points on one side of the car, nose first, in fractions of the
+ * car's length and width; the other side is the mirror image.
+ */
+const BODY_SHAPES: Record<CarShape, Array<[number, number]>> = {
+  // Narrow nose, wide sidepods, tapering to the gearbox.
+  classic: [[0.44, 0.09], [0.12, 0.16], [0.02, 0.36], [-0.28, 0.36], [-0.42, 0.18]],
+  // A long sharp nose, the sidepods swept back.
+  wedge: [[0.48, 0.05], [0.1, 0.2], [-0.05, 0.38], [-0.36, 0.32], [-0.44, 0.14]],
+  // Slim, the sidepods pushed forward behind a short nose.
+  arrow: [[0.46, 0.07], [0.22, 0.12], [0.14, 0.34], [-0.1, 0.34], [-0.4, 0.14]],
+  // Blunt and boxy, wide from nose to tail.
+  bulldog: [[0.44, 0.14], [0.2, 0.2], [0.1, 0.4], [-0.32, 0.4], [-0.44, 0.24]],
+};
+
+function bodyPath(shape: CarShape | undefined, len: number, wid: number): Path2D {
+  const side = BODY_SHAPES[shape ?? 'classic'] ?? BODY_SHAPES.classic;
+  const body = new Path2D();
+  side.forEach(([x, y], i) => (i ? body.lineTo(x * len, -y * wid) : body.moveTo(x * len, -y * wid)));
+  for (let i = side.length - 1; i >= 0; i--) body.lineTo(side[i][0] * len, side[i][1] * wid);
+  body.closePath();
+  return body;
+}
+
+/** Emblem paths, parsed once each: the same few strings are drawn every frame. */
+const emblemPaths = new Map<string, Path2D>();
+function emblemPath(d: string): Path2D {
+  let p = emblemPaths.get(d);
+  if (!p) {
+    p = new Path2D(d);
+    emblemPaths.set(d, p);
+  }
+  return p;
+}
+
+/**
+ * An emblem centred on the origin, `size` across, upright in the current frame.
+ * Shared by the car and anything else that paints an emblem on a canvas.
+ */
+export function drawEmblem(ctx: CanvasRenderingContext2D, emblem: Emblem, size: number): void {
+  const shape = EMBLEM_SHAPES[emblem.shape];
+  const symbol = EMBLEM_SYMBOLS[emblem.symbol];
+  if (!shape || !symbol) return;
+  ctx.save();
+  ctx.scale(size / 24, size / 24);
+  ctx.translate(-12, -12);
+  ctx.fillStyle = emblem.bg;
+  ctx.fill(emblemPath(shape));
+  ctx.strokeStyle = 'rgba(5, 6, 10, 0.55)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke(emblemPath(shape));
+  ctx.fillStyle = emblem.fg;
+  ctx.fill(emblemPath(symbol), 'evenodd');
+  ctx.restore();
 }
 
 function colorOf(opts: RenderOpts, i: number): string {
@@ -507,6 +574,7 @@ function drawCar(
   shadow = 0.38,
 ): void {
   const secondary = look?.secondary ?? darker(primary);
+  const wingColor = look?.wing ?? secondary;
 
   // Shadow, offset as if lit from above and a little to one side.
   ctx.fillStyle = `rgba(0, 0, 0, ${shadow})`;
@@ -515,39 +583,41 @@ function drawCar(
   ctx.fill();
 
   // Tyres, with a light rim so they stand out against dark asphalt.
-  ctx.fillStyle = '#0d0f14';
-  ctx.strokeStyle = 'rgba(200, 208, 222, 0.75)';
+  ctx.strokeStyle = look?.rim ?? 'rgba(200, 208, 222, 0.75)';
   ctx.lineWidth = Math.max(wid * 0.035, 1.2 / pxPerUnit);
   const tw = len * 0.2;
   const th = wid * 0.26;
   for (const x of [len * 0.28, -len * 0.3]) {
     for (const y of [-wid * 0.5, wid * 0.5 - th]) {
+      ctx.fillStyle = '#0d0f14';
       ctx.beginPath();
       ctx.roundRect(x - tw / 2, y, tw, th, th * 0.35);
       ctx.fill();
       ctx.stroke();
+      if (look?.rim) {
+        // The rim itself, showing between the tyre walls.
+        ctx.fillStyle = look.rim;
+        ctx.fillRect(x - tw * 0.22, y + th * 0.3, tw * 0.44, th * 0.4);
+      }
     }
   }
 
   // Wings.
-  ctx.fillStyle = secondary;
+  ctx.fillStyle = wingColor;
   ctx.fillRect(len * 0.4, -wid * 0.47, len * 0.1, wid * 0.94);
   ctx.fillRect(-len * 0.5, -wid * 0.4, len * 0.11, wid * 0.8);
 
-  // Chassis: narrow nose, wide sidepods, tapering to the gearbox.
-  const body = new Path2D();
-  body.moveTo(len * 0.44, -wid * 0.09);
-  body.lineTo(len * 0.12, -wid * 0.16);
-  body.lineTo(len * 0.02, -wid * 0.36);
-  body.lineTo(-len * 0.28, -wid * 0.36);
-  body.lineTo(-len * 0.42, -wid * 0.18);
-  body.lineTo(-len * 0.42, wid * 0.18);
-  body.lineTo(-len * 0.28, wid * 0.36);
-  body.lineTo(len * 0.02, wid * 0.36);
-  body.lineTo(len * 0.12, wid * 0.16);
-  body.lineTo(len * 0.44, wid * 0.09);
-  body.closePath();
-  ctx.fillStyle = primary;
+  // Chassis.
+  const body = bodyPath(look?.shape, len, wid);
+  if (look?.pattern === 'fade') {
+    // Body colour at the nose, the second colour by the gearbox.
+    const g = ctx.createLinearGradient(len * 0.3, 0, -len * 0.45, 0);
+    g.addColorStop(0, primary);
+    g.addColorStop(1, secondary);
+    ctx.fillStyle = g;
+  } else {
+    ctx.fillStyle = primary;
+  }
   ctx.fill(body);
 
   ctx.save();
@@ -558,6 +628,25 @@ function drawCar(
   } else if (look?.pattern === 'twotone') {
     ctx.fillStyle = secondary;
     ctx.fillRect(-len * 0.5, -wid * 0.5, len * 0.42, wid);
+  } else if (look?.pattern === 'chevron') {
+    // Two arrowheads pointing the way the car goes.
+    ctx.fillStyle = secondary;
+    for (const at of [0.3, -0.02]) {
+      ctx.beginPath();
+      ctx.moveTo(len * at, 0);
+      ctx.lineTo(len * (at - 0.24), -wid * 0.5);
+      ctx.lineTo(len * (at - 0.36), -wid * 0.5);
+      ctx.lineTo(len * (at - 0.12), 0);
+      ctx.lineTo(len * (at - 0.36), wid * 0.5);
+      ctx.lineTo(len * (at - 0.24), wid * 0.5);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (look?.pattern === 'centerline') {
+    // A pair of pinstripes either side of the centre, nose to tail.
+    ctx.fillStyle = secondary;
+    ctx.fillRect(-len * 0.5, -wid * 0.13, len, wid * 0.045);
+    ctx.fillRect(-len * 0.5, wid * 0.085, len, wid * 0.045);
   }
   // A highlight along one flank, so the body reads as a shape and not a sticker.
   ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
@@ -573,6 +662,15 @@ function drawCar(
   ctx.beginPath();
   ctx.arc(-len * 0.08, 0, wid * 0.11, 0, Math.PI * 2);
   ctx.fill();
+
+  // The emblem, on the nose, once the car is big enough to make it out.
+  if (look?.emblem && wid * pxPerUnit >= 22) {
+    ctx.save();
+    ctx.translate(len * 0.25, 0);
+    ctx.rotate(Math.PI / 2);
+    drawEmblem(ctx, look.emblem, wid * 0.3);
+    ctx.restore();
+  }
 
   // The number, on the engine cover, once the car is big enough to read it.
   if (look?.number !== undefined && wid * pxPerUnit >= 16) {

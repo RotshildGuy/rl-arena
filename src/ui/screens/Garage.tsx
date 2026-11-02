@@ -3,7 +3,7 @@ import { PageSkeleton } from '../components/PageSkeleton';
 import { getGame } from '../../core/games/registry';
 import { useApp } from '../store';
 import { LineChart } from '../components/LineChart';
-import { DriverCell } from '../components/Livery';
+import { DriverCell, LiveryBar } from '../components/Livery';
 import { getStore, newModelId, type ModelMeta } from '../../storage';
 import { ALGORITHMS } from '../../core/rl/algorithms';
 import { useChampionship } from '../useChampionship';
@@ -15,7 +15,6 @@ import {
   EntryError,
   MAX_ENTRIES_PER_TEAM,
 } from '../enterChampionship';
-import { teamColor } from '../../core/champ/livery';
 import { REWARD_LEVELS, channelDefault, levelOf } from '../../core/games/types';
 import type { ArenaEntry } from '../../core/champ/types';
 import {
@@ -319,7 +318,7 @@ export function Garage() {
             {team ? (
               <>
                 <span className="pill">
-                  <span className="livery" style={{ background: teamColor(team), width: 4, height: 12 }} />
+                  <LiveryBar team={team} uid={champ.state?.uid} small />
                   {g.team(team)}
                 </span>
                 <span className={gridFull ? 'pill warn' : 'muted'}>

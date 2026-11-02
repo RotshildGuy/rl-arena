@@ -2,9 +2,9 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { useApp, type Screen } from './store';
 import { getCloudStatus, subscribeCloudStatus } from '../storage';
 import { getAuthView, subscribeAuth } from './auth';
+import { LiveryBar } from './components/Livery';
 import { getCompetitor, pullCompetitor } from './identity';
 import { claimName, NameTakenError } from '../storage/teamNames';
-import { teamColor } from '../core/champ/livery';
 import { Championship } from './screens/Championship';
 import { Standings } from './screens/Standings';
 import { Broadcast } from './screens/Broadcast';
@@ -227,7 +227,7 @@ function Arena() {
         <AccountButton />
         {competitor && (
           <span className="pill" title={t.app.competitorTitle}>
-            <span className="livery" style={{ background: teamColor(competitor), width: 4, height: 12 }} />
+            <LiveryBar team={competitor} uid={getAuthView().uid ?? undefined} small />
             {/* Its own direction: a Latin name inside the RTL bar was cut off
                 from its start, losing exactly the part that identifies it. */}
             <Name className="pill-name">{competitor}</Name>

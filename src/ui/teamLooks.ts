@@ -1,14 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { earnedCoins } from '../core/champ/coins';
-import { validLook } from '../core/champ/shop';
+import { validLook, type Paint } from '../core/champ/shop';
 import { settledResults } from '../core/champ/timing';
-import type { CarLook } from '../core/games/racing/render';
+import type { RaceCard, RaceResult } from '../core/champ/types';
 import { getShop } from '../storage/shop';
 import { useChampionship } from './useChampionship';
 
-export interface TeamPaint {
-  color?: string;
-  look: CarLook;
+export type TeamPaint = Paint;
+
+/**
+ * Coins earned, worked out once per team per championship state: every table
+ * row with an emblem asks, and the sum over every race is not free.
+ */
+const earnedCache = new WeakMap<object, Map<string, number>>();
+function earnedFor(uid: string, cards: RaceCard[], results: Map<string, RaceResult>): number {
+  let byUid = earnedCache.get(results);
+  if (!byUid) {
+    byUid = new Map();
+    earnedCache.set(results, byUid);
+  }
+  let total = byUid.get(uid);
+  if (total === undefined) {
+    const now = Date.now();
+    total = earnedCoins(uid, cards, settledResults(cards, results, now), now).total;
+    byUid.set(uid, total);
+  }
+  return total;
 }
 
 /**
@@ -35,13 +52,16 @@ export function useTeamPaint(uids: string[]): Map<string, TeamPaint> {
   return useMemo(() => {
     const out = new Map<string, TeamPaint>();
     if (!state) return out;
-    const now = Date.now();
-    const settled = settledResults(state.cards, state.results, now);
     for (const [uid, doc] of docs) {
       if (!doc) continue;
-      const paint = validLook(doc, earnedCoins(uid, state.cards, settled, now).total);
+      const paint = validLook(doc, earnedFor(uid, state.cards, state.results));
       if (paint) out.set(uid, paint);
     }
     return out;
   }, [docs, state]);
+}
+
+/** One team's checked paint, for a table row: its colour and emblem. */
+export function useOneTeamPaint(uid: string | undefined): TeamPaint | undefined {
+  return useTeamPaint(uid ? [uid] : []).get(uid ?? '');
 }

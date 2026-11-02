@@ -3,8 +3,8 @@ import { mulberry32, randInt } from '../rng';
 /**
  * Which circuits a season races on.
  *
- * Until season 3 the calendar went round the original four in order, round
- * after round, regardless of seasons. From season 3 every season draws its own
+ * Season 1 went round the original four in order, round after round. From
+ * season 2 (`TRACK_POOL_FROM_SEASON`) every season draws its own
  * rotation from a pool: `ROTATION_SIZE` circuits, raced in the drawn order and
  * round again until the season is over. New circuits join the pool and take
  * turns with the old ones instead of making the rotation longer.

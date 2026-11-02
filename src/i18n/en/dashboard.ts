@@ -30,6 +30,8 @@ export const dashboard: typeof He.dashboard = {
   pause: '⏸ Pause',
   resume: '▶ Resume',
   checkpoint: 'Save now',
+  showGraph: 'Graph',
+  hideGraph: 'Hide graph',
   coach: "The car is training in front of you - you can watch, move sliders and give it time. When you're happy with the driver, tap finish and save.",
   saving: 'Saving…',
   finish: 'Finish and save',

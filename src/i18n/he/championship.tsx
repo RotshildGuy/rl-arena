@@ -48,6 +48,8 @@ export const championship = {
   nextRace: '· המרוץ הבא',
   track: (name: string) => `מסלול ${name}`,
   seasonTracks: 'מסלולי העונה:',
+  newTrack: 'חדש',
+  nextSeasonTracks: 'בעונה הבאה:',
   lightsOut: 'כיבוי האורות בעוד',
   entered: 'רשומים',
   house: (n: number) => ` +${n} בית`,

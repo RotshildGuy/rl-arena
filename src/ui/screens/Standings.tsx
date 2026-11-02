@@ -4,10 +4,9 @@ import { ScrollX } from '../components/ScrollX';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
 import { buildStandings, POINTS, FASTEST_LAP_BONUS } from '../../core/champ/points';
-import { teamColor } from '../../core/champ/livery';
 import { dayState, settledResults } from '../../core/champ/timing';
 import { trackForRound } from '../../core/champ/schedule';
-import { DriverCell } from '../components/Livery';
+import { DriverCell, LiveryBar } from '../components/Livery';
 import { dateText, lapTime, posClass, raceTime } from '../format';
 import { trackRecords, nextRoundOnTrack, type RecordHolder } from '../../core/champ/records';
 import { RACE_LAPS } from '../../core/champ/format';
@@ -74,7 +73,7 @@ export function Standings() {
   const fame = useMemo(
     () => (state ? hallOfFame(state.cards, settledResults(state.cards, state.results, now), now) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, current],
+    [state, current, Math.floor(now / 60_000)],
   );
 
   const mine = new Set(state ? state.entries.filter((e) => e.uid === state.uid).map((e) => e.id) : []);
@@ -190,7 +189,7 @@ export function Standings() {
                       <span className={posClass(d.position)}>{d.position}</span>
                     </td>
                     <td>
-                      <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} />
+                      <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} uid={d.uid} />
                     </td>
                     <td className="mono num" style={{ fontWeight: 800, fontSize: 15 }}>
                       {d.points}
@@ -231,7 +230,7 @@ export function Standings() {
                     </td>
                     <td>
                       <div className="driver">
-                        <span className="livery" style={{ background: teamColor(t.team) }} />
+                        <LiveryBar team={t.team} uid={t.uid} />
                         <div className="names">
                           <span className="who">
                             <Name>{teamName(t.team)}</Name>
@@ -285,7 +284,7 @@ export function Standings() {
                   {standings.drivers.map((d) => (
                     <tr key={d.entryId} className={d.entryIds.some((id) => mine.has(id)) ? 'me' : ''}>
                       <td>
-                        <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} />
+                        <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} uid={d.uid} />
                       </td>
                       {raced.map((c) => {
                         const cell = d.byRace[c.id];
@@ -478,7 +477,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
               </div>
               {h.driver ? (
                 <>
-                  <DriverCell driver={driverName({ id: h.driver.entryId, driver: h.driver.driver })} team={teamName(h.driver.team)} tag={h.driver.tag} />
+                  <DriverCell driver={driverName({ id: h.driver.entryId, driver: h.driver.driver })} team={teamName(h.driver.team)} tag={h.driver.tag} uid={h.driver.uid} />
                   <div className="small muted" style={{ marginTop: 4 }}>
                     <span className="mono">{h.driver.points}</span>
                     {s.pointsWins(h.driver.wins)}
@@ -496,7 +495,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
               {h.team ? (
                 <>
                   <div className="driver">
-                    <span className="livery" style={{ background: teamColor(h.team.team) }} />
+                    <LiveryBar team={h.team.team} uid={h.team.uid} />
                     <div className="names">
                       <span className="who">
                         <Name>{teamName(h.team.team)}</Name>

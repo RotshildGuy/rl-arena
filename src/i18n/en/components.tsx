@@ -60,3 +60,9 @@ export const teamNameForm: typeof He.teamNameForm = {
   save: 'Save',
   cancel: 'Cancel',
 };
+
+export const slidersSheet: typeof He.slidersSheet = {
+  title: 'Driving style',
+  show: 'Sliders',
+  hide: 'Hide sliders',
+};

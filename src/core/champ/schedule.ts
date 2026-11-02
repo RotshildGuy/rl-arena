@@ -183,7 +183,7 @@ export function physicsForRound(round: number): number {
 
 /**
  * Circuits rotate through the calendar, the way a real season does: the
- * original four in turn until season 3, then each season's own draw from the
+ * original four in turn through season 1, then each season's own draw from the
  * pool (see `rotation.ts`). Rounds already raced keep their track forever -
  * and their card records it besides, which is what a replay reads.
  */

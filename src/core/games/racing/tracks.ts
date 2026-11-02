@@ -68,9 +68,9 @@ function shifted(shape: (t: number) => [number, number], dx: number, dy: number)
  * nor its shape changed: a race card names its track by id, and a replay of a
  * race from any season has to find exactly the circuit it was run on. Which of
  * them a season races on is the calendar's business (`trackForRound`), drawn
- * from `TRACK_POOLS` in `core/champ/schedule.ts`.
+ * from `TRACK_POOLS` in `core/champ/rotation.ts`.
  *
- * The first four are the original rotation. The rest were added for season 3,
+ * The first four are the original rotation. The rest were added for season 2,
  * each checked by `scripts/driverCheck.ts` (flat out must lose to braking, and
  * the braking driver must stay off the walls) and kept wide enough that the
  * house cars see the flag in most races.

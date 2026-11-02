@@ -59,3 +59,9 @@ export const teamNameForm = {
   save: 'שמור',
   cancel: 'ביטול',
 };
+
+export const slidersSheet = {
+  title: 'אופי הנהיגה',
+  show: 'מחוונים',
+  hide: 'הסתר מחוונים',
+};

@@ -63,7 +63,9 @@ import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
 import { leagueView, newLeagueId } from '../src/core/champ/league';
 import { findCopies, weightsFingerprint } from '../src/core/champ/copies';
 import { earnedCoins, COINS_PER_START } from '../src/core/champ/coins';
-import { spent, validLook, ITEM_BY_ID } from '../src/core/champ/shop';
+import { spent, validLook, ITEM_BY_ID, SHOP_ITEMS, normalizeShop } from '../src/core/champ/shop';
+import { EMBLEM_COLORS, EMBLEM_SHAPES, EMBLEM_SYMBOLS, normalizeEmblem } from '../src/core/champ/emblem';
+import { fieldPaint, teamNumbers } from '../src/core/champ/paint';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -1069,20 +1071,38 @@ function splitDriverTest(): void {
     `${teamRenamed.drivers.length} drivers, ${teamRenamed.teams.map((t) => t.team).join('/')}`,
   );
 
-  // Both cars of a split driver on one grid: nothing invented, nothing dropped.
-  const together = asDriver(fakeCard(4, ['old', 'new']), 'Flesh Blood');
+  // Two cars of one name on one grid are two cars: a team may have two models
+  // called the same, and merging them dropped one from the table.
+  const together = asDriver(fakeCard(4, ['a', 'b']), 'Flesh Blood');
+  const later = asDriver(fakeCard(5, ['a', 'b']), 'Flesh Blood');
   const sameRace = buildStandings({
-    cards: [together],
+    cards: [together, later],
     results: new Map([
-      [together.id, fakeResult(together.id, [fakePlace('old', 2), fakePlace('new', 5)])],
+      [together.id, fakeResult(together.id, [fakePlace('a', 2), fakePlace('b', 5)])],
+      [later.id, fakeResult(later.id, [fakePlace('a', 1), fakePlace('b', 3)])],
     ]),
   });
   check(
-    'two cars of one driver in one race add up, and show the better finish',
-    sameRace.drivers.length === 1 &&
-      sameRace.drivers[0].byRace[together.id].points === POINTS[1] + POINTS[4] &&
-      sameRace.drivers[0].byRace[together.id].position === 2,
-    `${sameRace.drivers[0].byRace[together.id].points} pts`,
+    'two cars of one name in one race stay two drivers',
+    sameRace.drivers.length === 2 &&
+      sameRace.drivers.find((d) => d.entryId === 'a')?.points === POINTS[1] + POINTS[0] &&
+      sameRace.drivers.find((d) => d.entryId === 'b')?.points === POINTS[4] + POINTS[2],
+    `${sameRace.drivers.length} rows`,
+  );
+
+  // And a re-registered one of them still finds its way back to one row.
+  const reborn = asDriver(fakeCard(6, ['b', 'a2']), 'Flesh Blood');
+  const withReborn = buildStandings({
+    cards: [together, reborn],
+    results: new Map([
+      [together.id, fakeResult(together.id, [fakePlace('a', 2), fakePlace('b', 5)])],
+      [reborn.id, fakeResult(reborn.id, [fakePlace('a2', 1), fakePlace('b', 3)])],
+    ]),
+  });
+  check(
+    'a car registered again next to its same-named teammate joins the one it replaced',
+    withReborn.drivers.length === 2 && withReborn.drivers.some((d) => d.entryIds.join(',') === 'a,a2'),
+    withReborn.drivers.map((d) => d.entryIds.join('+')).join(' / '),
   );
 }
 
@@ -1625,6 +1645,17 @@ function houseTest(): void {
     }
     check(`${h.id} loads and sets a lap on the first house circuit`, ok, detail);
   }
+
+  // A new season's circuits may be ones no house car has raced on yet.
+  const strongest = HOUSE_DRIVERS[HOUSE_DRIVERS.length - 1];
+  const strongPolicy = Policy.fromBase64(strongest.arch.obsSize, strongest.arch.hidden, strongest.arch.nActions,
+    (JSON.parse(readFileSync(`public/house/${strongest.id}.json`, 'utf8')) as { weightsB64: string }).weightsB64);
+  for (const trackId of seasonRotation(2)) {
+    const sim = new SessionSim(trackId, QUALI_LAPS, [{ entryId: strongest.id, policy: strongPolicy }], 1, 2);
+    sim.runToEnd();
+    const lap = sim.env.telemetry(0).bestLapMs;
+    check(`the house sets a lap on season 2's ${trackId}`, lap !== null, lap === null ? 'no lap' : `${(lap / 1000).toFixed(2)}s`);
+  }
 }
 
 // ---------------------------------------------------------------- seasons
@@ -1667,6 +1698,8 @@ function seasonTest(): void {
   const pending = new Map(results);
   pending.delete(cards.find((c) => c.round === 16)!.id);
   check('nor does one whose final is not settled', !seasonComplete(2, cards, pending, startsAtForRound(16) + 1000));
+  check('a final with a card but no result ends the season a few hours on',
+    seasonComplete(2, cards, pending, startsAtForRound(16) + 4 * 3_600_000));
   const noFinal = cards.filter((c) => c.round !== 16);
   check('a final that never ran ends the season a few hours on',
     !seasonComplete(2, noFinal, results, startsAtForRound(16) + 1000) &&
@@ -1976,6 +2009,54 @@ function coinsTest(): void {
   check('buying twice costs once', spent(['color-navy', 'color-navy']) === color.price);
   check('no timing colour is for sale', [...ITEM_BY_ID.values()].filter((i) => i.kind === 'color')
     .every((i) => !['#c77dff', '#3de87a', '#ffd84d'].includes(i.value.toLowerCase())));
+  check('every item id is sold once', new Set(SHOP_ITEMS.map((i) => i.id)).size === SHOP_ITEMS.length);
+
+  // Season 2 paint: shapes, wings, rims, patterns.
+  const kit = {
+    purchases: ['shape-wedge', 'wing-sky', 'rim-gold', 'pattern-chevron'],
+    equipped: { shape: 'shape-wedge', wing: 'wing-sky', rim: 'rim-gold', pattern: 'pattern-chevron' },
+    updatedAt: 0,
+  };
+  const worn = validLook(kit, 1000);
+  check('a body shape, wings, rims and a new pattern are worn',
+    worn?.look.shape === 'wedge' && worn.look.wing === '#38bdf8' && worn.look.rim === '#e6b422' && worn.look.pattern === 'chevron');
+  check('a shape worn without being bought is ignored',
+    validLook({ ...kit, purchases: ['wing-sky', 'rim-gold', 'pattern-chevron'] }, 1000) === null);
+
+  // The emblem.
+  const emblem = { shape: 'hexagon', symbol: 'bolt', fg: EMBLEM_COLORS[0], bg: EMBLEM_COLORS[6] };
+  check('an emblem from the lists reads back', JSON.stringify(normalizeEmblem(emblem)) === JSON.stringify(emblem));
+  check('an emblem off the lists does not',
+    normalizeEmblem({ ...emblem, shape: 'pentagram' }) === null &&
+      normalizeEmblem({ ...emblem, symbol: '<script>' }) === null &&
+      normalizeEmblem({ ...emblem, fg: '#c77dff' }) === null &&
+      normalizeEmblem({ ...emblem, fg: emblem.bg }) === null &&
+      normalizeEmblem('shield') === null);
+  check('every emblem part has a path', Object.values(EMBLEM_SHAPES).concat(Object.values(EMBLEM_SYMBOLS))
+    .every((d) => /^M[\d. MLHVCAZ-]+$/.test(d) && !d.includes('NaN')));
+  check('an emblem is worn once the builder is bought',
+    validLook({ purchases: ['emblem'], equipped: { emblem }, updatedAt: 0 }, 1000)?.emblem?.symbol === 'bolt');
+  check('and not before', validLook({ purchases: [], equipped: { emblem }, updatedAt: 0 }, 1000) === null);
+
+  // A number for each car of a team, never two the same.
+  const car = (id: string, driver: string) => ({ id, uid: 'u1', team: 'Alpha', driver });
+  const pair = [car('e1', 'One'), car('e2', 'Two')];
+  const chosen = validLook({ purchases: ['number'], equipped: { numbers: { e1: 7, e2: 44 } }, updatedAt: 0 }, 1000)!;
+  const dealt = teamNumbers(pair, chosen);
+  check('each car wears the number picked for it', dealt.get('e1') === 7 && dealt.get('e2') === 44);
+  check('per-car numbers need the number bought',
+    validLook({ purchases: [], equipped: { numbers: { e1: 7 } }, updatedAt: 0 }, 1000) === null);
+  const forged = normalizeShop({ purchases: ['number'], equipped: { numbers: { e1: 7, e2: 7, e3: 0, e4: 120 } } });
+  check('a forged map cannot put one number on two cars', JSON.stringify(forged.equipped.numbers) === '{"e1":7}');
+  const legacy = validLook({ purchases: ['number'], equipped: { number: 12 }, updatedAt: 0 }, 1000)!;
+  const both = teamNumbers(pair, legacy);
+  check('the old team-wide number goes on one car and the next one up on the other',
+    both.get('e1') === 12 && both.get('e2') === 13);
+  const defaults = teamNumbers([car('a', 'X'), car('b', 'X'), car('c', 'X')], undefined);
+  check('without a purchase, team-mates still never share a number', new Set(defaults.values()).size === 3);
+  const field = fieldPaint([...pair, { id: 'z', uid: 'u2', team: 'Beta', driver: 'Zed' }], new Map([['u1', chosen]]));
+  check('team-mates share one colour and keep their own numbers',
+    field.get('e1')!.color === field.get('e2')!.color && field.get('e1')!.look.number === 7 && field.get('e2')!.look.number === 44);
 }
 
 function rivalTest(): void {

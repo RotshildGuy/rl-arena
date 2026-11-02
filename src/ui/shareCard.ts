@@ -9,11 +9,15 @@
  * Drawn on a canvas, from the self-hosted fonts, with nothing fetched.
  */
 import { getLang, t } from '../i18n';
+import { drawEmblem } from '../core/games/racing/render';
+import type { Emblem } from '../core/champ/emblem';
 
 export interface ShareData {
   driver: string;
   team: string;
   color: string;
+  /** The team's emblem, if it has one: drawn large in the top corner. */
+  emblem?: Emblem;
   position: number;
   dnf: boolean;
   points: number;
@@ -60,6 +64,13 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: ShareData): void
   // The team's colour as a band down the right edge, the way a timing tower does it.
   ctx.fillStyle = d.color;
   ctx.fillRect(W - 36, 0, 36, H);
+
+  if (d.emblem) {
+    ctx.save();
+    ctx.translate(170, 170);
+    drawEmblem(ctx, d.emblem, 150);
+    ctx.restore();
+  }
 
   const s = t().share;
   const dir = getLang() === 'he' ? 'rtl' : 'ltr';

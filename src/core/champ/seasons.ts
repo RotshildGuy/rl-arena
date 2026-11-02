@@ -16,17 +16,23 @@ export function seasonCards(cards: RaceCard[], n: number): RaceCard[] {
   return cards.filter((c) => seasonNumber(c.round) === n);
 }
 
+/** How long after the final's lights a season closes even without its result. */
+const FINAL_GRACE_MS = 3 * 60 * 60 * 1000;
+
 /**
- * Over: its final round has been run and settled - or, on a grid too thin to
- * race that day, its lights went out hours ago and nothing came of it.
+ * Over: its final round has been run and settled - or its lights went out
+ * hours ago and nothing came of it. That covers a grid too thin to race (no
+ * card at all) and a card whose race never produced a result (the server gave
+ * up after building it): either way the season is decided by the rounds that
+ * did run, instead of waiting for a final that is never coming.
  *
  * `settled` is `settledResults`, so a final still on air does not crown anybody.
  */
 export function seasonComplete(n: number, cards: RaceCard[], settled: Map<string, RaceResult>, now: number): boolean {
   const { last } = seasonRange(n);
   const final = cards.find((c) => c.round === last);
-  if (final) return settled.has(final.id);
-  return now >= startsAtForRound(last) + 3 * 60 * 60 * 1000;
+  if (final && settled.has(final.id)) return true;
+  return now >= startsAtForRound(last) + FINAL_GRACE_MS;
 }
 
 export interface SeasonHonours {
@@ -67,7 +73,7 @@ export function hallOfFame(cards: RaceCard[], settled: Map<string, RaceResult>, 
 /**
  * Teams in their first season: accounts whose first race of all is in season
  * `n`. Their own table is somewhere a newcomer can win something this week,
- * whoever has been piling up points since September. House cars are not
+ * whoever has been piling up points since the first round. House cars are not
  * rookies; they are furniture.
  */
 export function rookieUids(cards: RaceCard[], n: number): Set<string> {

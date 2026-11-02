@@ -11,13 +11,13 @@ import { SessionSim, policiesFor, replayDriversFor, type SimCar } from '../../co
 import { ReplayDriver, type DayReplay } from '../../core/champ/replay';
 import { lapsFor } from '../../core/champ/format';
 import { dayState, dayStatus, liveSession, sessionWindows } from '../../core/champ/timing';
-import { shadeFor, teamColor, teamLook } from '../../core/champ/livery';
 import { STEP_MS, type RacingSnapshot } from '../../core/games/racing/env';
 import type { RaceCard } from '../../core/champ/types';
 import { lapTime, raceTime, timeText, untilText } from '../format';
 import { useIsPortrait, useWakeLock } from '../device';
 import { track } from '../../storage/metrics';
 import { useTeamPaint } from '../teamLooks';
+import { fieldPaint } from '../../core/champ/paint';
 import { Podium } from '../components/Podium';
 import { t as words, useLang, useT } from '../../i18n';
 import { driverName, grandPrixTitle, teamName } from '../../i18n/names';
@@ -216,27 +216,26 @@ function BroadcastStage({
     [state],
   );
 
-  /** Livery per grid slot, plus a shade when a team fields more than one car. */
+  /** Livery per grid slot: one colour per team, and a number of its own on every car. */
   // Paint bought in the shop, checked against what each team has earned.
   const paint = useTeamPaint(grid.map((id) => entryById.get(id)?.uid ?? ''));
   const towerCars: TowerCar[] = useMemo(() => {
-    const seen = new Map<string, number>();
+    // Numbers are dealt over the card's entry list, not this session's grid,
+    // so a car wears the same number in its heat and in the final.
+    const cars = fieldPaint(card.entries, paint);
     return grid.map((id, i) => {
       const e = entryById.get(id);
-      const team = e?.team ?? '-';
-      const n = seen.get(team) ?? 0;
-      seen.set(team, n + 1);
-      const bought = e ? paint.get(e.uid) : undefined;
+      const p = cars.get(id);
       return {
         car: i,
         name: e ? driverName(e) : '-',
         tag: e?.tag ?? '???',
-        color: shadeFor(bought?.color ?? teamColor(team), n),
-        look: { ...teamLook(team, e?.driver ?? ''), ...bought?.look },
+        color: p?.color ?? '#888',
+        look: p?.look,
         mine: myIds.has(id),
       };
     });
-  }, [grid, entryById, myIds, paint, lang]);
+  }, [grid, card, entryById, myIds, paint, lang]);
 
   const colors = towerCars.map((c) => c.color);
   const labels = towerCars.map((c) => c.tag);

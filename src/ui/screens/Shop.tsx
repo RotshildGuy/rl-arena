@@ -6,24 +6,29 @@ import { earnedCoins } from '../../core/champ/coins';
 import {
   ITEM_BY_ID,
   SHOP_ITEMS,
+  SLOT_KINDS,
+  emblemOf,
   normalizeShop,
   paintOf,
   spent,
+  validNumber,
   type Equipped,
-  type ItemKind,
+  type SlotKind,
   type ShopDoc,
   type ShopItem,
 } from '../../core/champ/shop';
+import { EMBLEM_COLORS, EMBLEM_SHAPES, EMBLEM_SYMBOLS, type Emblem } from '../../core/champ/emblem';
+import type { ArenaEntry } from '../../core/champ/types';
+import { TeamEmblem } from '../components/Livery';
+import { Name } from '../components/Name';
 import { settledResults } from '../../core/champ/timing';
 import { teamColor, teamLook } from '../../core/champ/livery';
 import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
 import { myShop, saveShop } from '../../storage/shop';
 import { useT } from '../../i18n';
 
-type SlotKind = Exclude<ItemKind, 'number'>;
-
 /** In the order they are shown; titles and hints are in the dictionary (`shop.sections`). */
-const SECTIONS: SlotKind[] = ['color', 'pattern', 'secondary', 'helmet', 'smoke'];
+const SECTIONS: SlotKind[] = ['color', 'pattern', 'shape', 'secondary', 'wing', 'rim', 'helmet', 'smoke'];
 
 /**
  * The shop: coins earned from races, spent on paint. Nothing here changes how
@@ -60,6 +65,11 @@ export function Shop() {
 
   if (!state || !wallet || !doc) return <PageSkeleton variant="cards" />;
 
+  // The team's cars on the grid, oldest first: the order numbers are dealt in.
+  const myCars: ArenaEntry[] = state.entries
+    .filter((e) => e.uid === uid && !e.retired)
+    .sort((a, b) => a.createdAt - b.createdAt);
+
   const balance = wallet.total - spent(doc.purchases);
   const owned = new Set(doc.purchases);
   const has = (id: string) => (ITEM_BY_ID.get(id)?.price ?? 0) === 0 || owned.has(id);
@@ -71,14 +81,15 @@ export function Shop() {
   const base = teamLook(team, '');
   const paint = paintOf(wearing);
   const previewColor = paint.color ?? teamColor(team);
-  const previewLook: CarLook = { ...base, ...paint.look };
+  // The sample car wears the number of the team's first car, if it has one.
+  const firstNumber = myCars.length ? wearing.numbers?.[myCars[0].id] : undefined;
+  const previewLook: CarLook = { ...base, ...paint.look, ...(firstNumber ? { number: firstNumber } : {}) };
 
   // The items being tried that still have to be paid for.
   const toBuy = [
-    ...(['color', 'secondary', 'pattern', 'helmet', 'smoke'] as const)
-      .map((k) => trial[k])
-      .filter((id): id is string => !!id && !has(id)),
+    ...SLOT_KINDS.map((k) => trial[k]).filter((id): id is string => !!id && !has(id)),
     ...(trial.number !== undefined && !owned.has('number') ? ['number'] : []),
+    ...(trial.emblem !== undefined && !owned.has('emblem') ? ['emblem'] : []),
   ];
   const cost = toBuy.reduce((s, id) => s + (ITEM_BY_ID.get(id)?.price ?? 0), 0);
 
@@ -218,16 +229,79 @@ export function Shop() {
             <div className="eyebrow" style={{ marginBottom: 8 }}>
               {s.number}
             </div>
-            <NumberPicker
-              owned={owned.has('number')}
-              price={ITEM_BY_ID.get('number')!.price}
-              value={wearing.number}
-              busy={busy}
-              onTry={(n) => setTrial({ ...trial, number: n })}
-              onSave={(n) =>
-                void persist({ ...doc, equipped: { ...doc.equipped, number: n } }, n ? s.numberOn(n) : s.noNumber)
-              }
+            {owned.has('number') && myCars.length > 0 ? (
+              <CarNumbers
+                cars={myCars}
+                numbers={doc.equipped.numbers ?? {}}
+                busy={busy}
+                onSave={(id, n) => {
+                  const numbers = { ...doc.equipped.numbers };
+                  if (n === undefined) delete numbers[id];
+                  else numbers[id] = n;
+                  void persist({ ...doc, equipped: { ...doc.equipped, numbers } }, n ? s.numberOn(n) : s.noNumber);
+                }}
+              />
+            ) : (
+              <NumberPicker
+                owned={owned.has('number')}
+                price={ITEM_BY_ID.get('number')!.price}
+                value={wearing.number}
+                busy={busy}
+                onTry={(n) => setTrial({ ...trial, number: n })}
+                onSave={(n) =>
+                  void persist({ ...doc, equipped: { ...doc.equipped, number: n } }, n ? s.numberOn(n) : s.noNumber)
+                }
+              />
+            )}
+            {owned.has('number') && myCars.length === 0 && (
+              <div className="small muted" style={{ marginTop: 6 }}>
+                {s.noCarsYet}
+              </div>
+            )}
+          </div>
+
+          <div className="card notched">
+            <div className="head">
+              <div className="eyebrow">{s.emblem}</div>
+              <div className="fill" />
+              {owned.has('emblem') && doc.equipped.emblem && (
+                <button
+                  className="ghost small"
+                  disabled={busy}
+                  onClick={() => {
+                    const equipped = { ...doc.equipped };
+                    delete equipped.emblem;
+                    void persist({ ...doc, equipped }, s.emblemOff);
+                  }}
+                >
+                  {s.remove}
+                </button>
+              )}
+            </div>
+            <EmblemBuilder
+              value={trial.emblem ?? emblemOf(doc.equipped)}
+              onChange={(emblem) => setTrial({ ...trial, emblem })}
             />
+            <div className="row wrap" style={{ marginTop: 10, gap: 8 }}>
+              <span className="small muted" style={{ flex: 1 }}>
+                {owned.has('emblem') ? s.emblemWhere : s.emblemTry(ITEM_BY_ID.get('emblem')!.price)}
+              </span>
+              {owned.has('emblem') && (
+                <button
+                  className="small"
+                  disabled={busy || (!trial.emblem && !!doc.equipped.emblem)}
+                  onClick={() => {
+                    const emblem = trial.emblem ?? emblemOf(doc.equipped);
+                    const rest = { ...trial };
+                    delete rest.emblem;
+                    setTrial(rest);
+                    void persist({ ...doc, equipped: { ...doc.equipped, emblem } }, s.emblemOn);
+                  }}
+                >
+                  {s.save}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="card notched">
@@ -266,7 +340,7 @@ export function Shop() {
 /** Of the items being tried, the ones already owned (they can go on the car with a tap). */
 function pickOwned(trial: Equipped, has: (id: string) => boolean): Equipped {
   const out: Equipped = {};
-  for (const k of ['color', 'secondary', 'pattern', 'helmet', 'smoke'] as const) {
+  for (const k of SLOT_KINDS) {
     const id = trial[k];
     if (id && has(id)) out[k] = id;
   }
@@ -305,7 +379,9 @@ function Swatch({
       aria-pressed={on}
     >
       {item.kind === 'pattern' ? (
-        <MiniCar color={previewColor} look={{ ...previewLook, pattern: item.value as CarLook['pattern'], number: undefined }} />
+        <MiniCar color={previewColor} look={{ ...previewLook, pattern: item.value as CarLook['pattern'], number: undefined, emblem: undefined }} />
+      ) : item.kind === 'shape' ? (
+        <MiniCar color={previewColor} look={{ ...previewLook, shape: item.value as CarLook['shape'], number: undefined, emblem: undefined }} />
       ) : item.kind === 'smoke' ? (
         <span className="swatch-dot smoke" style={{ background: `radial-gradient(circle, ${item.value.replace(/[\d.]+\)$/, '0.95)')}, transparent 70%)` }} />
       ) : (
@@ -333,7 +409,7 @@ function MiniCar({ color, look }: { color: string; look: CarLook }) {
     c.width = Math.round(c.clientWidth * dpr);
     c.height = Math.round(c.clientHeight * dpr);
     drawCarPreview(c.getContext('2d')!, color, look, null);
-  }, [color, look.pattern, look.secondary, look.helmet]);
+  }, [color, look.pattern, look.secondary, look.helmet, look.shape, look.wing, look.rim]);
   return <canvas ref={ref} className="swatch-car" />;
 }
 
@@ -402,6 +478,162 @@ function NumberPicker({
         {owned ? s.numberWhere : s.numberTry(price)}
       </div>
     </>
+  );
+}
+
+/**
+ * A number for each of the team's cars. They share the team's colour, so the
+ * number is how anybody tells them apart - and two cars may not wear the same.
+ */
+function CarNumbers({
+  cars,
+  numbers,
+  busy,
+  onSave,
+}: {
+  cars: ArenaEntry[];
+  numbers: Record<string, number>;
+  busy: boolean;
+  onSave(id: string, n: number | undefined): void;
+}) {
+  const s = useT().shop;
+  return (
+    <>
+      {cars.map((car) => (
+        <CarNumberRow
+          key={car.id}
+          car={car}
+          value={numbers[car.id]}
+          taken={new Set(Object.entries(numbers).filter(([id]) => id !== car.id).map(([, n]) => n))}
+          busy={busy}
+          onSave={(n) => onSave(car.id, n)}
+        />
+      ))}
+      <div className="small muted" style={{ marginTop: 6 }}>
+        {s.numberWhere}
+      </div>
+    </>
+  );
+}
+
+function CarNumberRow({
+  car,
+  value,
+  taken,
+  busy,
+  onSave,
+}: {
+  car: ArenaEntry;
+  value: number | undefined;
+  taken: Set<number>;
+  busy: boolean;
+  onSave(n: number | undefined): void;
+}) {
+  const s = useT().shop;
+  const [draft, setDraft] = useState(String(value ?? ''));
+  const n = Number(draft);
+  const clash = validNumber(n) && taken.has(n);
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div className="row" style={{ gap: 8 }}>
+        <span className="small" style={{ flex: 1, minWidth: 0 }}>
+          {s.numberFor} <b><Name>{car.driver}</Name></b>
+        </span>
+        <input
+          type="number"
+          min={1}
+          max={99}
+          value={draft}
+          placeholder="1-99"
+          onChange={(e) => setDraft(e.target.value)}
+          style={{ width: 80 }}
+          aria-label={`${s.numberFor} ${car.driver}`}
+        />
+        <button className="small" disabled={busy || !validNumber(n) || clash || n === value} onClick={() => onSave(n)}>
+          {s.save}
+        </button>
+        {value !== undefined && (
+          <button className="ghost small" disabled={busy} onClick={() => { setDraft(''); onSave(undefined); }}>
+            {s.remove}
+          </button>
+        )}
+      </div>
+      {clash && (
+        <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
+          {s.numberTaken}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The emblem builder: a shape, a symbol and two colours, each a row of
+ * swatches. Every choice shows on the preview car straight away.
+ */
+function EmblemBuilder({ value, onChange }: { value: Emblem; onChange(e: Emblem): void }) {
+  const s = useT().shop;
+  return (
+    <div className="emblem-builder">
+      <div className="emblem-big">
+        <TeamEmblem emblem={value} size={72} title={s.emblem} />
+      </div>
+      <div className="emblem-rows">
+        <div className="tiny dim">{s.emblemShape}</div>
+        <div className="swatches">
+          {Object.keys(EMBLEM_SHAPES).map((shape) => (
+            <button
+              key={shape}
+              className={`swatch ${value.shape === shape ? 'on' : ''}`}
+              aria-pressed={value.shape === shape}
+              aria-label={s.emblemShapes[shape] ?? shape}
+              title={s.emblemShapes[shape] ?? shape}
+              onClick={() => onChange({ ...value, shape })}
+            >
+              <TeamEmblem emblem={{ ...value, shape }} size={30} />
+            </button>
+          ))}
+        </div>
+        <div className="tiny dim">{s.emblemSymbol}</div>
+        <div className="swatches">
+          {Object.keys(EMBLEM_SYMBOLS).map((symbol) => (
+            <button
+              key={symbol}
+              className={`swatch ${value.symbol === symbol ? 'on' : ''}`}
+              aria-pressed={value.symbol === symbol}
+              aria-label={s.emblemSymbols[symbol] ?? symbol}
+              title={s.emblemSymbols[symbol] ?? symbol}
+              onClick={() => onChange({ ...value, symbol })}
+            >
+              <TeamEmblem emblem={{ ...value, symbol }} size={30} />
+            </button>
+          ))}
+        </div>
+        {(['fg', 'bg'] as const).map((part) => (
+          <div key={part}>
+            <div className="tiny dim">{part === 'fg' ? s.emblemFg : s.emblemBg}</div>
+            <div className="swatches">
+              {EMBLEM_COLORS.map((c) => {
+                // A symbol in its own background colour would vanish.
+                const other = part === 'fg' ? value.bg : value.fg;
+                return (
+                  <button
+                    key={c}
+                    className={`swatch ${value[part] === c ? 'on' : ''}`}
+                    aria-pressed={value[part] === c}
+                    aria-label={c}
+                    disabled={c === other}
+                    onClick={() => onChange({ ...value, [part]: c })}
+                  >
+                    <span className="swatch-dot" style={{ background: c }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -21,6 +21,11 @@ registerServiceWorker();
 // they are imported only after it. Theme and language survive it, so the two
 // read above are safe.
 void startFreshIfNewEpoch().then(async () => {
+  // Sample teams and races for the dev server (`?demo`); stripped from production builds.
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has('demo')) {
+    await (await import('./dev/demo')).seedDemo();
+  }
+
   const [{ App }, { ErrorBoundary }, { useApp }, { startAuth }] = await Promise.all([
     import('./ui/App'),
     import('./ui/components/ErrorBoundary'),

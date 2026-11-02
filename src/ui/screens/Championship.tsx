@@ -10,6 +10,7 @@ import {
   DAY_MS,
   displaySeason,
   roundInSeason,
+  seasonRange,
   seasonNumber,
   lockAtForRound,
   startsAtForRound,
@@ -20,12 +21,13 @@ import { carRecaps, type CarRecap } from '../../core/champ/recap';
 import { diagnoseCar } from '../../core/champ/diagnose';
 import { AdviceLine } from '../components/AdviceLine';
 import { shareResult } from '../shareCard';
+import { useOneTeamPaint } from '../teamLooks';
 import { hallOfFame, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/champ/house';
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
 import type { ArenaEntry, RaceCard, RaceResult } from '../../core/champ/types';
-import { DriverCell } from '../components/Livery';
+import { DriverCell, LiveryBar } from '../components/Livery';
 import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
@@ -89,6 +91,9 @@ export function Championship() {
 
   // The table of the season on screen only: a new season starts from zero.
   const season = displaySeason(now);
+  // A result counts once its broadcast is over, minutes after it was fetched,
+  // so the tables recompute once a minute rather than only on the next fetch.
+  const minute = Math.floor(now / 60_000);
   const standings = useMemo(
     () =>
       state
@@ -98,7 +103,7 @@ export function Championship() {
           })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, season],
+    [state, season, minute],
   );
 
   // The champions of the season that just ended, for a few days after it.
@@ -107,7 +112,7 @@ export function Championship() {
     const settled = settledResults(state.cards, state.results, now);
     return hallOfFame(state.cards, settled, now)[0] ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, season]);
+  }, [state, season, minute]);
 
   const liveCard = useMemo(() => {
     if (!state) return null;
@@ -297,7 +302,7 @@ export function Championship() {
                       <span className={posClass(d.position)}>{d.position}</span>
                     </td>
                     <td>
-                      <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} />
+                      <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} uid={d.uid} />
                     </td>
                     <td className="mono num" style={{ width: 60, fontWeight: 700 }}>
                       {d.points}
@@ -321,7 +326,7 @@ export function Championship() {
                     </td>
                     <td>
                       <div className="driver">
-                        <span className="livery" style={{ background: teamColor(team.team) }} />
+                        <LiveryBar team={team.team} uid={team.uid} />
                         <div className="names">
                           <span className="who">
                             <Name>{teamName(team.team)}</Name>
@@ -532,6 +537,11 @@ function NextRace({
         </div>
         <div style={{ marginBottom: 16 }}>
           <SeasonTracks season={seasonNumber(round)} round={round} />
+          {round === seasonRange(seasonNumber(round)).last && (
+            <div style={{ marginTop: 6 }}>
+              <SeasonTracks season={seasonNumber(round) + 1} label={c.nextSeasonTracks} />
+            </div>
+          )}
         </div>
 
         <div className="dim small" style={{ marginBottom: 2 }}>
@@ -717,7 +727,7 @@ function MyTeam({
         const orphan = !known.has(e.modelId);
         return (
           <div className="row wrap" key={e.id} style={{ padding: '7px 0' }}>
-            <DriverCell driver={e.driver} team={e.team} tag={e.tag} />
+            <DriverCell driver={e.driver} team={e.team} tag={e.tag} uid={e.uid} />
             <div style={{ flex: 1 }} />
             {orphan && (
               <span className="pill warn small" title={c.orphanTitle}>
@@ -796,7 +806,7 @@ function LastRace({
           return (
             <div className="row" key={p.entryId} style={{ padding: '5px 0' }}>
               <span className={posClass(p.position, p.status === 'dnf')}>{p.position}</span>
-              <DriverCell driver={driverOf(e) ?? '-'} team={teamOf(e) ?? '-'} tag={e?.tag} />
+              <DriverCell driver={driverOf(e) ?? '-'} team={teamOf(e) ?? '-'} tag={e?.tag} uid={e?.uid} />
               <div style={{ flex: 1 }} />
               <span className="mono small" style={{ fontWeight: 700 }}>
                 {p.points}
@@ -957,13 +967,16 @@ function ShareButton({ card, recap }: { card: RaceCard; recap: CarRecap }) {
   const c = useT().championship;
   const showToast = useApp((s) => s.showToast);
   const [busy, setBusy] = useState(false);
+  // The recap is always one of this browser's own cars.
+  const bought = useOneTeamPaint(useChampionship().state?.uid);
   const share = async () => {
     setBusy(true);
     try {
       const outcome = await shareResult({
         driver: driverName({ id: recap.entryId, driver: recap.driver }),
         team: teamName(recap.team),
-        color: teamColor(recap.team),
+        color: bought?.color ?? teamColor(recap.team),
+        emblem: bought?.emblem,
         position: recap.position,
         dnf: recap.status === 'dnf',
         points: recap.points,

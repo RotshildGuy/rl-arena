@@ -22,6 +22,15 @@
         "--strictPort"
       ],
       "port": 4173
+    },
+    {
+      "name": "rl-arena-demo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:demo"
+      ],
+      "port": 5174
     }
   ]
 }

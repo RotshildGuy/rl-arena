@@ -6,6 +6,7 @@ import { useTrainer } from '../useTrainer';
 import { Canvas } from '../components/Canvas';
 import { LineChart } from '../components/LineChart';
 import { RewardEditor } from '../components/RewardEditor';
+import { SlidersSheet } from '../components/SlidersSheet';
 import { drawPlaceholder, renderGame } from '../gameRenderers';
 import { CAR_COLORS } from '../../core/games/racing/render';
 import { saveModel } from '../saveModel';
@@ -56,6 +57,8 @@ export function TrainDashboard() {
   const savedLen = useRef<number[]>([]);
   const dirtyRef = useRef(false);
   const [tab, setTab] = useState(0);
+  /** The progress charts stay folded until asked for: the track is what to watch. */
+  const [showGraph, setShowGraph] = useState(false);
   /** Per model, where on the chart its sliders last changed - the points are counted differently from there. */
   const [retuned, setRetuned] = useState<Record<number, number>>({});
   const boot = useRef<SlotBoot[]>([]);
@@ -401,6 +404,9 @@ export function TrainDashboard() {
           <button onClick={() => save('checkpoint')} disabled={saving || booting}>
             {d.checkpoint}
           </button>
+          <button onClick={() => setShowGraph((g) => !g)} aria-expanded={showGraph}>
+            {showGraph ? d.hideGraph : d.showGraph}
+          </button>
           <CoachAnchor
             step={coach === 'save' ? coach : null}
             text={d.coach}
@@ -438,21 +444,37 @@ export function TrainDashboard() {
       <div className="split-main">
         <div className="grid">
           <div style={{ position: 'relative' }}>
-            <Canvas
-              aspect={16 / 10}
-              draw={(ctx) => {
-                const snap = snapRef.current;
-                if (speed === 'turbo' && !snap) {
-                  drawPlaceholder(ctx, [words().dashboard.turboTitle, words().dashboard.turboNote]);
-                  return;
-                }
-                if (!snap) {
-                  drawPlaceholder(ctx, [words().dashboard.waiting]);
-                  return;
-                }
-                renderGame(gameId, ctx, snap, { showSensors: true, dimDone: true, colors: carColors });
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <Canvas
+                aspect={16 / 10}
+                draw={(ctx) => {
+                  const snap = snapRef.current;
+                  if (speed === 'turbo' && !snap) {
+                    drawPlaceholder(ctx, [words().dashboard.turboTitle, words().dashboard.turboNote]);
+                    return;
+                  }
+                  if (!snap) {
+                    drawPlaceholder(ctx, [words().dashboard.waiting]);
+                    return;
+                  }
+                  renderGame(gameId, ctx, snap, { showSensors: true, dimDone: true, colors: carColors });
+                }}
+              />
+              <SlidersSheet>
+                {multi && <ModelTabs models={models} current={slotIndex} onPick={setTab} />}
+                <RewardEditor
+                  key={slotIndex}
+                  spec={game.spec}
+                  value={slot.rewards}
+                  live
+                  onChange={(rewards) => {
+                    setRetuned((r) => ({ ...r, [slotIndex]: live[slotIndex]?.history.length ?? 0 }));
+                    patchSlot(slotIndex, { rewards });
+                    trainer.setRewards(slotIndex, rewards);
+                  }}
+                />
+              </SlidersSheet>
+            </div>
             {hasLaps && speed !== 'turbo' && <LiveTiming snapRef={snapRef} />}
             {speed === 'turbo' && (
               <div className="stage-overlay-end">
@@ -482,48 +504,43 @@ export function TrainDashboard() {
             </div>
           )}
 
-          <div className="card notched">
-            {multi && <ModelTabs models={models} current={slotIndex} onPick={setTab} />}
-            <div className="head">
-              <div className="eyebrow">{d.progressOf(slot.name || d.model(slotIndex + 1))}</div>
-            </div>
-            <div className="small muted" style={{ marginBottom: 4 }}>
-              {d.pointsPer(algo.episodeLabel)}
-            </div>
-            <LineChart
-              height={140}
-              marker={retuned[slotIndex]}
-              series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]}
-            />
-            {retuned[slotIndex] !== undefined && (
-              <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
-                {d.retuned}
+          {showGraph && (
+            <div className="card notched">
+              <div className="head">
+                <div className="eyebrow">{d.progressOf(slot.name || d.model(slotIndex + 1))}</div>
               </div>
-            )}
-
-            {hasLaps && (
-              <>
-                <div className="small muted" style={{ marginTop: 10 }}>
-                  {d.lapPer(algo.episodeLabel)}
+              <div className="small muted" style={{ marginBottom: 4 }}>
+                {d.pointsPer(algo.episodeLabel)}
+              </div>
+              <LineChart
+                height={140}
+                marker={retuned[slotIndex]}
+                series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]}
+              />
+              {retuned[slotIndex] !== undefined && (
+                <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
+                  {d.retuned}
                 </div>
-                <LineChart
-                  height={110}
-                  nonNegative
-                  emptyText={d.noLapYet}
-                  series={[{ label: 'lap', color: '--purple', values: charts.laps }]}
-                />
-              </>
-            )}
-          </div>
+              )}
+
+              {hasLaps && (
+                <>
+                  <div className="small muted" style={{ marginTop: 10 }}>
+                    {d.lapPer(algo.episodeLabel)}
+                  </div>
+                  <LineChart
+                    height={110}
+                    nonNegative
+                    emptyText={d.noLapYet}
+                    series={[{ label: 'lap', color: '--purple', values: charts.laps }]}
+                  />
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid">
-          {multi && (
-            <div className="card notched" style={{ paddingBottom: 6 }}>
-              <ModelTabs models={models} current={slotIndex} onPick={setTab} />
-            </div>
-          )}
-
           {hasLaps && (
             <div className="card notched">
               <div className="eyebrow" style={{ marginBottom: 10 }}>
@@ -576,24 +593,6 @@ export function TrainDashboard() {
             }
           />
 
-          <div className="card notched">
-            {multi && (
-              <div className="small" style={{ marginBottom: 8 }}>
-                {d.slidersOf} <b>{slot.name || d.model(slotIndex + 1)}</b> {d.slidersOnly}
-              </div>
-            )}
-            <RewardEditor
-              key={slotIndex}
-              spec={game.spec}
-              value={slot.rewards}
-              live
-              onChange={(rewards) => {
-                setRetuned((r) => ({ ...r, [slotIndex]: live[slotIndex]?.history.length ?? 0 }));
-                patchSlot(slotIndex, { rewards });
-                trainer.setRewards(slotIndex, rewards);
-              }}
-            />
-          </div>
         </div>
       </div>
     </>
