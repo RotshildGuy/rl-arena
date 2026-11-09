@@ -72,13 +72,16 @@ scripts/       sanity suite, benchmarks, house-driver training, tooling
 | Per step | one gradient update | simulation only |
 | Throughput (4 cars) | ~1,800 env steps/s | ~45,000 env steps/s |
 | Sample efficiency | high, converges in ~90 episodes | low |
-| Default on | desktop | mobile (no gradients to compute) |
+| Default on | every device (since season 3) | opt-in |
+
+Since season 3 the genetic algorithm races every genome twice per generation and ranks it on the mean, carries the elites over with their race history, mutates in proportion to each layer's natural spread, saves the leader on the mean rather than the single best race ever seen, and judges each heat on its first 2,400 steps (about five laps) instead of the full ten, for about twice the generations in the same time. Over four minutes of training on one circuit it now lands within about 5% of DQN's lap times; before, its models were 40% slower or did not finish. A saved GA model keeps only its network shape when it continues training; everything else comes from the current defaults.
 
 Default network: `24 -> 64 -> 64 -> 9`, about 34 KB as base64. The gradient step dominates training time (`scripts/bench.ts`), which is why the defaults stay small.
 
 ## Championship rules in brief
 
-- One round a day, eight rounds a season, four circuits per season drawn from a pool with a seeded shuffle, so every client agrees without a server call.
+- One round a day, eight rounds a season, four circuits per season drawn from a pool with a seeded shuffle, so every client agrees without a server call. A circuit added to the pool can be guaranteed a place in its first season (`debut`); season 3 introduces "Harbor", a narrow street circuit with a hairpin.
+- The broadcast is drawn in 3D with three.js (loaded on that screen only, with the 2D view as a fallback), and a director camera picks the car and the angle from what is happening in the race.
 - Solo qualifying sets the grid. Fields above ten cars race serpentine-seeded heats into a final.
 - Standard 25-18-15-12-10-8-6-4-2-1 scoring, +1 for the fastest lap. A car that covers less than half the winner's distance is not classified.
 - Two cars per team. Team names are unique per account, and the server enforces both when it builds the grid.

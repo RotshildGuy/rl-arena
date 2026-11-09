@@ -94,12 +94,28 @@ async function houseWeights(): Promise<string[]> {
   );
 }
 
-/** The local championship and its cache share one database; nothing has it open yet. */
+/**
+ * Empty the local championship and its cache (they share one database). It is
+ * emptied rather than deleted: a delete waits for every other tab of the app
+ * to let go of the database, and a tab left open on the dev server kept a
+ * reset hanging on the loading screen for good.
+ */
 async function wipeLocalChampionship(): Promise<void> {
-  await new Promise<void>((resolve) => {
-    const req = indexedDB.deleteDatabase('rl-arena-champ');
-    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open('rl-arena-champ', 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains('kv')) req.result.createObjectStore('kv');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
 }
 
 /** Seed once per browser (or again on `?demo=reset`); afterwards the app runs on what is there. */

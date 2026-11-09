@@ -64,6 +64,82 @@ function shifted(shape: (t: number) => [number, number], dx: number, dy: number)
 }
 
 /**
+ * A closed curve through hand-placed points, for a circuit no formula draws: a
+ * centripetal Catmull-Rom spline (it never loops back on itself between two
+ * points), walked at an even speed so the samples sit evenly along the road
+ * and the start gate falls on the first point.
+ */
+function spline(points: ReadonlyArray<readonly [number, number]>) {
+  const n = points.length;
+  const STEPS = 48;
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = points[(i - 1 + n) % n];
+    const p1 = points[i];
+    const p2 = points[(i + 1) % n];
+    const p3 = points[(i + 2) % n];
+    const knot = (a: readonly [number, number], b: readonly [number, number]) =>
+      Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])) || 1e-6;
+    const t1 = knot(p0, p1);
+    const t2 = t1 + knot(p1, p2);
+    const t3 = t2 + knot(p2, p3);
+    for (let s = 0; s < STEPS; s++) {
+      const t = t1 + ((t2 - t1) * s) / STEPS;
+      const out: number[] = [];
+      for (const k of [0, 1]) {
+        const a1 = ((t1 - t) * p0[k] + t * p1[k]) / t1;
+        const a2 = ((t2 - t) * p1[k] + (t - t1) * p2[k]) / (t2 - t1);
+        const a3 = ((t3 - t) * p2[k] + (t - t2) * p3[k]) / (t3 - t2);
+        const b1 = ((t2 - t) * a1 + t * a2) / t2;
+        const b2 = ((t3 - t) * a2 + (t - t1) * a3) / (t3 - t1);
+        out.push(((t2 - t) * b1 + (t - t1) * b2) / (t2 - t1));
+      }
+      xs.push(out[0]);
+      ys.push(out[1]);
+    }
+  }
+  const m = xs.length;
+  const cum = new Float64Array(m + 1);
+  for (let i = 0; i < m; i++) {
+    const j = (i + 1) % m;
+    cum[i + 1] = cum[i] + Math.hypot(xs[j] - xs[i], ys[j] - ys[i]);
+  }
+  const total = cum[m];
+  return (t: number): [number, number] => {
+    const d = ((t / (Math.PI * 2)) % 1) * total;
+    let lo = 0;
+    let hi = m;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] <= d) lo = mid;
+      else hi = mid;
+    }
+    const f = (d - cum[lo]) / (cum[lo + 1] - cum[lo] || 1);
+    const j = (lo + 1) % m;
+    return [xs[lo] + (xs[j] - xs[lo]) * f, ys[lo] + (ys[j] - ys[lo]) * f];
+  };
+}
+
+/** "הנמל" (season 3), in driving order. Tune only before a season has raced it. */
+export const HARBOR_POINTS: ReadonlyArray<readonly [number, number]> = [
+  // The long straight and the start gate.
+  [600, 620], [700, 612],
+  // A fast left onto the climb, then a gentle sweep right and left.
+  [780, 585], [818, 520], [822, 450],
+  [805, 390], [815, 325], [795, 260],
+  [760, 195], [695, 152],
+  // Across the top, with a quick chicane.
+  [645, 140], [592, 150], [540, 140], [480, 136],
+  // Down into the infield, and round the hairpin.
+  [415, 152], [372, 200], [372, 262], [392, 303], [428, 327],
+  [476, 332], [510, 341], [535, 366], [544, 400], [535, 434], [510, 459], [476, 468],
+  // Back out, and two slow lefts onto the straight.
+  [410, 468], [335, 468], [303, 477], [280, 500], [271, 532],
+  [273, 563], [281, 594], [304, 617], [335, 625], [420, 626], [510, 623],
+];
+
+/**
  * Every circuit there has ever been. A track is never removed from this list,
  * nor its shape changed: a race card names its track by id, and a replay of a
  * race from any season has to find exactly the circuit it was run on. Which of
@@ -179,6 +255,16 @@ export const TRACK_DEFS: TrackDef[] = [
       ],
       0.74,
     ),
+  },
+  // Season 3: a street circuit, narrow and slow, round a very tight hairpin.
+  // Hand-placed points, since no formula draws a hairpin; the start gate sits
+  // on the first point, far enough down the long straight for a full grid.
+  {
+    id: 'harbor',
+    name: 'הנמל',
+    width: 85,
+    samples: 340,
+    shape: spline(HARBOR_POINTS),
   },
 ];
 

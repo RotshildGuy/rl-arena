@@ -12,6 +12,7 @@ import { ReplayDriver, type DayReplay } from '../../core/champ/replay';
 import { lapsFor } from '../../core/champ/format';
 import { dayState, dayStatus, liveSession, sessionWindows } from '../../core/champ/timing';
 import { STEP_MS, type RacingSnapshot } from '../../core/games/racing/env';
+import { hasTrack } from '../../core/games/racing/tracks';
 import type { RaceCard } from '../../core/champ/types';
 import { lapTime, raceTime, timeText, untilText } from '../format';
 import { useIsPortrait, useWakeLock } from '../device';
@@ -21,6 +22,9 @@ import { fieldPaint } from '../../core/champ/paint';
 import { Podium } from '../components/Podium';
 import { t as words, useLang, useT } from '../../i18n';
 import { driverName, grandPrixTitle, teamName } from '../../i18n/names';
+import { Stage3D } from '../three/Stage3D';
+import { Director, type CameraSpec, type DirectorState } from '../three/director';
+import { DirectorPanel } from '../components/DirectorPanel';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -37,7 +41,8 @@ const SEEK_SLACK_STEPS = 12;
  *  length of a replay before it has been played through to the flag once. */
 const RETIREMENT_GRACE_MS = 8000;
 
-type Camera = 'track' | 'follow';
+/** The director picks the car and the angle; the other two are the viewer's own choice. */
+type Camera = 'director' | 'track' | 'follow';
 
 /**
  * What drives the cars on screen.
@@ -52,6 +57,14 @@ type DriveSource =
   | { kind: 'replay'; replay: DayReplay }
   | { kind: 'weights'; weights: Map<string, string> }
   | { kind: 'missing' };
+
+/**
+ * Development only: `?track=<id>` re-runs a race driven from weights (the
+ * local championship, `?demo`) on another circuit, to look at a new track
+ * before any round has been raced on it. A recorded replay is a list of
+ * actions for its own circuit, so it is never moved.
+ */
+const DEV_TRACK = import.meta.env.DEV ? new URLSearchParams(location.search).get('track') : null;
 
 /** How often to ask again for a live race's replay that is not there yet. */
 const REPLAY_RETRY_MS = 15_000;
@@ -121,7 +134,7 @@ function BroadcastStage({
   /** Bumped to ask again for a replay that was not there. */
   const [attempt, setAttempt] = useState(0);
   const [sessionId, setSessionId] = useState<string>(() => live?.session.id ?? windows[windows.length - 1]?.session.id);
-  const [camera, setCamera] = useState<Camera>('track');
+  const [camera, setCamera] = useState<Camera>('director');
   // A wide circuit inside a tall viewport letterboxes badly. In portrait the
   // canvas keeps its own aspect and the timing tower takes the space underneath
   // instead of floating on top of it.
@@ -131,6 +144,9 @@ function BroadcastStage({
 
   const simRef = useRef<SessionSim | null>(null);
   const snapRef = useRef<RacingSnapshot | null>(null);
+  /** The director for the session on screen, and what it last decided. */
+  const directorRef = useRef<Director | null>(null);
+  const shotRef = useRef<DirectorState | null>(null);
   /**
    * Wall-clock moment this session's playhead sits at zero - lights out.
    *
@@ -240,6 +256,8 @@ function BroadcastStage({
   const colors = towerCars.map((c) => c.color);
   const labels = towerCars.map((c) => c.tag);
   const looks = towerCars.map((c) => c.look);
+  const paints3d = useMemo(() => towerCars.map((c) => ({ color: c.color, look: c.look })), [towerCars]);
+  const teams = useMemo(() => grid.map((id) => teamName(entryById.get(id)?.team ?? '')), [grid, entryById, lang]);
 
   /**
    * A fresh simulation of the selected session.
@@ -256,8 +274,9 @@ function BroadcastStage({
     else if (source.kind === 'weights') cars = policiesFor(grid, entryById, source.weights);
     else if (source.kind === 'grid') cars = grid.map((entryId) => ({ entryId, policy: new ReplayDriver('') }));
     if (cars.length === 0) return null;
+    const devTrack = source.kind === 'weights' && DEV_TRACK && hasTrack(DEV_TRACK) ? DEV_TRACK : null;
     return new SessionSim(
-      card.trackId,
+      devTrack ?? card.trackId,
       lapsFor(window_.session),
       cars,
       card.seed + window_.session.offsetMs,
@@ -274,6 +293,8 @@ function BroadcastStage({
     if (!sim) return;
     builtFor.current = key;
     simRef.current = sim;
+    directorRef.current = new Director(lapsFor(window_.session));
+    shotRef.current = null;
     snapRef.current = sim.snapshot();
     endRef.current = null;
     setEndMs(null);
@@ -348,17 +369,15 @@ function BroadcastStage({
    * why a live session has no speed control: the race is a shared, fixed-rate
    * event. A replay runs off the same clock - only there, the playhead moves.
    */
-  const drawFrame = (ctx: CanvasRenderingContext2D) => {
+  const placeholder =
+    source?.kind === 'missing' && !isLive
+      ? [words().broadcast.noReplay, grandPrixTitle(card.trackId)]
+      : [words().broadcast.connecting, grandPrixTitle(card.trackId)];
+
+  /** Move the race on to the playhead and return the moment to show, or null for nothing yet. */
+  const advance = (): RacingSnapshot | null => {
     let sim = simRef.current;
-    if (!sim) {
-      drawPlaceholder(
-        ctx,
-        source?.kind === 'missing' && !isLive
-          ? [words().broadcast.noReplay, grandPrixTitle(card.trackId)]
-          : [words().broadcast.connecting, grandPrixTitle(card.trackId)],
-      );
-      return;
-    }
+    if (!sim) return null;
     // Cars on the grid with nothing to drive them yet - before the lights, or
     // while the replay is on its way - stay where they are.
     const parked = source?.kind !== 'replay' && source?.kind !== 'weights';
@@ -392,17 +411,41 @@ function BroadcastStage({
     headRef.current = ms;
     const snap = sim.snapshot();
     snapRef.current = snap;
+    return snap;
+  };
+
+  /** The camera for this moment: the director's call, the whole circuit, or the chosen car. */
+  const cameraFor = (snap: RacingSnapshot): CameraSpec => {
+    if (camera === 'director' && directorRef.current) {
+      const shot = directorRef.current.update(snap);
+      shotRef.current = shot;
+      return shot;
+    }
+    if (camera === 'track') return { shot: 'overview', car: 0, cut: false };
     // Following a car that has retired means watching a parked wreck; the feed
     // cuts to the leader, which is what a director would do.
     const focus = snap.cars[followIdx]?.done ? (snap.order[0] ?? followIdx) : followIdx;
+    return { shot: 'chase', car: focus, cut: false };
+  };
+
+  /** The 2D picture, where 3D cannot be drawn. */
+  const drawFrame = (ctx: CanvasRenderingContext2D) => {
+    const snap = advance();
+    if (!snap) {
+      drawPlaceholder(ctx, placeholder);
+      return;
+    }
+    const spec = cameraFor(snap);
+    const chase = spec.shot !== 'overview';
+    const focus = spec.car;
     renderGame('racing', ctx, snap, {
       labels,
       colors,
       looks,
       dimDone: true,
       // Bottom: the lap counter and race clock own the top-left of a broadcast.
-      minimap: camera === 'follow' ? 'bottom' : undefined,
-      follow: camera === 'follow' ? { car: focus, viewHeight: 260, rotate: true } : undefined,
+      minimap: chase ? 'bottom' : undefined,
+      follow: chase ? { car: focus, viewHeight: 260, rotate: true } : undefined,
     });
   };
 
@@ -494,6 +537,9 @@ function BroadcastStage({
         )}
 
         <div className="segmented">
+          <button className={camera === 'director' ? 'on' : ''} onClick={() => setCamera('director')}>
+            {b.directorCam}
+          </button>
           <button className={camera === 'track' ? 'on' : ''} onClick={() => setCamera('track')}>
             {b.track}
           </button>
@@ -521,7 +567,22 @@ function BroadcastStage({
       </div>
 
       <div className={`match-stage ${portrait ? 'stacked' : ''}`}>
-        {portrait ? <Canvas aspect={16 / 11} draw={drawFrame} /> : <Canvas fillHeight draw={drawFrame} />}
+        <Stage3D
+          advance={advance}
+          camera={cameraFor}
+          paints={paints3d}
+          labels={labels}
+          placeholder={placeholder}
+          aspect={16 / 11}
+          fillHeight={!portrait}
+          fallback={portrait ? <Canvas aspect={16 / 11} draw={drawFrame} /> : <Canvas fillHeight draw={drawFrame} />}
+        />
+
+        {snap && !preStart && !portrait && camera === 'director' && shotRef.current && (
+          <div className="stage-overlay-bottom">
+            <DirectorPanel snap={snap} shot={shotRef.current} cars={towerCars} teams={teams} totalLaps={totalLaps} />
+          </div>
+        )}
 
         {snap && !preStart && !portrait && (
           <div className="stage-overlay">
@@ -634,6 +695,9 @@ function BroadcastStage({
 
       {portrait && snap && !preStart && (
         <div className="tower-below">
+          {camera === 'director' && shotRef.current && (
+            <DirectorPanel snap={snap} shot={shotRef.current} cars={towerCars} teams={teams} totalLaps={totalLaps} />
+          )}
           <TimingTower snap={snap} cars={towerCars} />
         </div>
       )}

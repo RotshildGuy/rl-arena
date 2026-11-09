@@ -73,6 +73,9 @@ export function Shop() {
   const balance = wallet.total - spent(doc.purchases);
   const owned = new Set(doc.purchases);
   const has = (id: string) => (ITEM_BY_ID.get(id)?.price ?? 0) === 0 || owned.has(id);
+  // A retired item is shown only to a team that already owns it.
+  const onSale = (item: ShopItem) => !item.retired || owned.has(item.id);
+  const sections = SECTIONS.filter((kind) => SHOP_ITEMS.some((i) => i.kind === kind && onSale(i)));
   // A seed for the colour and look, not shown: the same in every language.
   const team = competitor || 'הקבוצה שלי';
 
@@ -123,6 +126,7 @@ export function Shop() {
       void persist({ ...doc, equipped: { ...equipped, ...pickOwned(rest, has) } }, s.onCar(item.label));
       return;
     }
+    if (item.retired) return;
     setTrial({ ...trial, [kind]: item.id });
   };
 
@@ -192,7 +196,7 @@ export function Shop() {
         </div>
 
         <div className="grid">
-          {SECTIONS.map((kind) => (
+          {sections.map((kind) => (
             <div className="card notched" key={kind}>
               <div className="head">
                 <div className="eyebrow">{s.sections[kind].title}</div>
@@ -209,7 +213,7 @@ export function Shop() {
                 </div>
               )}
               <div className="swatches">
-                {SHOP_ITEMS.filter((i) => i.kind === kind).map((item) => (
+                {SHOP_ITEMS.filter((i) => i.kind === kind && onSale(i)).map((item) => (
                   <Swatch
                     key={item.id}
                     item={item}

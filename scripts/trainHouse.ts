@@ -2,8 +2,14 @@
  * Train one of the house drivers - the cars that fill a thin grid (see
  * `core/champ/house.ts`) - and write its weights to `public/house/<id>.json`.
  *
- *   npx tsx scripts/trainHouse.ts <id> <preset> <generations> [seed]
+ *   npx tsx scripts/trainHouse.ts <id> <preset> <generations> [seed] [--continue <trackId>]
  *   npx tsx scripts/trainHouse.ts house-3 aggressive 240
+ *   npx tsx scripts/trainHouse.ts house-3 balanced 60 7 --continue harbor
+ *
+ * `--continue` starts from the driver's current weights instead of from
+ * scratch, and every other block of generations is on the named circuit: how
+ * a house car learns a circuit added after it was trained, without losing the
+ * level it has everywhere else. The checkpoint is still judged on all of them.
  *
  * Neuroevolution rather than DQN: headless it runs twenty-odd times faster, and
  * a house driver only needs to be *a* level, not the best possible one. The
@@ -16,11 +22,11 @@
  * checkpoint, contact on, on every circuit. A driver that is quick alone and
  * then locks wheels with the car next to it on lap one is no use on a grid.
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { getGame } from '../src/core/games/registry';
 import { presetRewards } from '../src/core/games/types';
 import { GaTrainer, DEFAULT_GA_HYPER } from '../src/core/rl/ga';
-import { encodeWeights } from '../src/core/nn/serialize';
+import { decodeWeights, encodeWeights } from '../src/core/nn/serialize';
 import { Policy } from '../src/core/rl/policy';
 import { SessionSim, QUALI_LAPS } from '../src/core/champ/sim';
 import { RACE_LAPS } from '../src/core/champ/format';
@@ -28,7 +34,11 @@ import { TRACK_DEFS } from '../src/core/games/racing/tracks';
 import { PHYSICS_VERSION } from '../src/core/games/racing/env';
 import { RACING_PRESETS, OBS_SIZE } from '../src/core/games/racing/rewards';
 
-const [id, presetId, gensArg, seedArg] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const contAt = args.indexOf('--continue');
+const focusTrack = contAt >= 0 ? args[contAt + 1] : null;
+if (contAt >= 0) args.splice(contAt, 2);
+const [id, presetId, gensArg, seedArg] = args;
 if (!id || !presetId || !gensArg) {
   console.error('usage: trainHouse.ts <id> <preset> <generations> [seed]');
   process.exit(1);
@@ -98,8 +108,26 @@ let best: { weights: Float32Array; ev: TrackEval[]; cost: number; gen: number } 
 let gen = 0;
 const t0 = Date.now();
 
+if (focusTrack) {
+  if (!TRACK_DEFS.some((d) => d.id === focusTrack)) throw new Error(`unknown track ${focusTrack}`);
+  const current = JSON.parse(readFileSync(`public/house/${id}.json`, 'utf8')) as { weightsB64: string };
+  weights = decodeWeights(current.weightsB64);
+  // The driver as it is sets the bar: a retrain that ends up worse overall keeps the old weights.
+  const ev = evaluate(weights);
+  best = { weights: Float32Array.from(weights), ev, cost: cost(ev), gen: 0 };
+  console.log(`${id} as it is: traffic finishes ${ev.reduce((s, e) => s + e.trafficFinishes, 0)}/${ev.length * TRAFFIC}`);
+}
+
+/** The circuit for a block: in turn through all of them, or every other block on the one being learned. */
+function trackFor(block: number) {
+  if (!focusTrack) return TRACK_DEFS[block % TRACK_DEFS.length];
+  if (block % 2 === 0) return TRACK_DEFS.find((d) => d.id === focusTrack)!;
+  const others = TRACK_DEFS.filter((d) => d.id !== focusTrack);
+  return others[(block >> 1) % others.length];
+}
+
 while (gen < generations) {
-  const track = TRACK_DEFS[(gen / BLOCK) % TRACK_DEFS.length | 0];
+  const track = trackFor((gen / BLOCK) | 0);
   const trainer = new GaTrainer({
     gameId: 'racing',
     config: { ...game.defaultConfig(), trackId: track.id, laps: 2, maxSteps: 1500, physics: PHYSICS_VERSION },

@@ -11,6 +11,7 @@ export const tracks: typeof He.tracks = {
   clover: 'Clover',
   coast: 'Coast',
   ring: 'Ring',
+  harbor: 'Harbor',
 };
 
 export const champ: typeof He.champ = {

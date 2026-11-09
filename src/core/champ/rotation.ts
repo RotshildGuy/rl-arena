@@ -26,6 +26,12 @@ export interface TrackPool {
   /** The first season this pool is drawn from. */
   fromSeason: number;
   trackIds: readonly string[];
+  /**
+   * Circuits that open the pool's first season for certain: a new circuit is
+   * raced the season it arrives in, not whenever the draw gets round to it.
+   * They take the last places of that season's draw; later seasons draw freely.
+   */
+  debut?: readonly string[];
 }
 
 /**
@@ -42,6 +48,16 @@ export const TRACK_POOLS: readonly TrackPool[] = [
       'oval', 'kidney', 'technical', 'speedway',
       'stadium', 'triangle', 'serpent', 'clover', 'coast', 'ring',
     ],
+  },
+  {
+    // Season 3: the street circuit with the hairpin joins, and races its first season.
+    fromSeason: 3,
+    trackIds: [
+      'oval', 'kidney', 'technical', 'speedway',
+      'stadium', 'triangle', 'serpent', 'clover', 'coast', 'ring',
+      'harbor',
+    ],
+    debut: ['harbor'],
   },
 ];
 
@@ -74,7 +90,20 @@ export function drawRotation(n: number): string[] {
     const j = randInt(rng, i + 1);
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
-  return ids.slice(0, Math.min(ROTATION_SIZE, ids.length));
+  const drawn = ids.slice(0, Math.min(ROTATION_SIZE, ids.length));
+  if (pool.fromSeason === n) {
+    // A debut the draw left out takes the last place not already a debut's.
+    for (const id of pool.debut ?? []) {
+      if (drawn.includes(id)) continue;
+      for (let k = drawn.length - 1; k >= 0; k--) {
+        if (!pool.debut!.includes(drawn[k])) {
+          drawn[k] = id;
+          break;
+        }
+      }
+    }
+  }
+  return drawn;
 }
 
 /**
