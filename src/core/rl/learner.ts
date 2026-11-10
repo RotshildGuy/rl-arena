@@ -37,6 +37,12 @@ export interface Learner {
   readonly epsilon: number;
   /** How many seats it drives. */
   readonly seatCount: number;
+  /**
+   * The longest episode this learner wants, in environment steps; undefined for
+   * no limit. A shared session cuts an episode short only when every learner
+   * on it asks to, at the longest of their limits.
+   */
+  readonly episodeLimit?: number;
 
   /** Called after the environment resets, before the first action. */
   beginEpisode(): void;

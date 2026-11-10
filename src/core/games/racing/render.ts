@@ -101,7 +101,7 @@ export type CarShape = 'classic' | 'wedge' | 'arrow' | 'bulldog';
  * Each body as points on one side of the car, nose first, in fractions of the
  * car's length and width; the other side is the mirror image.
  */
-const BODY_SHAPES: Record<CarShape, Array<[number, number]>> = {
+export const BODY_SHAPES: Record<CarShape, Array<[number, number]>> = {
   // Narrow nose, wide sidepods, tapering to the gearbox.
   classic: [[0.44, 0.09], [0.12, 0.16], [0.02, 0.36], [-0.28, 0.36], [-0.42, 0.18]],
   // A long sharp nose, the sidepods swept back.
@@ -202,6 +202,19 @@ function closedPath(pts: Float32Array): Path2D {
   return p;
 }
 
+/**
+ * Whether centreline sample `i` is in a corner, and so gets a kerb: where the
+ * tangents either side of it turn apart. The 3D broadcast uses the same test,
+ * so its kerbs sit where the 2D ones do.
+ */
+export function hasKerb(track: Track, i: number): boolean {
+  const n = track.def.samples;
+  const a = ((i - 2) % n + n) % n;
+  const b = (i + 2) % n;
+  const cross = track.tangent[a * 2] * track.tangent[b * 2 + 1] - track.tangent[a * 2 + 1] * track.tangent[b * 2];
+  return Math.abs(cross) >= 0.05;
+}
+
 function sceneryFor(track: Track): Scenery {
   const hit = sceneryCache.get(track.def.id);
   if (hit) return hit;
@@ -210,16 +223,9 @@ function sceneryFor(track: Track): Scenery {
   const kerbWhite = new Path2D();
   const KERB = 7;
 
-  // A corner is where the centreline turns: compare the tangents either side.
-  const turn = (i: number) => {
-    const a = ((i - 2) % n + n) % n;
-    const b = (i + 2) % n;
-    const cross = track.tangent[a * 2] * track.tangent[b * 2 + 1] - track.tangent[a * 2 + 1] * track.tangent[b * 2];
-    return Math.abs(cross);
-  };
   for (const wall of [track.inner, track.outer]) {
     for (let i = 0; i < n; i++) {
-      if (turn(i) < 0.05) continue;
+      if (!hasKerb(track, i)) continue;
       const j = (i + 1) % n;
       const quad = (k: number) => {
         // From the wall towards the centreline by the kerb's width.
@@ -825,4 +831,18 @@ export function drawCarPreview(
   ctx.rotate(-Math.PI / 2);
   drawCar(ctx, len, len * 0.59, color, look, 99, background ? 0.38 : 0.14);
   ctx.restore();
+}
+
+/**
+ * A car's livery seen from straight above, nose along +x and centred on the
+ * origin, with no shadow: the paint the 3D broadcast wraps over its car body.
+ */
+export function drawCarLivery(
+  ctx: CanvasRenderingContext2D,
+  len: number,
+  wid: number,
+  color: string,
+  look: CarLook | undefined,
+): void {
+  drawCar(ctx, len, wid, color, look, 99, 0);
 }

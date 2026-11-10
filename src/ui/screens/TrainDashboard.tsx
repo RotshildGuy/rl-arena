@@ -58,7 +58,6 @@ export function TrainDashboard() {
   const dirtyRef = useRef(false);
   const [tab, setTab] = useState(0);
   /** The progress charts stay folded until asked for: the track is what to watch. */
-  const [showGraph, setShowGraph] = useState(false);
   /** Per model, where on the chart its sliders last changed - the points are counted differently from there. */
   const [retuned, setRetuned] = useState<Record<number, number>>({});
   const boot = useRef<SlotBoot[]>([]);
@@ -404,9 +403,6 @@ export function TrainDashboard() {
           <button onClick={() => save('checkpoint')} disabled={saving || booting}>
             {d.checkpoint}
           </button>
-          <button onClick={() => setShowGraph((g) => !g)} aria-expanded={showGraph}>
-            {showGraph ? d.hideGraph : d.showGraph}
-          </button>
           <CoachAnchor
             step={coach === 'save' ? coach : null}
             text={d.coach}
@@ -504,40 +500,38 @@ export function TrainDashboard() {
             </div>
           )}
 
-          {showGraph && (
-            <div className="card notched">
-              <div className="head">
-                <div className="eyebrow">{d.progressOf(slot.name || d.model(slotIndex + 1))}</div>
-              </div>
-              <div className="small muted" style={{ marginBottom: 4 }}>
-                {d.pointsPer(algo.episodeLabel)}
-              </div>
-              <LineChart
-                height={140}
-                marker={retuned[slotIndex]}
-                series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]}
-              />
-              {retuned[slotIndex] !== undefined && (
-                <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
-                  {d.retuned}
-                </div>
-              )}
-
-              {hasLaps && (
-                <>
-                  <div className="small muted" style={{ marginTop: 10 }}>
-                    {d.lapPer(algo.episodeLabel)}
-                  </div>
-                  <LineChart
-                    height={110}
-                    nonNegative
-                    emptyText={d.noLapYet}
-                    series={[{ label: 'lap', color: '--purple', values: charts.laps }]}
-                  />
-                </>
-              )}
+          <div className="card notched">
+            <div className="head">
+              <div className="eyebrow">{d.progressOf(slot.name || d.model(slotIndex + 1))}</div>
             </div>
-          )}
+            <div className="small muted" style={{ marginBottom: 4 }}>
+              {d.pointsPer(algo.episodeLabel)}
+            </div>
+            <LineChart
+              height={140}
+              marker={retuned[slotIndex]}
+              series={[{ label: 'reward', color: '--accent-2', values: charts.rewards }]}
+            />
+            {retuned[slotIndex] !== undefined && (
+              <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>
+                {d.retuned}
+              </div>
+            )}
+
+            {hasLaps && (
+              <>
+                <div className="small muted" style={{ marginTop: 10 }}>
+                  {d.lapPer(algo.episodeLabel)}
+                </div>
+                <LineChart
+                  height={110}
+                  nonNegative
+                  emptyText={d.noLapYet}
+                  series={[{ label: 'lap', color: '--purple', values: charts.laps }]}
+                />
+              </>
+            )}
+          </div>
         </div>
 
         <div className="grid">

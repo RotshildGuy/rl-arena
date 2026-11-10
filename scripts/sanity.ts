@@ -316,6 +316,7 @@ function rotationTest(): void {
     clover: '95ecec69',
     coast: '6795b835',
     ring: '989f5909',
+    harbor: 'd08f753',
   };
   const f = new Float32Array(1);
   const u = new Uint32Array(f.buffer);
@@ -348,12 +349,14 @@ function rotationTest(): void {
 
   const PINNED: Record<number, string[]> = {
     2: ['serpent', 'kidney', 'ring', 'oval'],
-    3: ['kidney', 'ring', 'coast', 'clover'],
-    4: ['serpent', 'stadium', 'clover', 'technical'],
-    5: ['ring', 'technical', 'kidney', 'stadium'],
-    6: ['clover', 'stadium', 'ring', 'coast'],
-    7: ['speedway', 'clover', 'coast', 'ring'],
-    8: ['technical', 'coast', 'oval', 'clover'],
+    // Seasons 3 on were drawn again when the season-3 pool (with "harbor") was
+    // added, before season 3 started.
+    3: ['harbor', 'kidney', 'speedway', 'ring'],
+    4: ['coast', 'ring', 'harbor', 'speedway'],
+    5: ['coast', 'speedway', 'technical', 'harbor'],
+    6: ['triangle', 'harbor', 'speedway', 'clover'],
+    7: ['ring', 'coast', 'triangle', 'technical'],
+    8: ['ring', 'coast', 'technical', 'oval'],
   };
   for (const [n, want] of Object.entries(PINNED)) {
     const got = seasonRotation(Number(n));

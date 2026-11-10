@@ -61,6 +61,8 @@ export class TrainingSession {
   private readonly outcomes: Array<{ seatRewards: Float32Array; seatScores: Float32Array }> = [];
   private readonly seed: number;
   private episodeIndex = 0;
+  /** Steps after which an episode ends whether or not the race has: see `Learner.episodeLimit`. */
+  private episodeLimit = Infinity;
 
   constructor(init: SessionInit) {
     const game = getGame(init.gameId);
@@ -91,6 +93,7 @@ export class TrainingSession {
     }
 
     this.learners = this.seats.map((seats, slot) => init.makeLearner(slot, seats));
+    this.episodeLimit = Math.max(...this.learners.map((l) => l.episodeLimit ?? Infinity));
     for (let i = 0; i < nSeats; i++) {
       this.cur.push(new Float32Array(game.spec.obsSize));
       this.nxt.push(new Float32Array(game.spec.obsSize));
@@ -165,7 +168,7 @@ export class TrainingSession {
     for (const learner of this.learners) learner.afterStep();
     this.episodeSteps++;
 
-    if (!res.allDone) return NO_STATS;
+    if (!res.allDone && this.episodeSteps < this.episodeLimit) return NO_STATS;
 
     const out: SlotStats[] = [];
     for (let slot = 0; slot < this.learners.length; slot++) {

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getGame, GAME_IDS, type GameId } from '../core/games/registry';
 import { defaultRewards, levelValue, type RewardConfig } from '../core/games/types';
 import { DEFAULT_HYPER, type DqnHyper } from '../core/rl/dqn';
-import { DEFAULT_GA_HYPER, type GaHyper } from '../core/rl/ga';
+import { DEFAULT_GA_HYPER, gaHyperForSaved, type GaHyper } from '../core/rl/ga';
 import type { AlgorithmId } from '../core/rl/algorithms';
 import type { ModelMeta } from '../storage';
 import { isMobileClass } from './device';
@@ -170,19 +170,19 @@ interface AppState {
 }
 
 /**
- * Phone-class devices get lighter defaults.
+ * Phone-class devices get lighter defaults: a smaller network and, for the
+ * genetic algorithm, a smaller population.
  *
- * The genetic algorithm needs no gradients at all, which is exactly the operation
- * a mobile CPU is worst at - it runs roughly 25x more environment steps per second
- * than DQN on the same hardware, so it is the sane default where most of the
- * training will happen. A smaller network cuts the per-step cost further.
- * Nothing here is locked: the user can still pick DQN and a larger net.
+ * Learning while driving (DQN) is the default everywhere since season 3. The
+ * genetic algorithm runs more steps per second on a phone, but its cars came
+ * out well behind DQN's ones in the championship, and a default that loses is
+ * no favour. Nothing here is locked: the user can still pick it.
  */
 function freshSlot(gameId: GameId, index = 0): TrainSlot {
   return {
     modelId: null,
     name: '',
-    algorithm: isMobileClass ? 'ga' : 'dqn',
+    algorithm: 'dqn',
     // A second model on the grid is only interesting if it drives differently,
     // so every one after the first starts braver than the house defaults.
     rewards: index > 0 ? braverRewards(gameId) : defaultRewards(getGame(gameId).spec),
@@ -231,7 +231,7 @@ function freshDraft(gameId: GameId): TrainDraft {
       hidden,
       // Smaller population means a generation completes sooner, so the progress
       // chart actually moves while someone is watching it on a phone.
-      populationSize: isMobileClass ? 20 : DEFAULT_GA_HYPER.populationSize,
+      populationSize: isMobileClass ? 16 : DEFAULT_GA_HYPER.populationSize,
     },
     timeLimitMin: defaultTimeLimit(),
     rival: null,
@@ -349,7 +349,9 @@ export const useApp = create<AppState>((set, get) => ({
           { modelId: m.id, name: m.name, algorithm: m.algorithm, rewards: { ...m.rewards }, restart },
         ],
         ...(m.algorithm === 'ga'
-          ? { gaHyper: { ...DEFAULT_GA_HYPER, ...(m.hyper as Partial<GaHyper>) } }
+          ? // Only the network shape carries over: a model saved on the old GA
+            // settings continues on today's.
+            { gaHyper: gaHyperForSaved(m.hyper as Partial<GaHyper>, base.gaHyper) }
           : { hyper: { ...DEFAULT_HYPER, ...(m.hyper as Partial<DqnHyper>) } }),
       },
     });

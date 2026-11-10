@@ -16,6 +16,7 @@ export const tracks: Record<string, string> = {
   clover: 'תלתן',
   coast: 'חוף',
   ring: 'טבעת',
+  harbor: 'הנמל',
 };
 
 export const champ = {

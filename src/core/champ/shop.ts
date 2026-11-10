@@ -22,6 +22,12 @@ export interface ShopItem {
   price: number;
   /** The colour, pattern or shape name or, for `number` and `emblem`, empty (those are chosen). */
   value: string;
+  /**
+   * No longer sold. A team that bought one keeps it and can still put it on or
+   * take it off; nobody else sees it in the shop. Kept in the catalogue so the
+   * coins paid still count and the paint still draws.
+   */
+  retired?: boolean;
 }
 
 /** An item whose label is read from the dictionary by its id. */
