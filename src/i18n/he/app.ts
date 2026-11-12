@@ -50,6 +50,10 @@ export const app = {
     light: 'בהיר',
     dark: 'כהה',
     language: 'שפה',
+    motion: 'אנימציות',
+    motionOn: 'עם',
+    motionOff: 'בלי',
+    motionHint: 'לפי המכשיר: אם ביקשתם בטלפון או במחשב פחות תנועה, אין אנימציות.',
     saved: 'הבחירה נשמרת במכשיר הזה.',
   },
 };

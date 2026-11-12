@@ -1,12 +1,14 @@
 import { createRoot } from 'react-dom/client';
 import './ui/styles.css';
 import { initTheme } from './ui/theme';
+import { initMotion } from './ui/motion';
 import { initLang, subscribeLang, t } from './i18n';
 import { startFreshIfNewEpoch } from './ui/forgetLocal';
 import { registerServiceWorker } from './ui/serviceWorker';
 import { startSlidingTabs } from './ui/slidingTabs';
 
 initTheme();
+initMotion();
 initLang();
 // The tab's title follows the language; index.html carries the Hebrew one.
 const retitle = () => (document.title = t().app.docTitle);

@@ -51,6 +51,10 @@ export const app: typeof He.app = {
     light: 'Light',
     dark: 'Dark',
     language: 'Language',
+    motion: 'Animations',
+    motionOn: 'On',
+    motionOff: 'Off',
+    motionHint: 'Device: if you asked your phone or computer for less motion, animations are off.',
     saved: 'Your choice is saved on this device.',
   },
 };

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validLook } from './shop';
 import { awardPoints, pointsForPosition, CLASSIFY_FRACTION } from './points';
 import { planSessions, snakeSeed, GRID_SIZE } from './format';
 import { isNameOk, nameKey } from './names';
@@ -116,5 +117,18 @@ describe('track rotation', () => {
 
   it('never opens a season on the circuit the last one closed on', () => {
     expect(fitRotation(['oval', 'ring', 'coast', 'clover'], 'oval')[0]).not.toBe('oval');
+  });
+});
+
+describe('shop celebrations', () => {
+  const doc = (purchases: string[]) => ({ purchases, equipped: { celebration: 'celebrate-confetti' }, updatedAt: 0 });
+
+  it('a bought celebration goes on the car', () => {
+    expect(validLook(doc(['celebrate-confetti']), 1000)?.look.celebration).toBe('confetti');
+  });
+
+  it('one that was not paid for, or not afforded, draws nothing', () => {
+    expect(validLook(doc([]), 1000)).toBeNull();
+    expect(validLook(doc(['celebrate-confetti']), 10)).toBeNull();
   });
 });

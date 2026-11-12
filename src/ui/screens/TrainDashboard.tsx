@@ -528,6 +528,7 @@ export function TrainDashboard() {
                   nonNegative
                   emptyText={d.noLapYet}
                   series={[{ label: 'lap', color: '--purple', values: charts.laps }]}
+                  guide={target ? { value: target.ms / 1000, color: '--good', label: d.chartTarget(lapTime(target.ms)) } : undefined}
                 />
               </>
             )}
@@ -540,10 +541,15 @@ export function TrainDashboard() {
               <div className="eyebrow" style={{ marginBottom: 10 }}>
                 {d.recordsOn(setupLabel(draft.config))}
               </div>
-              <div className="cols-2">
-                <Stat k={d.fastLap} v={lapTime(records.lap)} accent />
-                <Stat k={d.fullRaceStat} v={raceTime(records.race)} />
-              </div>
+              <RecordTimes
+                key={slotIndex}
+                bestLap={records.lap}
+                bestRace={records.race}
+                snapRef={snapRef}
+                seats={seats[slotIndex] ?? []}
+                historyRace={history.length ? (history[history.length - 1].bestRaceMs ?? null) : null}
+                historyLength={history.length}
+              />
               {target && <TargetLine target={target} trackId={String(draft.config.trackId)} lap={records.lap} />}
               <div className="small muted" style={{ marginTop: 8 }}>
                 {records.race === null
@@ -658,6 +664,103 @@ function LiveTiming({ snapRef }: { snapRef: React.RefObject<unknown> }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The records, each beside the most recent time of the same kind: the fastest
+ * lap next to the last lap, the best full race next to the last one. Laps finish
+ * many times a second in a fast run, so the recent times are sampled once a
+ * second - a figure that changes faster than it can be read only flickers.
+ */
+function RecordTimes({
+  bestLap,
+  bestRace,
+  snapRef,
+  seats,
+  historyRace,
+  historyLength,
+}: {
+  bestLap: number | null;
+  bestRace: number | null;
+  snapRef: React.RefObject<unknown>;
+  seats: number[];
+  historyRace: number | null;
+  historyLength: number;
+}) {
+  const d = useT().dashboard;
+  type Times = { lap: number | null; race: number | null; bestLap: number | null; bestRace: number | null };
+  const none: Times = { lap: null, race: null, bestLap: null, bestRace: null };
+  const [shown, setShown] = useState<Times>(none);
+  // Latest props, read by the sampler without restarting it.
+  const props = useRef({ seats, historyRace, historyLength });
+  props.current = { seats, historyRace, historyLength };
+  const seen = useRef({ laps: new Map<number, number>(), races: new Map<number, number | null>(), historyLength: -1 });
+  // The saved records only move when an attempt ends; a faster lap seen live
+  // counts at once, so the last lap never reads quicker than the fastest.
+  const latest = useRef<Times>({ ...none });
+  const lower = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : Math.min(a, b));
+
+  useEffect(() => {
+    const sample = () => {
+      const p = props.current;
+      const s = seen.current;
+      const snap = snapRef.current as RacingSnapshot | null;
+      if (snap?.cars?.length) {
+        // A lap is new when a car's lap counter moved. Of several in one tick,
+        // the newest is the one whose next lap has run the shortest.
+        let lap: { ms: number; since: number } | null = null;
+        let race: number | null = null;
+        for (const seat of p.seats) {
+          const car = snap.cars[seat];
+          if (!car) continue;
+          if (s.laps.get(seat) !== car.lap) {
+            s.laps.set(seat, car.lap);
+            latest.current.bestLap = lower(latest.current.bestLap, car.lastLapMs);
+            if (car.lastLapMs !== null && (lap === null || car.currentLapMs < lap.since)) {
+              lap = { ms: car.lastLapMs, since: car.currentLapMs };
+            }
+          }
+          if (s.races.get(seat) !== car.totalMs) {
+            s.races.set(seat, car.totalMs);
+            latest.current.bestRace = lower(latest.current.bestRace, car.totalMs);
+            if (car.totalMs !== null && (race === null || car.totalMs > race)) race = car.totalMs;
+          }
+        }
+        if (lap) latest.current.lap = lap.ms;
+        if (race !== null) latest.current.race = race;
+      }
+      // A finish can come and go between two pictures in turbo; the episode
+      // summary still has it.
+      if (p.historyLength !== s.historyLength) {
+        if (s.historyLength >= 0 && p.historyRace !== null) latest.current.race = p.historyRace;
+        s.historyLength = p.historyLength;
+      }
+      const now = latest.current;
+      setShown((was) =>
+        was.lap === now.lap && was.race === now.race && was.bestLap === now.bestLap && was.bestRace === now.bestRace
+          ? was
+          : { ...now },
+      );
+    };
+    sample();
+    const id = setInterval(sample, 1000);
+    return () => clearInterval(id);
+  }, [snapRef]);
+
+  return (
+    <>
+      {/* Two-up even on a phone, where .cols-2 stacks: the pairs are the point. */}
+      <div className="cols-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <Stat k={d.fastLap} v={lapTime(lower(bestLap, shown.bestLap))} accent />
+        <Stat k={d.lastLap} v={lapTime(shown.lap)} />
+        <Stat k={d.fullRaceStat} v={raceTime(lower(bestRace, shown.bestRace))} />
+        <Stat k={d.lastRace} v={raceTime(shown.race)} />
+      </div>
+      <div className="small dim" style={{ marginTop: 4 }}>
+        {d.lastTimesNote}
+      </div>
+    </>
   );
 }
 

@@ -1414,8 +1414,8 @@ input[type='number'] { direction: ltr; text-align: end; }
   100% { transform: rotate(0deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rotate-gate .glyph { animation: none; }
-  .pill.live .blip { animation: none; }
+  :root:not([data-motion='on']) .rotate-gate .glyph { animation: none; }
+  :root:not([data-motion='on']) .pill.live .blip { animation: none; }
 }
 
 /* ------------------------------------------ full-screen match / broadcast */
@@ -1727,7 +1727,8 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .modal-backdrop, .modal { animation: none; }
+  :root:not([data-motion='on']) .modal-backdrop,
+  :root:not([data-motion='on']) .modal { animation: none; }
 }
 
 .modal {
@@ -1918,8 +1919,8 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .coach { animation: none; }
-  .coach-anchor.lit::after { animation: none; }
+  :root:not([data-motion='on']) .coach { animation: none; }
+  :root:not([data-motion='on']) .coach-anchor.lit::after { animation: none; }
 }
 
 /* ----------------------------------------------------------- setup: start */
@@ -2015,6 +2016,33 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   direction: rtl;
 }
 .podium-car { width: 64px; height: 108px; display: block; margin-bottom: 6px; }
+/* A car with a celebration: tap it to play it again. The canvas spills over
+   the neighbouring steps and above the podium, and never takes a tap. */
+.podium-car-wrap {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+  display: block;
+}
+.podium-car-wrap:hover,
+.podium-car-wrap:active,
+.shop-party:hover,
+.shop-party:active { background: none; border-color: transparent; transform: none; box-shadow: none; }
+.celebration {
+  position: absolute;
+  top: -110px;
+  bottom: -20px;
+  left: -90px;
+  right: -90px;
+  width: calc(100% + 180px);
+  height: calc(100% + 130px);
+  pointer-events: none;
+  z-index: 3;
+}
+.celebration.fit { inset: 0; width: 100%; height: 100%; }
 .podium-spot.p1 .podium-car { width: 76px; height: 128px; }
 .podium-name {
   /* A Latin name in a Hebrew page is truncated at its own end, not its start. */
@@ -2082,6 +2110,10 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   display: block;
 }
 .swatch-dot.smoke { border-style: dashed; background-color: #2b303d; }
+.swatch-dot.party { position: relative; overflow: hidden; background-color: #2b303d; }
+/* The preview car with a celebration: the whole card plays it, nothing spills. */
+.shop-party { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; box-shadow: none; cursor: pointer; overflow: hidden; border-radius: var(--radius); }
+.shop-party .celebration { inset: 0; width: 100%; height: 100%; }
 .swatch-car { width: 40px; height: 64px; display: block; }
 .swatch-price { font-size: 12px; color: var(--muted); min-height: 14px; font-family: var(--font-mono); }
 
@@ -2125,7 +2157,7 @@ button.big { min-height: 52px; font-size: 17px; font-weight: 800; }
   to { background-position: 0 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .skel { animation: none; }
+  :root:not([data-motion='on']) .skel { animation: none; }
 }
 @media (max-width: 860px) {
   .skel-cols { grid-template-columns: minmax(0, 1fr); }
@@ -2264,8 +2296,8 @@ button.last-race-link { margin-bottom: 14px; justify-content: center; gap: 8px; 
   box-shadow: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .segmented[data-slide='move']::before,
-  .nav[data-slide='move']::before { transition: none; }
+  :root:not([data-motion='on']) .segmented[data-slide='move']::before,
+  :root:not([data-motion='on']) .nav[data-slide='move']::before { transition: none; }
 }
 
 /* "new" on a circuit no earlier season has raced. */
@@ -2396,3 +2428,12 @@ button.sliders-fab:not(.primary):active:not(:disabled) { background: var(--surfa
 .director-car dt { color: var(--muted); }
 .director-car dd { margin: 0; text-align: end; }
 .director-panel .caption { transition: opacity 0.5s var(--ease); }
+
+/* Animations switched off in the settings: everything stands still. "On"
+   overrides the device's request for less motion in the blocks above. */
+:root[data-motion='off'] *,
+:root[data-motion='off'] *::before,
+:root[data-motion='off'] *::after {
+  animation: none !important;
+  transition: none !important;
+}

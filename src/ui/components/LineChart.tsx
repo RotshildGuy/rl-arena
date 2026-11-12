@@ -21,13 +21,15 @@ interface Props {
   emptyText?: string;
   /** An index to mark with a dashed vertical line - where something changed. */
   marker?: number;
+  /** A value to mark with a dashed horizontal line - a target to reach. Kept in view. */
+  guide?: { value: number; color: string; label: string };
 }
 
 /**
  * Small canvas chart. Hand-drawn rather than pulled from a charting library:
  * three of these redraw on every stats tick and the whole thing is 60 lines.
  */
-export function LineChart({ series, height = 120, fixedRange, log, nonNegative, emptyText, marker }: Props) {
+export function LineChart({ series, height = 120, fixedRange, log, nonNegative, emptyText, marker, guide }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const theme = useSyncExternalStore(subscribeTheme, currentTheme);
 
@@ -62,6 +64,10 @@ export function LineChart({ series, height = 120, fixedRange, log, nonNegative, 
         lo = Math.min(lo, t);
         hi = Math.max(hi, t);
       }
+    }
+    if (!fixedRange && guide && isFinite(guide.value) && isFinite(lo)) {
+      lo = Math.min(lo, tx(guide.value));
+      hi = Math.max(hi, tx(guide.value));
     }
     if (!isFinite(lo) || !isFinite(hi)) {
       lo = 0;
@@ -120,6 +126,28 @@ export function LineChart({ series, height = 120, fixedRange, log, nonNegative, 
       ctx.restore();
     }
 
+    if (guide && isFinite(guide.value)) {
+      const y = Y(guide.value);
+      const color = guide.color.startsWith('--') ? cssVar(guide.color, '#888') : guide.color;
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.25;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(w - pad.right, y);
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.font = '10px Heebo, system-ui, sans-serif';
+      // At the old end of the chart: the newest point sits on the right, and it
+      // is the one closing in on the line.
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.direction = 'rtl';
+      ctx.fillText(guide.label, pad.left + 4, y - 2);
+      ctx.restore();
+    }
+
     for (const s of series) {
       if (s.values.length < 2) continue;
       ctx.strokeStyle = s.color.startsWith('--') ? cssVar(s.color, '#888') : s.color;
@@ -141,7 +169,7 @@ export function LineChart({ series, height = 120, fixedRange, log, nonNegative, 
       }
       ctx.stroke();
     }
-  }, [theme, series, height, fixedRange, log, nonNegative, emptyText, marker]);
+  }, [theme, series, height, fixedRange, log, nonNegative, emptyText, marker, guide?.value, guide?.color, guide?.label]);
 
   return <canvas ref={ref} style={{ width: '100%', height, display: 'block' }} />;
 }

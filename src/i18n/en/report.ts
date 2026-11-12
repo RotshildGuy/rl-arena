@@ -20,6 +20,7 @@ export const report: typeof He.report = {
   copyOf: (driver, team) => `Copy of ${driver} (${team})`,
   retired: 'Out',
   podium: 'Podium',
+  celebrateAgain: 'Again!',
   winner: 'Winner',
   pole: 'Pole position',
   fastLap: 'Fastest lap',

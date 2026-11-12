@@ -2,8 +2,10 @@ import { useState, useSyncExternalStore } from 'react';
 import { getThemePref, setThemePref, subscribeTheme, type ThemePref } from '../theme';
 import { setLang, useLang, useT, type Lang } from '../../i18n';
 import { Modal } from './Modal';
+import { setMotionPref, useMotionPref, type MotionPref } from '../motion';
 
 const THEMES: ThemePref[] = ['system', 'light', 'dark'];
+const MOTIONS: MotionPref[] = ['system', 'on', 'off'];
 
 /** Each language by its own name, so somebody who cannot read the other one still finds theirs. */
 const LANGS: Array<{ id: Lang; name: string }> = [
@@ -22,16 +24,19 @@ function Gear() {
 }
 
 /**
- * One quiet button in the header for the two things people set once per device:
- * light or dark, and the language. Both choices are kept in this browser
- * (`ui/theme.ts`, `i18n/lang.ts`) and take effect at once, without a reload.
+ * One quiet button in the header for the things people set once per device:
+ * light or dark, the language, and animations on or off. Each choice is kept in
+ * this browser (`ui/theme.ts`, `i18n/lang.ts`, `ui/motion.ts`) and takes effect
+ * at once, without a reload.
  */
 export function SettingsButton() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const pref = useSyncExternalStore(subscribeTheme, getThemePref);
   const lang = useLang();
+  const motion = useMotionPref();
   const s = t.app.settings;
+  const motionLabel = { system: s.system, on: s.motionOn, off: s.motionOff };
   return (
     <>
       <button
@@ -74,6 +79,17 @@ export function SettingsButton() {
                 ))}
               </div>
             </div>
+            <div className="settings-row">
+              <div className="label">{s.motion}</div>
+              <div className="segmented" role="radiogroup" aria-label={s.motion}>
+                {MOTIONS.map((m) => (
+                  <button key={m} className={motion === m ? 'on' : ''} role="radio" aria-checked={motion === m} onClick={() => setMotionPref(m)}>
+                    {motionLabel[m]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="small muted">{s.motionHint}</div>
             <div className="small muted">{s.saved}</div>
           </div>
         </Modal>
