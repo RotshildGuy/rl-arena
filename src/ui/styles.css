@@ -2438,42 +2438,13 @@ button.sliders-fab:not(.primary):active:not(:disabled) { background: var(--surfa
   transition: none !important;
 }
 
-/* ------------------------------------------------------------ commentary
-   The written commentary under the picture, and team radio over it. */
+/* ------------------------------------------------------------ team radio
+   Radio calls over the picture, and the toggle in the top bar. */
 .match-fill .match-bar > button.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent, #fff);
 }
-.commentary {
-  flex: 0 0 auto;
-  display: grid;
-  gap: 2px;
-  padding: 6px 12px;
-  border-top: 1px solid var(--line);
-  background: var(--surface-solid);
-  font-size: 13px;
-  line-height: 1.35;
-}
-.commentary .line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 1.35em;
-  min-width: 0;
-}
-.commentary .line.before > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* The newest line may take two rows on a phone; the strip keeps room for them
-   so the picture does not jump. */
-.commentary .line.now { align-items: flex-start; min-height: 2.7em; }
-.commentary .line.now .livery { margin-top: 2px; }
-.commentary .line.before { color: var(--muted); font-size: 12px; }
-.commentary .line.now { font-weight: 600; animation: line-in 0.35s ease-out both; }
-.commentary .livery { width: 4px; height: 14px; border-radius: 2px; flex: 0 0 auto; }
 @keyframes line-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }

@@ -1,51 +1,27 @@
 import type { RacingSnapshot } from '../games/racing/env';
 
 /**
- * Written commentary and team radio for the broadcast.
+ * Team radio for the broadcast.
  *
- * Watches the snapshots of a race as it plays and turns what happens into
- * events: a commentary line for the whole audience ("X takes the lead") and,
- * now and then, a radio call between a driver and his team ("I touched the
- * wall, is the wing ok?"). It only says what the race did - nothing is made
- * up - and the words themselves are the dictionary's (`broadcast.commentary`
- * and `broadcast.radio`), so this file has no language in it.
+ * Watches the snapshots of a race as it plays and, now and then, puts a radio
+ * call on air between a driver and his team ("I touched the wall, is the wing
+ * ok?"). It only reacts to what the race did - a pass that held, a hit that
+ * cost speed, a finish - and the words are the dictionary's
+ * (`broadcast.radio`), so this file has no language in it.
  *
- * The race is deterministic and the choice of words is seeded from the event,
- * so two people watching the same replay read the same lines.
+ * Several cars often hit the same wall in one race. So the calls of one kind
+ * never repeat a wording until every other wording of that kind has been
+ * used: `seq` counts the calls of the kind and the screen takes
+ * `(seed + seq) % wordings`. The seed comes from the race itself, so two
+ * people watching the same replay read the same words.
  *
  * A seek is not a race event: when the playhead jumps (more than a couple of
  * seconds forward, or any distance back) everything is forgotten and watching
  * starts again from the new moment, quietly.
+ *
+ * (Season 4 also had a written commentary strip; it was taken out and only the
+ * radio kept.)
  */
-
-export type CommentKind =
-  | 'start'
-  | 'lead'
-  | 'pass'
-  | 'fastLap'
-  | 'lastLap'
-  | 'wall'
-  | 'contact'
-  | 'slide'
-  | 'battle'
-  | 'retired'
-  | 'win'
-  | 'podium';
-
-export interface Comment {
-  /** Race time it happened at. */
-  at: number;
-  kind: CommentKind;
-  car: number;
-  /** The other car: the one passed, the one fought with. */
-  other?: number;
-  /** The place gained or held. */
-  pos?: number;
-  /** A lap time, or a gap in ms. */
-  ms?: number;
-  /** Which of the dictionary's wordings, so a replay reads the same. */
-  variant: number;
-}
 
 export type RadioKind =
   | 'passMade'
@@ -64,6 +40,7 @@ export interface Radio {
   at: number;
   car: number;
   kind: RadioKind;
+  /** Which wording: `variant % wordings.length`. Consecutive calls of a kind never share one. */
   variant: number;
 }
 
@@ -71,23 +48,19 @@ export interface Radio {
 export const RADIO_MS = 5500;
 /** Jumps bigger than this are a seek, not a race. */
 const SEEK_MS = 2000;
-/** A pass has to hold this long before it is called: side by side, the order flickers. */
+/** A pass has to hold this long before it counts: side by side, the order flickers. */
 const PASS_HOLD_MS = 700;
 /** The same two cars swapping back within this is one fight, not a string of passes. */
 const PAIR_COOLDOWN_MS = 6000;
-/** Per car, between two mishaps called. */
+/** Per car, between two mishaps. */
 const MISHAP_COOLDOWN_MS = 6000;
-/** Under this gap to the car ahead, two cars are fighting. */
+/** Under this gap to the car ahead, two cars are fighting... */
 const BATTLE_GAP_MS = 450;
-/** For this long, before the commentator says so. */
+/** ...for this long before the team says so... */
 const BATTLE_HOLD_MS = 3000;
-/** And not again about the same pair for this long. */
+/** ...and not again for the same car for this long. */
 const BATTLE_REPEAT_MS = 25000;
-/** Small things (a scrape, a slide, a fight) only for the cars up front... */
-const MINOR_TOP = 6;
-/** ...and not straight on top of another line. */
-const MINOR_GAP_MS = 1800;
-/** Radio: one call at a time, and not too often from one car. */
+/** One call at a time, and not too often from one car. */
 const RADIO_GAP_MS = 6500;
 const RADIO_CAR_GAP_MS = 14000;
 
@@ -107,11 +80,10 @@ interface PendingPass {
   car: number;
   other: number;
   since: number;
-  pos: number;
 }
 
-/** A small, stable hash: the same event always picks the same words. */
-function variantOf(...xs: number[]): number {
+/** A small, stable hash: the same race always picks the same words. */
+function hash(...xs: number[]): number {
   let h = 2166136261;
   for (const x of xs) {
     h ^= Math.floor(x) & 0xffffffff;
@@ -120,8 +92,14 @@ function variantOf(...xs: number[]): number {
   return h >>> 0;
 }
 
-export class Commentator {
-  readonly comments: Comment[] = [];
+/** A number per kind name, to spread the seeds of the kinds apart. */
+function kindCode(kind: RadioKind): number {
+  let n = 0;
+  for (let i = 0; i < kind.length; i++) n = n * 31 + kind.charCodeAt(i);
+  return n;
+}
+
+export class TeamRadio {
   readonly radios: Radio[] = [];
   private cars: CarMemory[] = [];
   private lastMs: number | null = null;
@@ -130,9 +108,10 @@ export class Commentator {
   private pairAt = new Map<string, number>();
   private fastest: number | null = null;
   private lastLapCalled = false;
-  private started = false;
-  private lastLineAt = -Infinity;
   private lastRadioAt = -Infinity;
+  /** Calls of each kind so far, and where that kind's wordings start. */
+  private seq = new Map<RadioKind, number>();
+  private seed = 0;
 
   /**
    * @param totalLaps the session's distance
@@ -152,11 +131,6 @@ export class Commentator {
     }
     if (now === this.lastMs) return;
 
-    if (!this.started && now > 0) {
-      this.started = true;
-      if (now < 3000 && snap.order.length) this.say({ at: now, kind: 'start', car: snap.order[0] });
-    }
-
     this.watchCars(snap, now);
     this.watchOrder(snap, now);
     this.watchFastest(snap, now);
@@ -165,18 +139,6 @@ export class Commentator {
 
     this.lastOrder = [...snap.order];
     this.lastMs = now;
-  }
-
-  /** The lines to show at `now`, newest last. */
-  recent(now: number, count: number, withinMs = 15000): Comment[] {
-    const out: Comment[] = [];
-    for (let i = this.comments.length - 1; i >= 0 && out.length < count; i--) {
-      const c = this.comments[i];
-      if (c.at > now) continue;
-      if (now - c.at > withinMs) break;
-      out.unshift(c);
-    }
-    return out;
   }
 
   /** The radio call on air at `now`, if any. */
@@ -193,10 +155,12 @@ export class Commentator {
 
   /** Forget everything and take this moment as the new starting point. */
   private resync(snap: RacingSnapshot): void {
-    this.comments.length = 0;
     this.radios.length = 0;
     this.pending = [];
     this.pairAt.clear();
+    this.seq.clear();
+    // The grid as it stands decides where each kind's wordings start.
+    this.seed = hash(snap.cars.length, ...snap.order);
     this.cars = snap.cars.map((c) => ({
       speeds: [[snap.raceMs, c.speed]],
       slideSince: null,
@@ -210,8 +174,6 @@ export class Commentator {
     this.fastest = snap.fastestLap?.ms ?? null;
     const leader = snap.cars[snap.order[0]];
     this.lastLapCalled = !!leader && leader.lap + 1 >= this.totalLaps;
-    this.started = snap.raceMs > 0;
-    this.lastLineAt = -Infinity;
     this.lastRadioAt = -Infinity;
     this.lastOrder = [...snap.order];
     this.lastMs = snap.raceMs;
@@ -234,18 +196,10 @@ export class Commentator {
         // line, not the order home: cars a lap down are flagged off right
         // behind the winner, and a car still running further round is ahead
         // of them. It does not change afterwards.
-        if (pos === 1) {
-          this.say({ at: now, kind: 'win', car: i, ms: c.totalMs ?? undefined });
-          this.radio({ at: now, car: i, kind: 'win' }, true);
-        } else if (pos <= 3) {
-          this.say({ at: now, kind: 'podium', car: i, pos });
-          this.radio({ at: now, car: i, kind: 'podium' });
-        }
+        if (pos === 1) this.radio({ at: now, car: i, kind: 'win' }, true);
+        else if (pos <= 3) this.radio({ at: now, car: i, kind: 'podium' });
       }
-      if (c.done && !c.finished && !m.done) {
-        this.say({ at: now, kind: 'retired', car: i, pos });
-        this.radio({ at: now, car: i, kind: 'retired' });
-      }
+      if (c.done && !c.finished && !m.done) this.radio({ at: now, car: i, kind: 'retired' });
       m.done = c.done;
       if (c.done) return;
 
@@ -253,25 +207,18 @@ export class Commentator {
       m.speeds.push([now, c.speed]);
       while (m.speeds.length > 1 && now - m.speeds[0][0] > 500) m.speeds.shift();
       const before = m.speeds[0][1];
-      const calm = now - m.mishapAt > MISHAP_COOLDOWN_MS;
-      const minorOk = pos <= MINOR_TOP;
 
       if (c.sliding) m.slideSince ??= now;
       else m.slideSince = null;
 
-      if (!calm) return;
-      if (c.touchingWall && before > 4 && c.speed < before * 0.75) {
+      if (now - m.mishapAt <= MISHAP_COOLDOWN_MS) return;
+      let kind: RadioKind | null = null;
+      if (c.touchingWall && before > 4 && c.speed < before * 0.75) kind = 'wall';
+      else if (c.touchingCar && before > 3 && c.speed < before * 0.7) kind = 'contact';
+      else if (m.slideSince !== null && now - m.slideSince >= 700) kind = 'slide';
+      if (kind) {
         m.mishapAt = now;
-        if (minorOk) this.say({ at: now, kind: 'wall', car: i, pos }, true);
-        this.radio({ at: now, car: i, kind: 'wall' });
-      } else if (c.touchingCar && before > 3 && c.speed < before * 0.7) {
-        m.mishapAt = now;
-        if (minorOk) this.say({ at: now, kind: 'contact', car: i, pos }, true);
-        this.radio({ at: now, car: i, kind: 'contact' });
-      } else if (m.slideSince !== null && now - m.slideSince >= 700) {
-        m.mishapAt = now;
-        if (minorOk) this.say({ at: now, kind: 'slide', car: i, pos }, true);
-        this.radio({ at: now, car: i, kind: 'slide' });
+        this.radio({ at: now, car: i, kind });
       }
     });
   }
@@ -279,7 +226,7 @@ export class Commentator {
   /**
    * Passes. A car that climbs past the one that was just ahead of it, and stays
    * there for a moment, has passed it. A car dropping because the one behind
-   * retired or finished is not a pass and is never called.
+   * retired or finished is not a pass.
    */
   private watchOrder(snap: RacingSnapshot, now: number): void {
     const prevPos = new Map(this.lastOrder.map((car, i) => [car, i]));
@@ -292,7 +239,7 @@ export class Commentator {
       if (!p || p.done || p.finished || snap.cars[car]?.finished) return;
       this.pending = this.pending.filter((x) => !(x.car === passed && x.other === car));
       if (!this.pending.some((x) => x.car === car && x.other === passed)) {
-        this.pending.push({ car, other: passed, since: now, pos: idx + 1 });
+        this.pending.push({ car, other: passed, since: now });
       }
     });
 
@@ -308,9 +255,7 @@ export class Commentator {
       const last = this.pairAt.get(key) ?? -Infinity;
       this.pairAt.set(key, now);
       if (now - last < PAIR_COOLDOWN_MS) continue;
-      const pos = snap.order.indexOf(x.car) + 1;
-      this.say({ at: now, kind: pos === 1 ? 'lead' : 'pass', car: x.car, other: x.other, pos }, pos > MINOR_TOP);
-      // The radio goes to whichever side of the pass is more worth hearing.
+      // The call goes to whichever side of the pass is more worth hearing.
       const loser = this.favoured.has(x.other) && !this.favoured.has(x.car);
       if (loser) this.radio({ at: now, car: x.other, kind: 'passLost' });
       else if (!this.radio({ at: now, car: x.car, kind: 'passMade' })) this.radio({ at: now, car: x.other, kind: 'passLost' });
@@ -326,31 +271,24 @@ export class Commentator {
     const first = this.fastest === null;
     this.fastest = f.ms;
     // The first lap anyone completes is the fastest by default; that says nothing.
-    if (first) return;
-    this.say({ at: now, kind: 'fastLap', car: f.car, ms: f.ms });
-    this.radio({ at: now, car: f.car, kind: 'fastLap' });
+    if (!first) this.radio({ at: now, car: f.car, kind: 'fastLap' });
   }
 
   private watchLastLap(snap: RacingSnapshot, now: number): void {
     if (this.lastLapCalled || this.totalLaps < 2) return;
     const leaderIdx = snap.order.find((i) => !snap.cars[i]?.done);
     if (leaderIdx === undefined) return;
-    const leader = snap.cars[leaderIdx];
-    if (leader.lap + 1 < this.totalLaps) return;
+    if (snap.cars[leaderIdx].lap + 1 < this.totalLaps) return;
     this.lastLapCalled = true;
-    const second = snap.order[snap.order.indexOf(leaderIdx) + 1];
-    const gap = second !== undefined ? snap.cars[second]?.gapMs : undefined;
-    this.say({ at: now, kind: 'lastLap', car: leaderIdx, other: second, ms: gap });
     this.radio({ at: now, car: leaderIdx, kind: 'lastLap' }, true);
   }
 
   private watchBattles(snap: RacingSnapshot, now: number): void {
     for (let p = 1; p < snap.order.length; p++) {
       const car = snap.order[p];
-      const ahead = snap.order[p - 1];
       const c = snap.cars[car];
       const m = this.cars[car];
-      if (!c || !m || c.done || snap.cars[ahead]?.done) continue;
+      if (!c || !m || c.done || snap.cars[snap.order[p - 1]]?.done) continue;
       if (c.intervalMs > BATTLE_GAP_MS) {
         m.battleSince = null;
         continue;
@@ -358,19 +296,11 @@ export class Commentator {
       m.battleSince ??= now;
       if (now - m.battleSince < BATTLE_HOLD_MS || now - m.battleCalledAt < BATTLE_REPEAT_MS) continue;
       m.battleCalledAt = now;
-      if (p + 1 <= MINOR_TOP) this.say({ at: now, kind: 'battle', car, other: ahead, pos: p + 1, ms: c.intervalMs }, true);
       this.radio({ at: now, car, kind: 'battle' });
     }
   }
 
   // ------------------------------------------------------------ output
-
-  /** A commentary line. A minor one waits its turn: it is dropped if a line was just said. */
-  private say(c: Omit<Comment, 'variant'>, minor = false): void {
-    if (minor && c.at - this.lastLineAt < MINOR_GAP_MS) return;
-    this.comments.push({ ...c, variant: variantOf(c.at, c.car, c.other ?? -1, c.kind.length) });
-    this.lastLineAt = c.at;
-  }
 
   /**
    * A radio call, if the air is free. `force` is for the moments that matter
@@ -385,7 +315,11 @@ export class Commentator {
       const gap = this.favoured.has(r.car) ? RADIO_CAR_GAP_MS / 2 : RADIO_CAR_GAP_MS;
       if (r.at - m.radioAt < gap) return false;
     }
-    this.radios.push({ ...r, variant: variantOf(r.at, r.car, r.kind.length, 7) });
+    const n = this.seq.get(r.kind) ?? 0;
+    this.seq.set(r.kind, n + 1);
+    // Small enough that adding the count never wraps past the safe integers.
+    const start = hash(this.seed, kindCode(r.kind)) % 1_000_003;
+    this.radios.push({ ...r, variant: start + n });
     this.lastRadioAt = r.at;
     m.radioAt = r.at;
     return true;
