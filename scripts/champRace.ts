@@ -81,7 +81,7 @@ card.qualifying.forEach((q, i) => {
   console.log(`  P${String(i + 1).padStart(2)}  ${q.entryId.padEnd(4)} ${fmt(q.bestLapMs).padStart(9)}   sectors ${q.sectorsMs.map(fmt).join(' / ')}`);
 });
 
-console.log('\nמקצים:', planSessions(card.qualifying.map((q) => q.entryId)).map((s) => `${s.id}(${s.name})`).join(' → '));
+console.log('\nמקצים:', planSessions(card.qualifying.map((q) => q.entryId), card.round).map((s) => `${s.id}(${s.name})`).join(' → '));
 
 const result = runRaceDay(card, weights);
 console.log(`\nחישוב יום מרוץ: ${((Date.now() - t1) / 1000).toFixed(1)}s`);

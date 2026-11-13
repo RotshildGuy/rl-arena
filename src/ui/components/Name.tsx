@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 /**
- * A name somebody typed: a team, a driver, a model, a league.
+ * A name somebody typed: a team, a driver, a model.
  *
  * It is drawn in its own direction, taken from its own first letter, and kept
  * apart from the text around it. Without that a Hebrew name in the English

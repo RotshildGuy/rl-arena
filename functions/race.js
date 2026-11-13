@@ -62,15 +62,34 @@ const GRID_SIZE = 10;
 const SESSION_GAP_MS = 3 * 60 * 1000;
 const RETIREMENT_GRACE_MS = 8000;
 
-function dayEndsAt(card, result) {
-  // Every heat round before the final takes one slot per group.
-  let count = card.qualifying.length;
-  let slots = 0;
-  while (count > GRID_SIZE) {
-    const groups = Math.ceil(count / GRID_SIZE);
-    slots += groups;
-    count = groups * Math.max(2, Math.floor(GRID_SIZE / groups));
+/* The first round on the knockout ladder (KNOCKOUT_FORMAT_ROUND in format.ts). */
+const KNOCKOUT_FORMAT_ROUND = 25;
+
+/* How many sessions run before the final: one slot per group of every round. */
+function heatSlots(n, round) {
+  if (round < KNOCKOUT_FORMAT_ROUND) {
+    let count = n;
+    let slots = 0;
+    while (count > GRID_SIZE) {
+      const groups = Math.ceil(count / GRID_SIZE);
+      slots += groups;
+      count = groups * Math.max(2, Math.floor(GRID_SIZE / groups));
+    }
+    return slots;
   }
+  if (n <= GRID_SIZE) return 0;
+  let bracket = 2;
+  while (n > GRID_SIZE * bracket) bracket *= 2;
+  // Knockout rounds of bracket, bracket/2 ... 2 races, or 3/4 of a bracket of
+  // heats feeding the knockout rounds below it (see roundShapesV2).
+  const full = bracket === 2 || n > (GRID_SIZE * bracket * 3) / 4;
+  let slots = full ? bracket : (bracket * 3) / 4;
+  for (let g = full ? bracket / 2 : bracket / 4; g >= 2; g /= 2) slots += g;
+  return slots;
+}
+
+function dayEndsAt(card, result) {
+  const slots = heatSlots(card.qualifying.length, card.round);
   const startsAt = card.startsAt + slots * SESSION_GAP_MS;
   const slotEnd = startsAt + SESSION_GAP_MS;
   const last = result && result.sessions.find((s) => s.sessionId === (slots ? 'final' : 'race'));

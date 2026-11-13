@@ -113,7 +113,6 @@ export const authErrors = {
   rules: 'כללי האבטחה של Firestore חוסמים את הגישה. פרוס את firestore.rules שבריפו.',
   noDb: 'מסד הנתונים של Firestore עוד לא נוצר. Firebase Console ← Firestore Database ← Create database.',
   offline: 'אין חיבור ל-Firestore כרגע.',
-  leagueMissing: 'הליגה לא נמצאה',
   nameTaken: 'השם הזה כבר תפוס על ידי מתחרה אחר. בחרו שם אחר.',
 };
 

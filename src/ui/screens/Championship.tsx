@@ -518,7 +518,7 @@ function NextRace({
   const c = useT().championship;
   const trackId = trackForRound(round);
   const locked = now >= lockAt;
-  const sessions = planSessions(field.map((e) => e.id));
+  const sessions = planSessions(field.map((e) => e.id), round);
   const heats = sessions.filter((s) => s.kind === 'heat').length;
 
   return (

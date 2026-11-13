@@ -14,7 +14,6 @@ import { SeasonTracks } from '../components/SeasonTracks';
 import { currentRound, displaySeason, seasonNumber, seasonRange, startsAtForRound } from '../../core/champ/schedule';
 import { hallOfFame, rookieUids, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { leagueView } from '../../core/champ/league';
-import { LeaguePanel, useLeagues } from '../components/Leagues';
 import type { RaceCard, RaceResult } from '../../core/champ/types';
 import { useT } from '../../i18n';
 import { driverName, grandPrixTitle, teamName, trackName } from '../../i18n/names';
@@ -24,12 +23,7 @@ type Tab = 'drivers' | 'teams' | 'results' | 'records' | 'fame';
 
 export function Standings() {
   const s = useT().standings;
-  const { openRace, leagueId, setLeague } = useApp();
-  const { leagues, reload: reloadLeagues } = useLeagues();
-  /** The rookies' table is a league of its own, chosen from the same picker. */
-  const ROOKIES = '__rookies';
-  const rookies = leagueId === ROOKIES;
-  const league = leagues.find((l) => l.id === leagueId) ?? null;
+  const { openRace, rookiesOnly: rookies, setRookiesOnly } = useApp();
   const { state } = useChampionship();
   const now = useNow(5000);
   const [tab, setTab] = useState<Tab>('drivers');
@@ -44,15 +38,14 @@ export function Standings() {
     return [...set].sort((a, b) => b - a);
   }, [state, current]);
 
-  // A league is the same season with only its members' cars in it.
+  // The rookies' table is the same season with only their cars in it.
   const view = useMemo(() => {
     if (!state) return null;
     const cards = seasonCards(state.cards, season);
     const settled = settledResults(state.cards, state.results, now);
-    if (rookies) return leagueView(cards, settled, rookieUids(state.cards, season));
-    return league ? leagueView(cards, settled, league.members) : { cards, results: settled };
+    return rookies ? leagueView(cards, settled, rookieUids(state.cards, season)) : { cards, results: settled };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, season, league, rookies]);
+  }, [state, season, rookies]);
   const standings = useMemo(() => (view ? buildStandings(view) : null), [view]);
 
   // Only race days that are actually over belong in a championship table.
@@ -65,10 +58,10 @@ export function Standings() {
   );
   const raced = useMemo(() => {
     const inSeason = seasonCards(allRaced, season);
-    if (!view || (!league && !rookies)) return inSeason;
+    if (!view || !rookies) return inSeason;
     const kept = new Set(view.cards.map((c) => c.id));
     return inSeason.filter((c) => kept.has(c.id));
-  }, [allRaced, season, view, league, rookies]);
+  }, [allRaced, season, view, rookies]);
 
   const fame = useMemo(
     () => (state ? hallOfFame(state.cards, settledResults(state.cards, state.results, now), now) : []),
@@ -82,7 +75,7 @@ export function Standings() {
     return <PageSkeleton variant="table" />;
   }
 
-  if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !leagueId && leagues.length === 0) {
+  if (standings.drivers.length === 0 && fame.length === 0 && seasons.length === 1 && !rookies) {
     return (
       <div className="empty">
         <h2 style={{ marginBottom: 6 }}>{s.noTable}</h2>
@@ -99,7 +92,7 @@ export function Standings() {
             {s.season(season)}
             {season === current ? s.currentTag : ''} · {s.rounds(seasonRange(season).first, seasonRange(season).last)}
           </div>
-          <h1 className="display">{rookies ? s.rookies : league ? <Name>{league.name}</Name> : s.title}</h1>
+          <h1 className="display">{rookies ? s.rookies : s.title}</h1>
           <div style={{ marginTop: 6 }}>
             <SeasonTracks season={season} />
           </div>
@@ -107,18 +100,13 @@ export function Standings() {
         <div className="actions">
           {tab !== 'fame' && tab !== 'records' && (
             <select
-              value={leagueId ?? ''}
-              onChange={(e) => setLeague(e.target.value || null)}
-              aria-label={s.league}
+              value={rookies ? 'rookies' : ''}
+              onChange={(e) => setRookiesOnly(e.target.value === 'rookies')}
+              aria-label={s.table}
               style={{ width: 'auto' }}
             >
               <option value="">{s.everyone}</option>
-              <option value={ROOKIES}>{s.rookiesOption}</option>
-              {leagues.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {s.leagueOption(l.name)}
-                </option>
-              ))}
+              <option value="rookies">{s.rookiesOption}</option>
             </select>
           )}
           {seasons.length > 1 && tab !== 'fame' && tab !== 'records' && (
@@ -319,8 +307,6 @@ export function Standings() {
       {tab === 'records' && <Records cards={allRaced} results={state.results} now={now} />}
 
       {tab === 'fame' && <HallOfFame fame={fame} />}
-
-      {(tab === 'drivers' || tab === 'teams') && <LeaguePanel leagues={leagues} onChanged={reloadLeagues} />}
 
       {tab !== 'records' && tab !== 'fame' && (
       <div className="card" style={{ marginTop: 14 }}>

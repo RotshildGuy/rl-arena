@@ -1,22 +1,5 @@
 import type * as He from '../he/components';
 
-export const leagues: typeof He.leagues = {
-  title: 'Friends league',
-  needsCloud: 'Leagues need the cloud, and the site is running without it right now.',
-  createFailed: 'Creating the league failed',
-  shareText: (name) => `Join the league "${name}" on RL Arena`,
-  copied: 'Invite link copied',
-  left: (name) => `You left "${name}"`,
-  leaveFailed: 'Leaving failed',
-  intro:
-    'The same races, a table just for you: a league counts only its members\' cars, with the points they really earned. Anyone with the link can join.',
-  members: (n) => (n === 1 ? '1 member' : `${n} members`),
-  invite: 'Invite',
-  leave: 'Leave',
-  newName: 'Name for a new league',
-  create: 'Create',
-};
-
 export const rewardEditor: typeof He.rewardEditor = {
   title: 'Driving style',
   live: 'Takes effect now',
@@ -56,6 +39,8 @@ export const teamNameForm: typeof He.teamNameForm = {
   label: 'Competitor name - this will be your team name in the table',
   failed: 'Saving the name failed',
   placeholder: 'For example: Blue Lightning',
+  suggest: 'Suggest',
+  suggestTitle: 'Suggest a free team name',
   saving: 'Saving…',
   save: 'Save',
   cancel: 'Cancel',

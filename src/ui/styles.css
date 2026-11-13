@@ -2437,3 +2437,104 @@ button.sliders-fab:not(.primary):active:not(:disabled) { background: var(--surfa
   animation: none !important;
   transition: none !important;
 }
+
+/* ------------------------------------------------------------ commentary
+   The written commentary under the picture, and team radio over it. */
+.match-fill .match-bar > button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent, #fff);
+}
+.commentary {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 2px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-solid);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.commentary .line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 1.35em;
+  min-width: 0;
+}
+.commentary .line.before > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The newest line may take two rows on a phone; the strip keeps room for them
+   so the picture does not jump. */
+.commentary .line.now { align-items: flex-start; min-height: 2.7em; }
+.commentary .line.now .livery { margin-top: 2px; }
+.commentary .line.before { color: var(--muted); font-size: 12px; }
+.commentary .line.now { font-weight: 600; animation: line-in 0.35s ease-out both; }
+.commentary .livery { width: 4px; height: 14px; border-radius: 2px; flex: 0 0 auto; }
+@keyframes line-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.radio-card {
+  position: absolute;
+  inset-block-start: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(380px, calc(100% - 24px));
+  padding: 8px 12px 10px;
+  border-radius: var(--radius-lg);
+  border-inline-start: 5px solid var(--team);
+  /* Dark in both themes, like the radio graphic on a TV broadcast. */
+  background: rgba(10, 12, 20, 0.88);
+  color: #f4f6fb;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 4;
+  font-size: 13px;
+  animation: radio-in 0.3s ease-out both;
+}
+@keyframes radio-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+.radio-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.radio-who {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--team);
+  filter: brightness(1.35);
+}
+.radio-wave { display: inline-flex; align-items: center; gap: 2px; height: 14px; }
+.radio-wave i {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--team);
+  filter: brightness(1.35);
+  transform-origin: center;
+  animation: radio-wave 0.6s ease-in-out infinite alternate;
+}
+@keyframes radio-wave {
+  from { transform: scaleY(0.25); }
+  to { transform: scaleY(1); }
+}
+.radio-line { animation: line-in 0.35s ease-out both; }
+.radio-line + .radio-line { margin-top: 3px; }
+.radio-line.team { color: #c8d0de; }
+.radio-speaker { font-weight: 700; }
+@media (max-width: 600px) {
+  .radio-card { font-size: 12px; padding: 6px 10px 7px; inset-block-start: 6px; }
+  .radio-head { margin-bottom: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='on']) .radio-wave i { animation: none; transform: scaleY(0.6); }
+}

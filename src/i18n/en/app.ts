@@ -9,8 +9,6 @@ export const app: typeof He.app = {
     raceSetup: 'Play',
     shop: 'Shop',
   },
-  joinedLeague: (name) => `You joined the league "${name}"`,
-  leagueLinkFailed: "The league link didn't work - maybe the league was deleted",
   mainNav: 'Main navigation',
   coachGarage: 'Now to the garage - that is where you train the model that will drive for you.',
   coachUnregistered: "Your model isn't on the grid yet. Go back to the garage to enter it in the championship.",

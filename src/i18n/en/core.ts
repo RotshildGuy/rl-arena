@@ -19,6 +19,7 @@ export const champ: typeof He.champ = {
   semiFinal: 'Semi-final',
   quarterFinal: 'Quarter-final',
   heats: 'Heat',
+  roundOf16: 'Round of 16',
   final: 'Final',
   race: 'Race',
   minutes: (n) => `${n} minutes`,

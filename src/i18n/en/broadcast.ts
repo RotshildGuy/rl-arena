@@ -57,4 +57,109 @@ export const broadcast: typeof He.broadcast = {
   back10: 'Back 10 seconds',
   position: 'Position in the replay',
   forward10: 'Forward 10 seconds',
+  commentaryOn: 'Commentary',
+  commentaryTitle: 'Written commentary and team radio',
+  radioFrom: (driver) => `Radio · ${driver}`,
+  radioTeam: 'Team',
+  commentary: {
+    start: [
+      (w) => `Lights out and away we go! ${w.a} leads into the first corner.`,
+      (w) => `They're off! ${w.a} gets the best start and leads.`,
+      (w) => `And the race is on! ${w.a} in front.`,
+    ],
+    lead: [
+      (w) => `${w.a} passes ${w.b} and takes the lead!`,
+      (w) => `A change at the front! ${w.a} gets by ${w.b}.`,
+      (w) => `${w.a} takes first place from ${w.b}!`,
+    ],
+    pass: [
+      (w) => `${w.a} passes ${w.b} for P${w.pos}.`,
+      (w) => `Overtake! ${w.a} gets past ${w.b}, now P${w.pos}.`,
+      (w) => `${w.a} finds the gap and is through on ${w.b}.`,
+    ],
+    fastLap: [
+      (w) => `Fastest lap for ${w.a}: ${w.time}.`,
+      (w) => `${w.a} sets the fastest lap of the race, ${w.time}.`,
+    ],
+    lastLap: [
+      (w) => `Last lap! ${w.a} leads${w.gap ? ` by ${w.gap}` : ''}.`,
+      (w) => `Into the final lap. ${w.a} in front${w.b ? `, ${w.b} behind him` : ''}.`,
+    ],
+    wall: [
+      (w) => `${w.a} touches the wall and loses speed.`,
+      (w) => `Ouch! ${w.a} meets the wall.`,
+    ],
+    contact: [
+      (w) => `Contact! ${w.a} bumps another car and loses speed.`,
+      (w) => `${w.a} touches another car, it's tight in there.`,
+    ],
+    slide: [
+      (w) => `${w.a} slides and loses grip.`,
+      (w) => `${w.a} in a long slide, the tyres aren't holding.`,
+    ],
+    battle: [
+      (w) => `A close fight for P${w.pos - 1}: ${w.a} right behind ${w.b}.`,
+      (w) => `${w.a} is on ${w.b}'s tail, under half a second between them.`,
+    ],
+    retired: [
+      (w) => `${w.a} retires from the race.`,
+      (w) => `That's the end of the race for ${w.a}.`,
+    ],
+    win: [
+      (w) => `${w.a} crosses the line and wins!`,
+      (w) => `The chequered flag! ${w.a} wins the race!`,
+    ],
+    podium: [
+      (w) => `${w.a} finishes P${w.pos} and makes the podium.`,
+      (w) => `${w.a} crosses the line, P${w.pos}.`,
+    ],
+  },
+  radio: {
+    passMade: [
+      [['driver', "Yes! I'm past him!"], ['team', 'Very nice. Now keep the pace.']],
+      [['driver', "Got him on the brakes, he didn't see me coming."]],
+      [['team', 'Great move. Next one.']],
+    ],
+    passLost: [
+      [['driver', 'He got past, no grip on the exit.']],
+      [['driver', "I'm losing time in the corners!"], ['team', 'Copy. Stay close, the chance will come.']],
+      [['team', "He's through. Stay behind him and wait for his mistake."]],
+    ],
+    wall: [
+      [['driver', 'I touched the wall! Is the wing ok?'], ['team', 'Looks fine from here. Keep going.']],
+      [['driver', 'Ouch. That was too close.']],
+    ],
+    contact: [
+      [['driver', 'He hit me!'], ['team', 'We saw it. Keep driving.']],
+      [['driver', "There was contact. I'm ok."]],
+    ],
+    slide: [
+      [['driver', 'No grip at the rear.'], ['team', 'Copy. Gentle on the throttle.']],
+      [['driver', 'The tyres are gone!']],
+    ],
+    fastLap: [
+      [['team', 'Fastest lap of the race! Keep it up.']],
+      [['team', 'Purple! Quickest of everyone.'], ['driver', 'Great, it feels good.']],
+    ],
+    lastLap: [
+      [['team', 'Last lap. Bring it home.']],
+      [['team', 'One more lap. No risks.'], ['driver', 'Copy.']],
+    ],
+    battle: [
+      [['team', "He's half a second ahead. You have the pace."]],
+      [['driver', 'I can get him.'], ['team', 'Patience, wait for the right corner.']],
+    ],
+    win: [
+      [['driver', 'Yes! Yes! We won!'], ['team', 'What a race! Victory!']],
+      [['driver', 'Yes!!! Thank you all, what a car!']],
+    ],
+    podium: [
+      [['driver', 'Podium! What a race.'], ['team', 'Good work. Well done.']],
+      [['team', 'A place on the podium. Well done!']],
+    ],
+    retired: [
+      [['driver', "That's it, I'm out."], ['team', 'Copy. Thanks, you did what you could.']],
+      [['driver', 'Sorry guys.']],
+    ],
+  },
 };

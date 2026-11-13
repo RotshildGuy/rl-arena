@@ -8,8 +8,6 @@ export const app = {
     raceSetup: 'לשחק',
     shop: 'חנות',
   },
-  joinedLeague: (name: string) => `הצטרפתם לליגה "${name}"`,
-  leagueLinkFailed: 'הקישור לליגה לא עבד - אולי הליגה נמחקה',
   mainNav: 'ניווט ראשי',
   coachGarage: 'עכשיו למוסך - שם מאמנים את המודל שינהג בשבילכם.',
   coachUnregistered: 'המודל שלכם עדיין לא על הגריד. חזרו למוסך כדי לרשום אותו לאליפות.',

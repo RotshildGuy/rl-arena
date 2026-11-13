@@ -147,9 +147,9 @@ interface AppState {
   /** The screen the feedback form was opened from: it goes with the report. */
   feedbackFrom: Screen;
   openFeedback(): void;
-  /** The friends' league the tables are filtered to, or null for everybody. */
-  leagueId: string | null;
-  setLeague(id: string | null): void;
+  /** The tables show only the rookies, or everybody. */
+  rookiesOnly: boolean;
+  setRookiesOnly(on: boolean): void;
   openRace(raceId: string, screen: 'broadcast' | 'report'): void;
   setCompetitor(name: string): void;
   /** The same, for a name that came *from* the account - so it is not sent back. */
@@ -296,8 +296,8 @@ export const useApp = create<AppState>((set, get) => ({
   leaveGuard: null,
   setLeaveGuard: (leaveGuard) => set({ leaveGuard }),
   feedbackFrom: 'championship',
-  leagueId: null,
-  setLeague: (leagueId) => set({ leagueId }),
+  rookiesOnly: false,
+  setRookiesOnly: (rookiesOnly) => set({ rookiesOnly }),
   openFeedback: () =>
     leave(get(), 'feedback', () =>
       set((s) => ({ feedbackFrom: s.screen === 'feedback' ? s.feedbackFrom : s.screen, screen: 'feedback' })),

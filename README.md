@@ -95,6 +95,7 @@ Default network: `24 -> 64 -> 64 -> 9`, about 34 KB as base64. The gradient step
 - Race cards, frozen weights, results and replays are written only by the server (Admin SDK). Results and replays become readable at lights-out.
 - User-chosen names are checked for links, email addresses and invisible bidi characters on the client and length-capped again in the rules.
 - `shop/{uid}` (purchases and what the car wears) is public to read and writable only by its owner. Since season 2 its `equipped` map may hold up to 16 fields (it was 10), to fit the body shape, wings, rims, per-car numbers and the emblem. Season 4 adds `equipped.celebration` (the podium celebration), still within the 16; no rule change is needed.
+- Season 4 removed the friends' leagues; the app no longer reads or writes `leagues/{id}`, and the collection was never created. The owner can delete the `leagues` rule from `firestore.rules`.
 - Fonts are self-hosted, and the hosting config sets `nosniff`, a strict referrer policy and a restrictive permissions policy.
 
 ## Running locally
