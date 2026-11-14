@@ -14,6 +14,7 @@ import { getStore, recordKey, type SetupRecord, type TrainingPoint } from '../..
 import type { SpeedMode, TrainInit, TrainSlotInit } from '../../workers/protocol';
 import { getArena } from '../../storage/arena';
 import { ALGORITHMS } from '../../core/rl/algorithms';
+import { slotHyper, type SlotHyper } from '../trainShape';
 import { useWakeLock } from '../device';
 import { durationText, lapTime, raceTime } from '../format';
 import { PHYSICS_VERSION, type RacingSnapshot } from '../../core/games/racing/env';
@@ -40,6 +41,8 @@ interface SlotBoot {
   /** Points inherited from earlier runs; only later ones may set a record. */
   resumeLength: number;
   records: Record<string, SetupRecord>;
+  /** This model's own settings: its saved network shape, or the draft's for a new one (`slotHyper`). */
+  shape: SlotHyper;
 }
 
 export function TrainDashboard() {
@@ -78,7 +81,13 @@ export function TrainDashboard() {
       const histories: TrainingPoint[][] = [];
 
       for (const slot of models) {
-        const state: SlotBoot = { savedId: null, baseTrainedMs: 0, resumeLength: 0, records: {} };
+        const state: SlotBoot = {
+          savedId: null,
+          baseTrainedMs: 0,
+          resumeLength: 0,
+          records: {},
+          shape: slotHyper(draft, null),
+        };
         const init: TrainSlotInit = {
           algorithm: slot.algorithm,
           rewards: slot.rewards,
@@ -94,6 +103,10 @@ export function TrainDashboard() {
             if (rec.obsVersion !== game.spec.obsVersion || rec.arch.obsSize !== game.spec.obsSize) {
               showToast(words().dashboard.oldObs(rec.name));
             } else {
+              // The weights only fit the network they were saved from.
+              state.shape = slotHyper(draft, rec.arch.hidden);
+              init.hyper = state.shape.hyper;
+              init.gaHyper = state.shape.gaHyper;
               init.weightsB64 = rec.weightsB64;
               init.envSteps = rec.training.envSteps;
               init.gradSteps = rec.training.gradSteps;
@@ -200,7 +213,7 @@ export function TrainDashboard() {
           algorithm: slot.algorithm,
           config: draft.config,
           rewards: slot.rewards,
-          hyper: slot.algorithm === 'ga' ? draft.gaHyper : draft.hyper,
+          hyper: slot.algorithm === 'ga' ? state.shape.gaHyper : state.shape.hyper,
           history: live[i]?.history ?? [],
           sessionStart: state.resumeLength,
           priorRecords: state.records,
@@ -573,7 +586,7 @@ export function TrainDashboard() {
 
           <UnderTheHood
             algorithm={slot.algorithm}
-            hidden={slot.algorithm === 'ga' ? draft.gaHyper.hidden : draft.hyper.hidden}
+            hidden={(boot.current[slotIndex]?.shape ?? draft)[slot.algorithm === 'ga' ? 'gaHyper' : 'hyper'].hidden}
             obsSize={game.spec.obsSize}
             actions={game.spec.actions}
             extra={
