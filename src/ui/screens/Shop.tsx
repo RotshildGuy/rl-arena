@@ -26,9 +26,10 @@ import { teamColor, teamLook } from '../../core/champ/livery';
 import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
 import { myShop, saveShop } from '../../storage/shop';
 import { useT } from '../../i18n';
+import { Celebration } from '../components/Celebration';
 
 /** In the order they are shown; titles and hints are in the dictionary (`shop.sections`). */
-const SECTIONS: SlotKind[] = ['color', 'pattern', 'shape', 'secondary', 'wing', 'rim', 'helmet', 'smoke'];
+const SECTIONS: SlotKind[] = ['color', 'pattern', 'shape', 'secondary', 'wing', 'rim', 'helmet', 'smoke', 'celebration'];
 
 /**
  * The shop: coins earned from races, spent on paint. Nothing here changes how
@@ -386,6 +387,10 @@ function Swatch({
         <MiniCar color={previewColor} look={{ ...previewLook, pattern: item.value as CarLook['pattern'], number: undefined, emblem: undefined }} />
       ) : item.kind === 'shape' ? (
         <MiniCar color={previewColor} look={{ ...previewLook, shape: item.value as CarLook['shape'], number: undefined, emblem: undefined }} />
+      ) : item.kind === 'celebration' ? (
+        <span className="swatch-dot party">
+          <Celebration fit kind={item.value as NonNullable<CarLook['celebration']>} colors={[previewColor, previewLook.secondary ?? '']} />
+        </span>
       ) : item.kind === 'smoke' ? (
         <span className="swatch-dot smoke" style={{ background: `radial-gradient(circle, ${item.value.replace(/[\d.]+\)$/, '0.95)')}, transparent 70%)` }} />
       ) : (
@@ -417,7 +422,23 @@ function MiniCar({ color, look }: { color: string; look: CarLook }) {
   return <canvas ref={ref} className="swatch-car" />;
 }
 
+/**
+ * The sample car. A celebration being tried or worn plays over it whenever it
+ * changes, and again on a tap.
+ */
 function Preview({ color, look }: { color: string; look: CarLook }) {
+  const [play, setPlay] = useState(0);
+  const car = <PreviewCar color={color} look={look} />;
+  if (!look.celebration) return car;
+  return (
+    <button className="shop-party" onClick={() => setPlay((n) => n + 1)}>
+      {car}
+      <Celebration key={look.celebration} kind={look.celebration} colors={[color, look.secondary ?? '']} play={play} />
+    </button>
+  );
+}
+
+function PreviewCar({ color, look }: { color: string; look: CarLook }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current;

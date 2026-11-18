@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
 import { Name } from './Name';
+import { t } from '../../i18n';
+import { Celebration } from './Celebration';
 
 export interface PodiumPlace {
   position: number;
@@ -45,7 +47,23 @@ export function Podium({ places, compact }: { places: PodiumPlace[]; compact?: b
   );
 }
 
+/**
+ * The car on its step and, if its team bought one, the celebration over it:
+ * played once when the podium appears, and again on a tap on the car.
+ */
 function PodiumCar({ color, look }: { color: string; look?: CarLook }) {
+  const [play, setPlay] = useState(0);
+  const party = look?.celebration;
+  if (!party) return <CarCanvas color={color} look={look} />;
+  return (
+    <button className="podium-car-wrap" onClick={() => setPlay((n) => n + 1)} title={t().report.celebrateAgain}>
+      <CarCanvas color={color} look={look} />
+      <Celebration kind={party} colors={[color, look?.secondary ?? '']} play={play} />
+    </button>
+  );
+}
+
+function CarCanvas({ color, look }: { color: string; look?: CarLook }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current;

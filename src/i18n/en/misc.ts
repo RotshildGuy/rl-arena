@@ -113,7 +113,6 @@ export const authErrors: typeof He.authErrors = {
   rules: 'The Firestore security rules block access. Deploy firestore.rules from the repo.',
   noDb: 'The Firestore database has not been created yet. Firebase Console → Firestore Database → Create database.',
   offline: 'No connection to Firestore right now.',
-  leagueMissing: 'League not found',
   nameTaken: 'That name is already taken by another competitor. Pick another one.',
 };
 

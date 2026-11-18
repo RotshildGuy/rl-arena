@@ -18,11 +18,11 @@ import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../s
 import { bestBraking, drive, flatOutLoses } from './drivers';
 import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
 import { RACING_SPEC, OBS_SIZE, RACING_PRESETS } from '../src/core/games/racing/rewards';
-import { lapsFor, planSessions, GRID_SIZE, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
+import { lapsFor, planSessions, GRID_SIZE, KNOCKOUT_FORMAT_ROUND, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
 import { isNameOk, nameKey, normalizeName, NAME_MAX } from '../src/core/champ/names';
 import { resolveCompetitor } from '../src/ui/competitorMerge';
-import { NAME_ADJECTIVES, NAME_NOUNS, isCleanName, randomModelName } from '../src/core/champ/nameGen';
+import { NAME_ADJECTIVES, NAME_NOUNS, TEAM_SUFFIXES, isCleanName, randomModelName, randomTeamName } from '../src/core/champ/nameGen';
 import {
   airingRound,
   currentRound,
@@ -60,13 +60,13 @@ import { raceIdForRound, seasonForRound, seasonNumber, seasonRange, displaySeaso
 import { HOUSE_DRIVERS, HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, HOUSE_UID, isHouse } from '../src/core/champ/house';
 import { teamNameProblem } from '../src/core/champ/names';
 import { feedbackProblem, FEEDBACK_MAX } from '../src/core/feedback';
-import { leagueView, newLeagueId } from '../src/core/champ/league';
+import { leagueView } from '../src/core/champ/league';
 import { findCopies, weightsFingerprint } from '../src/core/champ/copies';
 import { earnedCoins, COINS_PER_START } from '../src/core/champ/coins';
 import { spent, validLook, ITEM_BY_ID, SHOP_ITEMS, normalizeShop } from '../src/core/champ/shop';
 import { EMBLEM_COLORS, EMBLEM_SHAPES, EMBLEM_SYMBOLS, normalizeEmblem } from '../src/core/champ/emblem';
 import { fieldPaint, teamNumbers } from '../src/core/champ/paint';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { raceRound, replayRound, HOUSE_IDS, type RaceStore } from '../src/server/raceDay';
@@ -755,15 +755,15 @@ function timingTest(): void {
 function championshipTest(): void {
   console.log('\nchampionship rules');
 
-  check('a small field races in one go', planSessions(seedIds(GRID_SIZE)).length === 1, `${GRID_SIZE} entries`);
-  const twoHeats = planSessions(seedIds(GRID_SIZE + 1));
+  check('a small field races in one go', planSessions(seedIds(GRID_SIZE), KNOCKOUT_FORMAT_ROUND).length === 1, `${GRID_SIZE} entries`);
+  const twoHeats = planSessions(seedIds(GRID_SIZE + 1), KNOCKOUT_FORMAT_ROUND);
   check('one over the grid becomes heats plus a final', twoHeats.length === 3 && twoHeats[2].kind === 'final');
   check(
     'heats are seeded without losing anyone',
     new Set(twoHeats.slice(0, 2).flatMap((s) => s.grid)).size === GRID_SIZE + 1,
   );
 
-  const big = planSessions(seedIds(60));
+  const big = planSessions(seedIds(60), KNOCKOUT_FORMAT_ROUND);
   const rounds = new Set(big.map((s) => s.round)).size;
   check(
     'a huge field is whittled down over rounds',
@@ -1320,7 +1320,23 @@ function nameGenTest(): void {
     bad.slice(0, 6).join(', ') || `longest is "${longest}" at ${longest.length} of ${NAME_MAX}`,
   );
 
-  const words = [...NAME_ADJECTIVES, ...NAME_NOUNS];
+  const teamBad: string[] = [];
+  let teamLongest = '';
+  for (const first of [...NAME_ADJECTIVES, ...NAME_NOUNS])
+    for (const suffix of TEAM_SUFFIXES) {
+      const name = `${first} ${suffix}`;
+      if (!isCleanName(name)) teamBad.push(name);
+      if (name.length > teamLongest.length) teamLongest = name;
+    }
+  check(
+    `all ${(NAME_ADJECTIVES.length + NAME_NOUNS.length) * TEAM_SUFFIXES.length} suggested team names are clean and short enough`,
+    teamBad.length === 0,
+    teamBad.slice(0, 6).join(', ') || `longest is "${teamLongest}" at ${teamLongest.length} of ${NAME_MAX}`,
+  );
+  const suggested = randomTeamName(() => 0, ['Swift Racing']);
+  check('a suggested team name skips one already taken', suggested !== 'Swift Racing', suggested);
+
+  const words = [...NAME_ADJECTIVES, ...NAME_NOUNS, ...TEAM_SUFFIXES];
   const dupes = words.filter((w, i) => words.indexOf(w) !== i);
   check('no word is listed twice', dupes.length === 0, dupes.join(', ') || `${words.length} words`);
 
@@ -1757,22 +1773,18 @@ function diagnoseTest(): void {
 
 // ---------------------------------------------------------------- house style
 /** The em dash is not used in this project, anywhere (see CLAUDE.md). */
-function leagueTest(): void {
-  console.log(CHAPTER + 'Friends leagues');
-  // Alpha (uid u) finishes 3rd behind two Beta cars; the league is Alpha alone with b1's owner moved in.
+function groupTableTest(): void {
+  console.log(CHAPTER + 'Tables of some of the field (the rookies)');
+  // Alpha (uid u) finishes 3rd behind two Beta cars; the group is Alpha with b1's owner moved in.
   const card = fakeCard(42, ['b0', 'a', 'b1']);
   card.entries = card.entries.map((e) => (e.id === 'b1' ? { ...e, uid: 'friend', team: 'Gamma' } : e));
   const result = fakeResult(card.id, [fakePlace('b0', 1), fakePlace('b1', 2), fakePlace('a', 3)]);
   const view = leagueView([card], new Map([[card.id, result]]), ['u', 'friend']);
   const table = buildStandings(view);
-  check('a league table has only its members', table.drivers.map((d) => d.entryId).sort().join() === 'a,b1');
+  check('a group table has only its members', table.drivers.map((d) => d.entryId).sort().join() === 'a,b1');
   check('with the points they really scored', table.drivers[0].entryId === 'b1' && table.drivers[0].points === POINTS[1] &&
     table.drivers[1].points === POINTS[2]);
   check('a race none of them ran is not in it', leagueView([card], new Map([[card.id, result]]), ['nobody']).cards.length === 0);
-  const id = newLeagueId();
-  check('an invitation code is ten readable characters', /^[a-km-z2-9]{10}$/.test(id) && !/[ilo01]/.test(id), id);
-  const ids = new Set(Array.from({ length: 500 }, () => newLeagueId()));
-  check('and invitation codes do not repeat', ids.size === 500 && [...ids].every((x) => /^[a-km-z2-9]{10}$/.test(x)));
 }
 
 function copiesTest(): void {
@@ -1864,7 +1876,7 @@ async function serverRaceDayTest(): Promise<void> {
   // The replay drives the race the result records, with no weights at all.
   const replay = source.replays.get(raceId);
   const card = source.cards.get(raceId)!;
-  const plans = planSessions(qualifyingOrder(card.qualifying));
+  const plans = planSessions(qualifyingOrder(card.qualifying), card.round);
   let same = !!replay && replay.size === source.results.get(raceId)!.sessions.length;
   for (const s of source.results.get(raceId)!.sessions) {
     const plan = plans.find((p) => p.id === s.sessionId)!;
@@ -1952,8 +1964,8 @@ function functionsCalendarTest(): void {
     status: totalMs === null ? 'dnf' : 'finished', gridPos: 1,
   });
   let ends = true;
-  for (const n of [2, 7, 10, 11, 19, 20, 31, 64, 150]) {
-    const card = fakeCard(42, seedIds(n));
+  for (const n of [2, 7, 10, 11, 19, 20, 21, 31, 41, 64, 100, 150]) for (const round of [24, 42]) {
+    const card = fakeCard(round, seedIds(n));
     const last = sessionWindows(card).at(-1)!;
     const lastId = last.session.id;
     const results: (RaceResult | null)[] = [
@@ -2106,7 +2118,8 @@ function dashTest(): void {
   // Every font stack in the app has to reach Heebo, the one bundled font with
   // Hebrew in it. A stack that skips it falls back to the system, and a machine
   // without a Hebrew font then draws boxes in place of the words.
-  const sources = files.filter((f) => /^src\/.*\.(css|ts|tsx)$/.test(f));
+  // A file deleted but not yet committed is still in the index; skip it.
+  const sources = files.filter((f) => /^src\/.*\.(css|ts|tsx)$/.test(f) && existsSync(f));
   const stacks: string[] = [];
   for (const f of sources) {
     const text = readFileSync(f, 'utf8').replace(/@font-face\s*\{[^}]*\}/g, '');
@@ -2153,7 +2166,7 @@ houseTest();
 seasonTest();
 diagnoseTest();
 feedbackTest();
-leagueTest();
+groupTableTest();
 copiesTest();
 coinsTest();
 rivalTest();

@@ -1,4 +1,4 @@
-import type { CarLook } from '../games/racing/render';
+import type { CarLook, CelebrationKind } from '../games/racing/render';
 import { DEFAULT_EMBLEM, normalizeEmblem, type Emblem } from './emblem';
 import { t, translated } from '../../i18n/dict';
 
@@ -13,7 +13,7 @@ import { t, translated } from '../../i18n/dict';
  */
 export type ItemKind =
   | 'color' | 'secondary' | 'pattern' | 'number' | 'helmet' | 'smoke'
-  | 'shape' | 'wing' | 'rim' | 'emblem';
+  | 'shape' | 'wing' | 'rim' | 'emblem' | 'celebration';
 
 export interface ShopItem {
   id: string;
@@ -40,6 +40,8 @@ const second = (id: string, value: string, price = 60): ShopItem => item({ id, k
 const wing = (id: string, value: string): ShopItem => item({ id, kind: 'wing', price: 60, value });
 /** The wheel rims, and a band of the same colour round each tyre wall. */
 const rim = (id: string, value: string): ShopItem => item({ id, kind: 'rim', price: 50, value });
+/** What plays over the car when it stands on the podium. */
+const celebration = (id: string, value: CelebrationKind, price: number): ShopItem => item({ id, kind: 'celebration', price, value });
 
 export const SHOP_ITEMS: ShopItem[] = [
   color('color-scarlet', '#ff2e4d'),
@@ -96,6 +98,13 @@ export const SHOP_ITEMS: ShopItem[] = [
   rim('rim-sky', '#38bdf8'),
   // Unlocks the emblem builder; everything chosen inside it is free.
   item({ id: 'emblem', kind: 'emblem', price: 100, value: '' }),
+  // Season 4: played over the team's car on the podium. Nothing on track.
+  celebration('celebrate-sparkles', 'sparkles', 60),
+  celebration('celebrate-confetti', 'confetti', 80),
+  celebration('celebrate-bubbles', 'bubbles', 80),
+  celebration('celebrate-balloons', 'balloons', 100),
+  celebration('celebrate-champagne', 'champagne', 120),
+  celebration('celebrate-fireworks', 'fireworks', 150),
 ];
 
 export const ITEM_BY_ID = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
@@ -110,6 +119,7 @@ export interface Equipped {
   shape?: string;
   wing?: string;
   rim?: string;
+  celebration?: string;
   /** Before season 2: one number for every car of the team. Still read for a car with none of its own. */
   number?: number;
   /** A number per car, by championship entry id. No two cars of a team share one. */
@@ -125,7 +135,7 @@ export interface ShopDoc {
 }
 
 /** The kinds equipped by item id: one item of each on the car at a time. */
-export const SLOT_KINDS = ['color', 'secondary', 'pattern', 'helmet', 'smoke', 'shape', 'wing', 'rim'] as const;
+export const SLOT_KINDS = ['color', 'secondary', 'pattern', 'helmet', 'smoke', 'shape', 'wing', 'rim', 'celebration'] as const;
 export type SlotKind = (typeof SLOT_KINDS)[number];
 const KINDS = SLOT_KINDS;
 
@@ -226,6 +236,7 @@ export function paintOf(e: Equipped): Paint {
   const shape = pick(e.shape, 'shape');
   const wingItem = pick(e.wing, 'wing');
   const rimItem = pick(e.rim, 'rim');
+  const party = pick(e.celebration, 'celebration');
   const n = e.number;
   return {
     color: c?.value,
@@ -239,6 +250,7 @@ export function paintOf(e: Equipped): Paint {
       ...(shape ? { shape: shape.value as CarLook['shape'] } : {}),
       ...(wingItem ? { wing: wingItem.value } : {}),
       ...(rimItem ? { rim: rimItem.value } : {}),
+      ...(party ? { celebration: party.value as CelebrationKind } : {}),
       ...(e.emblem ? { emblem: e.emblem } : {}),
       ...(validNumber(n) ? { number: n } : {}),
     },

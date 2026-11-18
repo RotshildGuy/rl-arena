@@ -19,6 +19,7 @@ export const report = {
   copyOf: (driver: string, team: string) => `עותק של ${driver} (${team})`,
   retired: 'פרש',
   podium: 'הפודיום',
+  celebrateAgain: 'עוד פעם!',
   winner: 'מנצח',
   pole: 'עמדת זינוק ראשונה',
   fastLap: 'הקפה מהירה',

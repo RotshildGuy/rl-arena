@@ -240,10 +240,6 @@ export const info: typeof He.info = {
           because every viewer draws your car in their own browser.
         </li>
         <li>
-          <b>Friends leagues</b> you created or joined: the league name and the ids of its members. Anyone with
-          the invite link can see them.
-        </li>
-        <li>
           <b>Messages you sent</b> (the contact screen): the text, the kind of message and the name of the screen it
           was sent from. Contact and browser details are kept only if you chose to attach them. Only you and the
           site's operators can read them.

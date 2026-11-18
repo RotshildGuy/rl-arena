@@ -25,6 +25,8 @@ import { driverName, grandPrixTitle, teamName } from '../../i18n/names';
 import { Stage3D } from '../three/Stage3D';
 import { Director, type CameraSpec, type DirectorState } from '../three/director';
 import { DirectorPanel } from '../components/DirectorPanel';
+import { TeamRadio } from '../../core/champ/radio';
+import { RadioCard } from '../components/RadioCard';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -68,6 +70,16 @@ const DEV_TRACK = import.meta.env.DEV ? new URLSearchParams(location.search).get
 
 /** How often to ask again for a live race's replay that is not there yet. */
 const REPLAY_RETRY_MS = 15_000;
+
+/** Whether the team radio is on, kept per browser. On by default. */
+const RADIO_KEY = 'rl-arena-radio';
+function readRadio(): boolean {
+  try {
+    return localStorage.getItem(RADIO_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
 
 export function Broadcast() {
   const b = useT().broadcast;
@@ -147,6 +159,18 @@ function BroadcastStage({
   /** The director for the session on screen, and what it last decided. */
   const directorRef = useRef<Director | null>(null);
   const shotRef = useRef<DirectorState | null>(null);
+  /** Turns what happens on track into radio calls; rebuilt with the simulation. */
+  const radioRef = useRef<TeamRadio | null>(null);
+  const [radioOn, setRadioOn] = useState(readRadio);
+  const toggleRadio = () => {
+    const next = !radioOn;
+    setRadioOn(next);
+    try {
+      localStorage.setItem(RADIO_KEY, next ? 'on' : 'off');
+    } catch {
+      // Private mode: for this visit only.
+    }
+  };
   /**
    * Wall-clock moment this session's playhead sits at zero - lights out.
    *
@@ -294,6 +318,10 @@ function BroadcastStage({
     builtFor.current = key;
     simRef.current = sim;
     directorRef.current = new Director(lapsFor(window_.session));
+    radioRef.current = new TeamRadio(
+      lapsFor(window_.session),
+      new Set(towerCars.filter((c) => c.mine).map((c) => c.car)),
+    );
     shotRef.current = null;
     snapRef.current = sim.snapshot();
     endRef.current = null;
@@ -411,6 +439,8 @@ function BroadcastStage({
     headRef.current = ms;
     const snap = sim.snapshot();
     snapRef.current = snap;
+    // Watched only once the cars are really racing: a parked grid says nothing.
+    if (!parked) radioRef.current?.observe(snap);
     return snap;
   };
 
@@ -502,6 +532,7 @@ function BroadcastStage({
   const targetStep = Math.floor(headMs / STEP_MS);
   const behind = sim && !sim.done ? targetStep - sim.env.step_ : 0;
   const rewinding = behind > SEEK_SLACK_STEPS;
+  const onAir = radioOn && snap && !preStart ? (radioRef.current?.onAir(snap.raceMs) ?? null) : null;
   const rewindPct = targetStep > 0 ? Math.min(99, Math.floor(((targetStep - behind) / targetStep) * 100)) : 0;
 
   return (
@@ -561,6 +592,14 @@ function BroadcastStage({
             ))}
           </select>
         )}
+        <button
+          className={`small ${radioOn ? 'on' : ''}`}
+          aria-pressed={radioOn}
+          title={b.radioTitle}
+          onClick={toggleRadio}
+        >
+          📻 {b.radioOn}
+        </button>
         <button className="small" onClick={onExit}>
           {b.report}
         </button>
@@ -604,6 +643,8 @@ function BroadcastStage({
             )}
           </div>
         )}
+
+        {onAir && !finished && <RadioCard radio={onAir} cars={towerCars} teams={teams} />}
 
         {rewinding && (
           <div className="seek-note">

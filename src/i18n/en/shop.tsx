@@ -9,6 +9,7 @@ export const shop: typeof He.shop = {
     smoke: { title: 'Drift smoke', hint: '' },
     shape: { title: 'Body shape', hint: 'Paint only: every shape is the same size in a race.' },
     wing: { title: 'Wing colour', hint: 'Instead of the second colour.' },
+    celebration: { title: 'Podium celebration', hint: "Plays over the car when it makes the podium, in the race report and at the end of the broadcast, in the team's colours. Tap the car on the podium to play it again." },
     rim: { title: 'Rims', hint: '' },
   },
   denied: "The server refused to save: the shop isn't enabled in Firestore yet (the shop rule is missing). It will work once the rule is published.",

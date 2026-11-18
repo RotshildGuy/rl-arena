@@ -23,7 +23,7 @@ const RETIREMENT_GRACE_MS = 8000;
  * next session at a different moment for every viewer.
  */
 export function sessionWindows(card: RaceCard): SessionWindow[] {
-  return planSessions(qualifyingOrder(card.qualifying)).map((session) => ({
+  return planSessions(qualifyingOrder(card.qualifying), card.round).map((session) => ({
     session,
     startsAt: card.startsAt + session.offsetMs,
     endsAt: card.startsAt + session.offsetMs + SESSION_GAP_MS,

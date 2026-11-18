@@ -1,21 +1,4 @@
 /** Small components used by more than one screen. */
-export const leagues = {
-  title: 'ליגת חברים',
-  needsCloud: 'ליגות דורשות חיבור לענן, והאתר רץ כרגע בלעדיו.',
-  createFailed: 'יצירת הליגה נכשלה',
-  shareText: (name: string) => `הצטרפו לליגה "${name}" ב-RL Arena`,
-  copied: 'קישור ההזמנה הועתק',
-  left: (name: string) => `יצאתם מ"${name}"`,
-  leaveFailed: 'היציאה נכשלה',
-  intro:
-    'אותם מרוצים, טבלה רק שלכם: ליגה סופרת רק את הרכבים של החברים בה, עם הנקודות שהם באמת צברו. מי שיש לו את הקישור יכול להצטרף.',
-  members: (n: number) => `${n} חברים`,
-  invite: 'הזמנה',
-  leave: 'יציאה',
-  newName: 'שם לליגה חדשה',
-  create: 'יצירה',
-};
-
 export const rewardEditor = {
   title: 'אופי הנהיגה',
   live: 'משפיע מיד',
@@ -55,6 +38,8 @@ export const teamNameForm = {
   label: 'שם המתחרה - זה יהיה שם הקבוצה שלכם בטבלה',
   failed: 'שמירת השם נכשלה',
   placeholder: 'לדוגמה: הברקים הכחולים',
+  suggest: 'הגרלה',
+  suggestTitle: 'הצעה לשם קבוצה פנוי',
   saving: 'שומר…',
   save: 'שמור',
   cancel: 'ביטול',

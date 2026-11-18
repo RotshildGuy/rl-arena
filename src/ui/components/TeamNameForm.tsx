@@ -2,6 +2,8 @@ import { useId, useState } from 'react';
 import { useApp } from '../store';
 import { changeTeamName } from '../teamName';
 import { useT } from '../../i18n';
+import { randomTeamName } from '../../core/champ/nameGen';
+import { useChampionship } from '../useChampionship';
 
 /**
  * The one place a team name is chosen or changed.
@@ -33,6 +35,13 @@ export function TeamNameForm({
   const [name, setName] = useState(competitor);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { state } = useChampionship();
+  /** A suggestion that is free: every team already racing is avoided. */
+  const suggest = () => {
+    onTyping?.();
+    setError(null);
+    setName(randomTeamName(Math.random, [name, ...(state?.entries.map((e) => e.team) ?? [])]));
+  };
 
   const save = async () => {
     if (!name.trim() || busy) return;
@@ -72,6 +81,9 @@ export function TeamNameForm({
     <>
       <div className="row wrap" style={{ alignItems: 'flex-end' }}>
         {wrap ? wrap(field) : field}
+        <button className="ghost" type="button" title={f.suggestTitle} aria-label={f.suggestTitle} onClick={suggest} disabled={busy}>
+          🎲 {f.suggest}
+        </button>
         <button className="primary" disabled={!name.trim() || busy} onClick={() => void save()}>
           {busy ? f.saving : f.save}
         </button>

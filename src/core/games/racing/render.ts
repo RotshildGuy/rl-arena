@@ -78,6 +78,9 @@ function palette(opts: RenderOpts) {
 }
 
 /** A car's paint. Drawing only: the car's size for the physics never changes. */
+/** A podium celebration bought in the shop (`ui/components/Celebration.tsx`). */
+export type CelebrationKind = 'sparkles' | 'confetti' | 'bubbles' | 'balloons' | 'champagne' | 'fireworks';
+
 export interface CarLook {
   secondary?: string;
   pattern?: 'solid' | 'stripe' | 'twotone' | 'chevron' | 'centerline' | 'fade';
@@ -91,6 +94,8 @@ export interface CarLook {
   wing?: string;
   /** Wheel rims and the band round each tyre wall. */
   rim?: string;
+  /** Played over the car on the podium; never drawn on track. */
+  celebration?: CelebrationKind;
   /** The team emblem, on the nose once the car is big enough to show it. */
   emblem?: Emblem;
 }

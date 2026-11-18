@@ -38,6 +38,16 @@ export const NAME_ADJECTIVES = [
   'Emerald', 'Indigo', 'Violet', 'Golden', 'Silver', 'Copper', 'Bronze',
   'Ivory', 'Jade', 'Onyx', 'Velvet', 'Marble', 'Electric', 'Magnetic',
   'Atomic', 'Quantum', 'Digital', 'Nitro', 'Kinetic', 'Sonic',
+  // Season 4: more than twenty drivers on one grid.
+  'Agile', 'Daring', 'Gallant', 'Valiant', 'Vivid', 'Lively', 'Spirited',
+  'Plucky', 'Hardy', 'Rugged', 'Proud', 'Keen', 'Sharp', 'Bright',
+  'Brilliant', 'Dazzling', 'Sparkling', 'Glossy', 'Polished', 'Sleek',
+  'Crystal', 'Diamond', 'Opal', 'Pearl', 'Sapphire', 'Ruby', 'Garnet',
+  'Topaz', 'Platinum', 'Titanium', 'Carbon', 'Graphite', 'Steel', 'Iron',
+  'Cyber', 'Hyper', 'Mega', 'Prime', 'Apex', 'Galactic', 'Starry',
+  'Moonlit', 'Sunlit', 'Northern', 'Southern', 'Eastern', 'Western',
+  'Roaring', 'Soaring', 'Flying', 'Rolling', 'Drifting', 'Gliding',
+  'Spinning', 'Charging', 'Rushing', 'Sprinting', 'Zooming', 'Thundering',
 ] as const;
 
 export const NAME_NOUNS = [
@@ -68,6 +78,31 @@ export const NAME_NOUNS = [
   'Engine', 'Motor', 'Rocket', 'Throttle', 'Chicane', 'Slipstream',
   'Dynamo', 'Voltage', 'Spark', 'Anchor', 'Rudder', 'Lantern',
   'Prism', 'Quartz',
+  // Season 4: more wings, paws and fins
+  'Pelican', 'Flamingo', 'Toucan', 'Parrot', 'Owl', 'Kingfisher', 'Hornbill',
+  'Jaguar', 'Puma', 'Coyote', 'Jackal', 'Raccoon', 'Hedgehog', 'Koala',
+  'Kangaroo', 'Wallaby', 'Llama', 'Alpaca', 'Yak', 'Camel', 'Gorilla',
+  'Stingray', 'Shark', 'Penguin', 'Beluga',
+  'Hornet', 'Firefly', 'Dragonfly', 'Mantis', 'Beetle',
+  // more sky, weather and ground
+  'Asteroid', 'Satellite', 'Starship', 'Cosmos', 'Supernova', 'Photon',
+  'Neutron', 'Proton', 'Rainbow', 'Hurricane', 'Tornado', 'Squall',
+  'Torrent', 'Cascade', 'Lagoon', 'Reef', 'Atoll', 'Crater', 'Boulder',
+  'Granite', 'Basalt', 'Meadow', 'Prairie', 'Tundra',
+  // more machinery
+  'Camshaft', 'Spoiler', 'Diffuser', 'Radiator', 'Gyro', 'Propeller',
+  'Jet', 'Thruster', 'Booster', 'Kite', 'Glider',
+  'Sail', 'Keel', 'Flywheel', 'Sprocket',
+] as const;
+
+/**
+ * The second word of a suggested team name: what a racing outfit calls
+ * itself. The first word is any word above, so "Cobalt Racing", "Falcon
+ * Works" and "Aurora Motorsport" all come out of the same checked lists.
+ */
+export const TEAM_SUFFIXES = [
+  'Racing', 'Motorsport', 'Works', 'Garage', 'Engineering', 'Dynamics',
+  'Squad', 'Crew', 'Autosport', 'Speedworks', 'Raceworks',
 ] as const;
 
 /**
@@ -94,6 +129,28 @@ export function isCleanName(name: string): boolean {
   const flat = name.toLowerCase().replace(/[^a-z]/g, '');
   if (BANNED.some((bad) => flat.includes(bad))) return false;
   return name.length <= NAME_MAX && isNameOk(name);
+}
+
+/** Every word that may start a team name. */
+const TEAM_FIRSTS: readonly string[] = [...NAME_ADJECTIVES, ...NAME_NOUNS];
+
+/**
+ * A fresh team name, "Word Suffix", avoiding any name in `avoid` - pass the
+ * teams already in the championship, since a team name has to be unique.
+ */
+export function randomTeamName(rng: () => number = Math.random, avoid: Iterable<string> = []): string {
+  const taken = new Set([...avoid].map((n) => n.trim().toLowerCase()));
+  const pick = <T>(xs: readonly T[]): T => xs[Math.min(xs.length - 1, Math.floor(rng() * xs.length))];
+  for (let i = 0; i < 60; i++) {
+    const name = `${pick(TEAM_FIRSTS)} ${pick(TEAM_SUFFIXES)}`;
+    if (!taken.has(name.toLowerCase()) && isCleanName(name)) return name;
+  }
+  for (const first of TEAM_FIRSTS)
+    for (const suffix of TEAM_SUFFIXES) {
+      const name = `${first} ${suffix}`;
+      if (!taken.has(name.toLowerCase()) && isCleanName(name)) return name;
+    }
+  return `${TEAM_FIRSTS[0]} ${TEAM_SUFFIXES[0]}`;
 }
 
 /**

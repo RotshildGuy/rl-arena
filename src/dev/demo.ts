@@ -19,7 +19,8 @@ import { syncChampionship } from '../ui/champSync';
  * since the season opened, and then each team buys what it can afford from
  * a wish list - the same `validLook` check as for real decides what is worn,
  * so the paint is honest and the tables, broadcast and shop show the season 2
- * customisation on real results.
+ * customisation on real results. Season 4: every team stands on the podium
+ * with a celebration of its own.
  */
 
 const SEEDED_KEY = 'rl-arena-demo-seeded';
@@ -41,8 +42,8 @@ const TEAMS: DemoTeam[] = [
     uid: 'local',
     team: 'Test Team',
     drivers: [['Swift Falcon', 'SWF', 3], ['Calm Otter', 'CLM', 1]],
-    wishes: ['emblem', 'number', 'shape-wedge', 'rim-gold', 'color-navy', 'pattern-chevron', 'second-white'],
-    equip: { color: 'color-navy', shape: 'shape-wedge', rim: 'rim-gold', pattern: 'pattern-chevron', secondary: 'second-white' },
+    wishes: ['celebrate-fireworks', 'emblem', 'number', 'shape-wedge', 'rim-gold', 'color-navy', 'pattern-chevron', 'second-white'],
+    equip: { celebration: 'celebrate-fireworks', color: 'color-navy', shape: 'shape-wedge', rim: 'rim-gold', pattern: 'pattern-chevron', secondary: 'second-white' },
     emblem: { shape: 'shield', symbol: 'bolt', fg: '#f4f6fb', bg: '#ff2e4d' },
     numbers: [7, 44],
   },
@@ -50,8 +51,8 @@ const TEAMS: DemoTeam[] = [
     uid: 'demo-a',
     team: 'הברקים הכחולים',
     drivers: [['Bold Comet', 'BLD', 3], ['Quiet Harbor', 'QHR', 2]],
-    wishes: ['shape-arrow', 'number', 'emblem', 'wing-navy', 'color-sky'],
-    equip: { color: 'color-sky', wing: 'wing-navy', shape: 'shape-arrow' },
+    wishes: ['celebrate-confetti', 'shape-arrow', 'number', 'emblem', 'wing-navy', 'color-sky'],
+    equip: { celebration: 'celebrate-confetti', color: 'color-sky', wing: 'wing-navy', shape: 'shape-arrow' },
     emblem: { shape: 'hexagon', symbol: 'star', fg: '#2346c8', bg: '#f4f6fb' },
     numbers: [1, 12],
   },
@@ -59,32 +60,32 @@ const TEAMS: DemoTeam[] = [
     uid: 'demo-b',
     team: 'Scarlet Works',
     drivers: [['Rapid Ember', 'RPE', 2], ['Steady Pine', 'STP', 1]],
-    wishes: ['shape-bulldog', 'pattern-fade', 'second-black', 'emblem', 'color-scarlet'],
-    equip: { color: 'color-scarlet', pattern: 'pattern-fade', secondary: 'second-black', shape: 'shape-bulldog' },
+    wishes: ['celebrate-champagne', 'shape-bulldog', 'pattern-fade', 'second-black', 'emblem', 'color-scarlet'],
+    equip: { celebration: 'celebrate-champagne', color: 'color-scarlet', pattern: 'pattern-fade', secondary: 'second-black', shape: 'shape-bulldog' },
     emblem: { shape: 'circle', symbol: 'flame', fg: '#ff7a1a', bg: '#14161d' },
   },
   {
     uid: 'demo-c',
     team: 'צוות החוף',
     drivers: [['Gentle Tide', 'GTD', 1], ['Bright Reef', 'BRF', 0]],
-    wishes: ['number', 'color-teal', 'rim-silver', 'pattern-centerline', 'second-white'],
-    equip: { color: 'color-teal', rim: 'rim-silver', pattern: 'pattern-centerline', secondary: 'second-white' },
+    wishes: ['celebrate-bubbles', 'number', 'color-teal', 'rim-silver', 'pattern-centerline', 'second-white'],
+    equip: { celebration: 'celebrate-bubbles', color: 'color-teal', rim: 'rim-silver', pattern: 'pattern-centerline', secondary: 'second-white' },
     numbers: [27, 72],
   },
   {
     uid: 'demo-d',
     team: 'Orange Line',
     drivers: [['Lucky Kite', 'LKT', 0]],
-    wishes: ['color-orange', 'emblem'],
-    equip: { color: 'color-orange' },
+    wishes: ['celebrate-balloons', 'color-orange', 'emblem'],
+    equip: { celebration: 'celebrate-balloons', color: 'color-orange' },
     emblem: { shape: 'diamond', symbol: 'chequer', fg: '#14161d', bg: '#f4f6fb' },
   },
   {
     uid: 'demo-e',
     team: 'Pink Garage',
     drivers: [['Merry Lark', 'MRL', 2]],
-    wishes: ['color-pink', 'helmet-black', 'smoke-white'],
-    equip: { color: 'color-pink', helmet: 'helmet-black', smoke: 'smoke-white' },
+    wishes: ['celebrate-sparkles', 'color-pink', 'helmet-black', 'smoke-white'],
+    equip: { celebration: 'celebrate-sparkles', color: 'color-pink', helmet: 'helmet-black', smoke: 'smoke-white' },
   },
 ];
 

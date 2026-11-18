@@ -290,7 +290,7 @@ export function runRaceDay(card: RaceCard, weights: Map<string, string>, replay?
   if (!hasTrack(card.trackId)) throw new Error(`unknown track ${card.trackId}`);
   const entries = new Map(card.entries.map((e) => [e.id, e]));
   const order = qualifyingOrder(card.qualifying);
-  const sessions = planSessions(order);
+  const sessions = planSessions(order, card.round);
   const resolved = new Map<string, string[]>();
   const results = new Map<string, SessionResult>();
   const sessionResults: SessionResult[] = [];
