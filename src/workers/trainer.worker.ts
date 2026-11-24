@@ -129,6 +129,8 @@ self.onmessage = (ev: MessageEvent<ToTrainer>) => {
           gameId: i.gameId,
           config: i.config,
           rewards: i.slots.map((s) => s.rewards),
+          setups: i.slots.map((s) => s.setup),
+          rivalSetups: (i.rivals ?? []).map((r) => r.setup),
           seed: i.seed,
           rivals: (i.rivals ?? []).map((r) => Policy.fromBase64(r.obsSize, r.hidden, r.nActions, r.weightsB64)),
           makeLearner: (slot, seats) => {

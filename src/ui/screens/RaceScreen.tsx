@@ -13,6 +13,7 @@ import { loadOpponent } from '../opponents';
 import { lapTime, posClass, raceTime } from '../format';
 import type { RacingSnapshot } from '../../core/games/racing/env';
 import { t as words, useT } from '../../i18n';
+import { useRaceSound } from '../useRaceSound';
 
 type Phase = 'loading' | 'countdown' | 'racing' | 'done';
 
@@ -59,6 +60,8 @@ export function RaceScreen() {
   const [error, setError] = useState<string | null>(null);
   /** True once every AI car has finished - the player is the only one still out there. */
   const [opponentsDone, setOpponentsDone] = useState(false);
+  /** Engines and tyres, around the player's own car. */
+  const { audioRef, soundOn, toggleSound } = useRaceSound();
   // Playing is landscape-only: the tracks are 1000x700 and the controls need a row of their own.
   const portrait = useIsPortrait();
   const mustRotate = isTouchDevice && portrait;
@@ -271,7 +274,13 @@ export function RaceScreen() {
       drawPlaceholder(ctx, [words().race.loadingRivals]);
       return;
     }
-    renderGame(gameId, ctx, env.snapshot(), {
+    const snap = env.snapshot();
+    const audio = audioRef.current;
+    if (audio && gameId === 'racing') {
+      if (phaseRef.current === 'racing') audio.update(snap as RacingSnapshot, { shot: 'chase', car: 0 });
+      else audio.hush();
+    }
+    renderGame(gameId, ctx, snap, {
       playerCar: 0,
       labels: namesRef.current,
       colors: colorsRef.current,
@@ -350,6 +359,9 @@ export function RaceScreen() {
               {w.finish}
             </button>
           )}
+          <button className={soundOn ? 'on' : ''} aria-pressed={soundOn} onClick={toggleSound}>
+            {soundOn ? '🔊' : '🔈'}
+          </button>
           <button onClick={restart} disabled={phase === 'loading'}>
             {w.restart}
           </button>
@@ -448,6 +460,9 @@ export function RaceScreen() {
               {w.finishNoun(game.matchNoun)}
             </button>
           )}
+          <button className={soundOn ? 'on' : ''} aria-pressed={soundOn} onClick={toggleSound}>
+            {soundOn ? '🔊' : '🔈'}
+          </button>
           <button onClick={restart} disabled={phase === 'loading'}>
             {w.restartNoun(game.matchNoun)}
           </button>

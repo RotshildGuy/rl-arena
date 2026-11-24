@@ -1,0 +1,276 @@
+// A copy of the security rules the live site runs, with the moderator's uid
+// replaced by a placeholder. The real `firestore.rules` stays out of the
+// repository because of that uid: copy this file to `firestore.rules`, put
+// your own uid in `admins()`, and deploy it with
+// `firebase deploy --only firestore:rules`.
+
+rules_version = '2';
+
+// Two worlds live in this database.
+//
+//   users/{uid}/models   - a person's private library. Nobody else can read it.
+//   arena, seasons       - the public championship. You write only your own car;
+//                          the races themselves are written by the server alone.
+//
+// The race day runs on the server (functions/index.js, with the admin SDK,
+// which these rules do not apply to). It builds each race card, freezes the
+// weights, races the day and writes the replay and the result. No browser can
+// write any of that, and no browser can read anybody else's weights: a race is
+// watched from its replay, the actions each car took.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Site operators, by uid. To add one: open the site, go to מידע -> קרדיטים,
+    // copy the id shown under "המזהה שלכם", add it below, and redeploy these rules.
+    function admins() {
+      return ['YOUR-MODERATOR-UID'];
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.uid in admins();
+    }
+
+    function nowMs() {
+      return request.time.toMillis();
+    }
+
+    // A time a client stamped: a whole number of milliseconds, not in the
+    // future. A phone's clock may run a little ahead, hence the five minutes.
+    function stamped(t) {
+      return t is int && t <= nowMs() + 5 * 60 * 1000;
+    }
+
+    function text(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    // ------------------------------------------------------------ private
+    match /users/{uid}/profile/{docId} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.competitor is string
+        && request.resource.data.competitor.size() <= 30;
+    }
+
+    // Bets (src/core/champ/bets.ts): private to their owner, placed before
+    // the lights of the race they name, never changed or taken back. The
+    // server reads them all with the admin SDK to settle them.
+    match /users/{uid}/bets/{betId} {
+      function betRaceOpen(d) {
+        return !exists(/databases/$(database)/documents/seasons/$(d.seasonId)/races/$(d.raceId))
+          || get(/databases/$(database)/documents/seasons/$(d.seasonId)/races/$(d.raceId)).data.startsAt > nowMs();
+      }
+
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['id', 'kind', 'market', 'pick', 'stake', 'round', 'raceId', 'seasonId', 'placedAt'])
+        && request.resource.data.id == betId
+        && betId.size() <= 64
+        && request.resource.data.kind in ['race', 'season']
+        && request.resource.data.market in ['driver', 'team']
+        && text(request.resource.data.pick, 64)
+        && request.resource.data.stake is int
+        && request.resource.data.stake >= 5
+        && request.resource.data.round is int
+        && text(request.resource.data.raceId, 20)
+        && text(request.resource.data.seasonId, 10)
+        && request.resource.data.raceId.matches('S[0-9]+-R[0-9]+')
+        && request.resource.data.raceId.split('-')[0] == request.resource.data.seasonId
+        && stamped(request.resource.data.placedAt)
+        && request.resource.data.placedAt >= nowMs() - 5 * 60 * 1000
+        && betRaceOpen(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /users/{uid}/models/{modelId} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.id == modelId
+        && request.resource.data.weightsB64 is string
+        && request.resource.data.weightsB64.size() < 900000;
+    }
+
+    // ------------------------------------------------------------- arena
+    // One document per entered car. The uid on it is what proves ownership, so
+    // it can never be set to somebody else and never be changed afterwards.
+    match /arena/{entryId} {
+      // Every field the app writes, typed and capped. The network shape is
+      // checked again, in full, by the server before a car is put on a card.
+      function validEntry(d) {
+        return d.keys().hasOnly(['id', 'uid', 'driver', 'team', 'gameId', 'algorithm', 'arch', 'obsVersion',
+            'tag', 'createdAt', 'updatedAt', 'modelId', 'episodes', 'retired', 'setup'])
+          && d.id == entryId
+          && entryId.size() <= 64
+          && d.uid == request.auth.uid
+          && text(d.driver, 30)
+          && text(d.team, 30)
+          && text(d.gameId, 20)
+          && text(d.algorithm, 20)
+          && text(d.tag, 8)
+          && text(d.modelId, 64)
+          && d.obsVersion is int
+          && d.episodes is int
+          && d.arch is map
+          && d.arch.keys().hasOnly(['obsSize', 'hidden', 'nActions'])
+          && d.arch.obsSize is int
+          && d.arch.nActions is int
+          && d.arch.hidden is list
+          && d.arch.hidden.size() <= 4
+          && stamped(d.createdAt)
+          && stamped(d.updatedAt)
+          && (!('retired' in d) || d.retired is bool)
+          // The car setup (src/core/games/racing/setup.ts), from season 5.
+          && (!('setup' in d) || d.setup in ['balanced', 'downforce', 'lowdrag']);
+      }
+
+      allow read: if signedIn();
+      // A new entry's first-entry date is today's, give or take a generous
+      // margin for a phone with a wrong clock; it cannot be backdated to look
+      // like the original of somebody else's car.
+      allow create: if signedIn() && validEntry(request.resource.data)
+        && request.resource.data.createdAt >= nowMs() - 6 * 60 * 60 * 1000;
+      // The first entry date gates retroactive rounds, so it never moves.
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && validEntry(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+
+      // The weights: readable and writable by the car's owner only. The server
+      // reads them to race; everybody else meets the car in the race itself.
+      match /data/{docId} {
+        function ownsEntry() {
+          return isAdmin()
+            || (exists(/databases/$(database)/documents/arena/$(entryId))
+                && get(/databases/$(database)/documents/arena/$(entryId)).data.uid == request.auth.uid);
+        }
+
+        allow read: if signedIn() && ownsEntry();
+        // Split from create/update: on a delete there is no `request.resource`.
+        allow delete: if signedIn() && ownsEntry();
+        allow create, update: if signedIn()
+          && ownsEntry()
+          && docId == 'weights'
+          && request.resource.data.keys().hasOnly(['weightsB64'])
+          && request.resource.data.weightsB64 is string
+          && request.resource.data.weightsB64.size() < 900000;
+      }
+    }
+
+    // ------------------------------------------------------- championship
+    // Written by the server only. The card is public from the start (the grid
+    // and the countdown); the result and the replay only from the lights.
+    function raceStarted(seasonId, raceId) {
+      return get(/databases/$(database)/documents/seasons/$(seasonId)/races/$(raceId)).data.startsAt <= nowMs();
+    }
+
+    match /seasons/{seasonId}/races/{raceId} {
+      allow read: if signedIn();
+      allow write: if false;
+
+      // The weights frozen for the day. The server's alone.
+      match /cars/{entryId} {
+        allow read, write: if false;
+      }
+
+      match /result/{docId} {
+        allow read: if signedIn() && raceStarted(seasonId, raceId);
+        allow write: if false;
+      }
+
+      match /replay/{docId} {
+        allow read: if signedIn() && raceStarted(seasonId, raceId);
+        allow write: if false;
+      }
+    }
+
+    // ---------------------------------------------------- other features
+    // Each is documented in the README beside its feature.
+
+    // One team name, one account. The key is the normalised name; the server
+    // checks it against the name on each car when it builds a card.
+    match /names/{key} {
+      function validName(d) {
+        return d.keys().hasOnly(['uid', 'name', 'updatedAt'])
+          && d.uid == request.auth.uid
+          && text(d.name, 30)
+          && key.size() <= 200
+          && (!('updatedAt' in d) || stamped(d.updatedAt));
+      }
+
+      allow get: if true;
+      allow list: if signedIn();
+      allow create: if signedIn() && validName(request.resource.data);
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && validName(request.resource.data);
+      allow delete: if signedIn()
+        && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // Retention metrics: one event per account per kind per day.
+    match /metrics/{day}/events/{id} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+        && id == request.auth.uid + '_' + request.resource.data.event
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.day == day
+        && day.size() == 10
+        && request.resource.data.event in ['visit', 'train', 'save', 'enter', 'watch']
+        && request.resource.data.keys().hasOnly(['uid', 'event', 'day']);
+    }
+
+    // Bugs, ideas, and reports of offensive names.
+    match /feedback/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.kind in ['bug', 'idea', 'other']
+        && request.resource.data.status == 'new'
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 10
+        && request.resource.data.text.size() <= 2000
+        && (!('screen' in request.resource.data) || text(request.resource.data.screen, 60))
+        && (!('device' in request.resource.data) || text(request.resource.data.device, 400))
+        && (!('contact' in request.resource.data) || text(request.resource.data.contact, 200))
+        && request.resource.data.keys().hasOnly(['uid', 'kind', 'text', 'screen', 'device', 'contact', 'createdAt', 'status']);
+      allow read: if signedIn()
+        && (resource.data.uid == request.auth.uid || isAdmin());
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reply']);
+    }
+
+    // What each team won or lost on finished bets, one number, written by the
+    // server when it settles them. Public, so every browser can count a
+    // team's winnings when it checks that team's purchases.
+    match /wallets/{uid} {
+      allow get: if true;
+      allow list: if signedIn();
+      allow write: if false;
+    }
+
+    // The server's note that a race day's bets are settled. Nobody else's business.
+    match /settlements/{raceId} {
+      allow read, write: if false;
+    }
+
+    // Shop: looks, never speed.
+    match /shop/{uid} {
+      allow get: if true;
+      allow list: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt'])
+        && request.resource.data.purchases is list
+        && request.resource.data.purchases.size() <= 100
+        && request.resource.data.equipped is map
+        && request.resource.data.equipped.size() <= 16
+        && stamped(request.resource.data.updatedAt);
+    }
+  }
+}

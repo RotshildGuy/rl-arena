@@ -25,9 +25,9 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
-const { lockAtForRound, raceIdForRound, roundOfDay } = require('./race');
-const { raceRound, HOUSE_IDS } = require('./raceDay');
-const { makeArena } = require('./arena');
+const { lockAtForRound, raceIdForRound, roundOfDay, dayEndsAt } = require('./race');
+const { raceRound, settleWallets, HOUSE_IDS } = require('./raceDay');
+const { makeArena, makeWalletStore } = require('./arena');
 
 initializeApp();
 const db = getFirestore();
@@ -37,6 +37,7 @@ const REGION = 'me-west1';
 const HOUSE = new Map(HOUSE_IDS.map((id) => [id, require(`./house/${id}.json`).weightsB64]));
 
 const arena = makeArena(db);
+const wallets = makeWalletStore(db);
 
 /*
  * A six-car day simulates in under a second; a full grid with heats takes a
@@ -60,5 +61,21 @@ exports.raceResult = onSchedule(RACE_OPTIONS, async () => {
   } catch (err) {
     // Next minute tries again.
     console.error(`${raceId}: race day failed`, err);
+  }
+
+  // Once the day's broadcast is over: settle the bets, once a day. Every
+  // wallet is worked out again from scratch, so a second run changes nothing.
+  try {
+    const mark = db.collection('settlements').doc(raceId);
+    if ((await mark.get()).exists) return;
+    const card = await arena.getCard(raceId);
+    const result = card ? await arena.getResult(raceId) : null;
+    // A day with no card has nothing to wait for; its bets are returned later.
+    if (card && now < dayEndsAt(card, result)) return;
+    const written = await settleWallets(wallets, now);
+    await mark.set({ at: now, wallets: written });
+    console.log(`${raceId}: settled ${written} wallet(s)`);
+  } catch (err) {
+    console.error(`${raceId}: settling bets failed`, err);
   }
 });

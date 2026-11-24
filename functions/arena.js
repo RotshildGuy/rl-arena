@@ -89,4 +89,55 @@ function makeArena(db) {
   return arena;
 }
 
-module.exports = { makeArena };
+/*
+ * What settling the bets needs (`settleWallets`, src/server/wallets.ts): every
+ * race day and its result, every bet - the server alone can read them all -
+ * and each betting team's shop document. It writes `wallets/{uid}`, which no
+ * browser can.
+ */
+function makeWalletStore(db) {
+  return {
+    async allCards() {
+      const seasons = await db.collection('seasons').listDocuments();
+      const out = [];
+      for (const s of seasons) {
+        const snap = await s.collection('races').get();
+        for (const d of snap.docs) out.push(d.data());
+      }
+      return out;
+    },
+    async allResults(cards) {
+      const out = new Map();
+      await Promise.all(
+        cards.map(async (card) => {
+          const snap = await db
+            .collection('seasons')
+            .doc(card.id.split('-')[0])
+            .collection('races')
+            .doc(card.id)
+            .collection('result')
+            .doc('final')
+            .get();
+          if (snap.exists) out.set(card.id, snap.data());
+        }),
+      );
+      return out;
+    },
+    async allBets() {
+      const snap = await db.collectionGroup('bets').get();
+      // users/{uid}/bets/{betId}: the owner is two levels up.
+      return snap.docs
+        .filter((d) => d.ref.parent.parent && d.ref.parent.parent.parent.id === 'users')
+        .map((d) => ({ uid: d.ref.parent.parent.id, bet: d.data() }));
+    },
+    async shop(uid) {
+      const snap = await db.collection('shop').doc(uid).get();
+      return snap.exists ? snap.data() : null;
+    },
+    async putWallet(uid, betNet, now) {
+      await db.collection('wallets').doc(uid).set({ betNet, updatedAt: now });
+    },
+  };
+}
+
+module.exports = { makeArena, makeWalletStore };

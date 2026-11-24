@@ -3,10 +3,12 @@ import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship } from '../useChampionship';
 import { earnedCoins } from '../../core/champ/coins';
+import { useMyBets } from '../useBets';
 import {
   ITEM_BY_ID,
   SHOP_ITEMS,
   SLOT_KINDS,
+  defaultItems,
   emblemOf,
   normalizeShop,
   paintOf,
@@ -42,8 +44,9 @@ const SECTIONS: SlotKind[] = ['color', 'pattern', 'shape', 'secondary', 'wing', 
  * the coins the team has earned before painting it.
  */
 export function Shop() {
-  const s = useT().shop;
-  const { competitor, showToast } = useApp();
+  const words = useT();
+  const s = words.shop;
+  const { competitor, showToast, go } = useApp();
   const { state } = useChampionship();
   const [doc, setDoc] = useState<ShopDoc | null>(null);
   const [trial, setTrial] = useState<Equipped>({});
@@ -58,24 +61,34 @@ export function Shop() {
     void myShop(uid).then((d) => setDoc(normalizeShop(d)));
   }, [uid]);
 
+  const mine = useMyBets(doc);
   const wallet = useMemo(() => {
     if (!state) return null;
     const now = Date.now();
     return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
   }, [state, uid]);
 
-  if (!state || !wallet || !doc) return <PageSkeleton variant="cards" />;
+  if (!state || !wallet || !doc || !mine) return <PageSkeleton variant="cards" />;
 
   // The team's cars on the grid, oldest first: the order numbers are dealt in.
   const myCars: ArenaEntry[] = state.entries
     .filter((e) => e.uid === uid && !e.retired)
     .sort((a, b) => a.createdAt - b.createdAt);
 
-  const balance = wallet.total - spent(doc.purchases);
+  // Bets count too: won coins can be spent, coins on an open bet cannot.
+  const balance = wallet.total - spent(doc.purchases) + mine.book.net;
   const owned = new Set(doc.purchases);
-  const has = (id: string) => (ITEM_BY_ID.get(id)?.price ?? 0) === 0 || owned.has(id);
-  // A retired item is shown only to a team that already owns it.
-  const onSale = (item: ShopItem) => !item.retired || owned.has(item.id);
+  // A pack prize is not the shop's: it is won in a pack and worn from the garage's design screen.
+  // The paint a team's name already gives its car is its own: shown as owned, never sold.
+  const team0 = competitor || 'הקבוצה שלי';
+  const defaults = defaultItems(team0);
+  const isDefault = (item: ShopItem) => defaults[item.kind as SlotKind] === item.id;
+  const has = (id: string) => {
+    const it = ITEM_BY_ID.get(id);
+    return !it?.pack && ((it?.price ?? 0) === 0 || owned.has(id) || (!!it && isDefault(it)));
+  };
+  // A retired item is shown only to a team that already owns it; a prize is never on sale.
+  const onSale = (item: ShopItem) => !item.pack && (!item.retired || owned.has(item.id));
   const sections = SECTIONS.filter((kind) => SHOP_ITEMS.some((i) => i.kind === kind && onSale(i)));
   // A seed for the colour and look, not shown: the same in every language.
   const team = competitor || 'הקבוצה שלי';
@@ -91,7 +104,7 @@ export function Shop() {
 
   // The items being tried that still have to be paid for.
   const toBuy = [
-    ...SLOT_KINDS.map((k) => trial[k]).filter((id): id is string => !!id && !has(id)),
+    ...SLOT_KINDS.map((k) => trial[k]).filter((id): id is string => !!id && !has(id) && !ITEM_BY_ID.get(id)?.pack),
     ...(trial.number !== undefined && !owned.has('number') ? ['number'] : []),
     ...(trial.emblem !== undefined && !owned.has('emblem') ? ['emblem'] : []),
   ];
@@ -119,6 +132,14 @@ export function Shop() {
 
   /** A tap: put an owned item straight on the car, try on one that is not. */
   const tap = (item: ShopItem, kind: SlotKind) => {
+    if (isDefault(item)) {
+      // The team's own paint: going back to the default, which nobody else's check could object to.
+      const rest = { ...trial };
+      delete rest[kind];
+      setTrial(rest);
+      if (doc.equipped[kind] !== undefined) reset(kind);
+      return;
+    }
     if (has(item.id)) {
       const equipped = { ...doc.equipped, [kind]: item.id };
       const rest = { ...trial };
@@ -139,10 +160,7 @@ export function Shop() {
 
   const buyAll = () => {
     if (cost > balance) return;
-    void persist(
-      { ...doc, purchases: [...doc.purchases, ...toBuy], equipped: { ...doc.equipped, ...trial } },
-      s.bought,
-    );
+    void persist({ ...doc, purchases: [...doc.purchases, ...toBuy], equipped: { ...doc.equipped, ...trial } }, s.bought);
   };
 
   return (
@@ -165,6 +183,7 @@ export function Shop() {
         {/* The car first, and pinned while scrolling: every tap below changes it. */}
         <div className="shop-preview card notched">
           <Preview color={previewColor} look={previewLook} />
+
           {toBuy.length > 0 ? (
             <div className="row wrap" style={{ marginTop: 10, gap: 8 }}>
               <span className="small">
@@ -219,7 +238,7 @@ export function Shop() {
                     key={item.id}
                     item={item}
                     owned={has(item.id)}
-                    on={wearing[kind] === item.id}
+                    on={wearing[kind] === item.id || (wearing[kind] === undefined && isDefault(item))}
                     trying={trial[kind] === item.id}
                     previewColor={previewColor}
                     previewLook={previewLook}
@@ -332,6 +351,19 @@ export function Shop() {
                 <span className="mono muted">-{spent(doc.purchases)}</span>
               </div>
             )}
+            {mine.bets.length > 0 && (
+              <div className="row small" style={{ padding: '3px 0' }}>
+                <span className="muted">{s.bets(mine.book.atStake)}</span>
+                <div style={{ flex: 1 }} />
+                <span className="mono muted">
+                  {mine.book.net >= 0 ? '+' : ''}
+                  {mine.book.net}
+                </span>
+              </div>
+            )}
+            <button className="small" style={{ marginTop: 8 }} onClick={() => go('bets')}>
+              🎲 {words.bets.open}
+            </button>
             <div className="dim tiny" style={{ marginTop: 8 }}>
               {s.honest}
             </div>
@@ -510,7 +542,7 @@ function NumberPicker({
  * A number for each of the team's cars. They share the team's colour, so the
  * number is how anybody tells them apart - and two cars may not wear the same.
  */
-function CarNumbers({
+export function CarNumbers({
   cars,
   numbers,
   busy,
@@ -666,6 +698,6 @@ function EmblemBuilder({ value, onChange }: { value: Emblem; onChange(e: Emblem)
  * A coin, drawn rather than typed: the coin emoji is recent enough that plenty
  * of phones and Windows machines still show it as an empty box.
  */
-function Coin() {
+export function Coin() {
   return <span className="coin" aria-hidden="true" />;
 }

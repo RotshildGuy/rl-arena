@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
+import { ITEM_BY_ID } from '../../core/champ/shop';
+import { Trophy } from './Trophy';
 import { Name } from './Name';
 import { t } from '../../i18n';
 import { Celebration } from './Celebration';
@@ -30,12 +32,19 @@ export function Podium({ places, compact }: { places: PodiumPlace[]; compact?: b
     <div className={`podium ${compact ? 'compact' : ''}`}>
       {order.map((p) => (
         <div className={`podium-spot p${p.position}`} key={p.position}>
+          {p.position === 1 && p.look?.trophy && <Trophy kind={p.look.trophy} className="podium-trophy" />}
           <PodiumCar color={p.color} look={p.look} />
-          <div className="podium-name">
-            <Name>{p.driver}</Name>
-          </div>
-          <div className="podium-team">
-            <Name>{p.team}</Name>
+          {/* The driver's card: name, team and title, on the team's banner if it has one. */}
+          <div className={`podium-card ${p.look?.banner ? `banner banner-${p.look.banner}` : ''}`}>
+            <div className={`podium-name ${p.look?.frame ? `framed frame-${p.look.frame}` : ''}`}>
+              <Name>{p.driver}</Name>
+            </div>
+            <div className="podium-team">
+              <Name>{p.team}</Name>
+            </div>
+            {p.look?.title && ITEM_BY_ID.get(p.look.title)?.kind === 'title' && (
+              <div className="podium-title">{ITEM_BY_ID.get(p.look.title)!.label}</div>
+            )}
           </div>
           {p.detail && <div className="podium-detail mono">{p.detail}</div>}
           <div className="podium-step">

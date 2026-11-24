@@ -17,6 +17,8 @@ import { RaceScreen } from './screens/RaceScreen';
 import { Info } from './screens/Info';
 import { Feedback } from './screens/Feedback';
 import { Shop } from './screens/Shop';
+import { Bets } from './screens/Bets';
+import { Design } from './screens/Design';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
 import { SettingsButton } from './components/SettingsButton';
@@ -37,9 +39,9 @@ interface Tab {
 const TABS: Tab[] = [
   { id: 'championship', glyph: '🏁', also: ['broadcast', 'report'] },
   { id: 'standings', glyph: '📊' },
-  { id: 'library', glyph: '🔧', also: ['trainSetup', 'training'] },
+  { id: 'library', glyph: '🔧', also: ['trainSetup', 'training', 'design'] },
   { id: 'raceSetup', glyph: '🎮', also: ['race'] },
-  { id: 'shop', glyph: '🛒' },
+  { id: 'shop', glyph: '🛒', also: ['bets'] },
 ];
 
 /**
@@ -239,6 +241,8 @@ function Arena() {
             {screen === 'info' && <Info />}
             {screen === 'feedback' && <Feedback />}
             {screen === 'shop' && <Shop />}
+            {screen === 'bets' && <Bets />}
+            {screen === 'design' && <Design />}
           </ErrorBoundary>
           {!bare && screen !== 'info' && <Footer onOpen={openInfo} onFeedback={openFeedback} />}
         </div>

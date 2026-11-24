@@ -1,6 +1,7 @@
 import type { Dict } from './dict';
 import * as account from './en/account';
 import * as app from './en/app';
+import * as bets from './en/bets';
 import * as broadcast from './en/broadcast';
 import * as championship from './en/championship';
 import * as components from './en/components';
@@ -21,6 +22,7 @@ import * as trainSetup from './en/trainSetup';
 export const en: Dict = {
   ...account,
   ...app,
+  ...bets,
   ...broadcast,
   ...championship,
   ...components,

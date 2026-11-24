@@ -91,6 +91,7 @@ export function TrainDashboard() {
         const init: TrainSlotInit = {
           algorithm: slot.algorithm,
           rewards: slot.rewards,
+          setup: slot.setup,
           hyper: draft.hyper,
           gaHyper: draft.gaHyper,
         };
@@ -137,7 +138,7 @@ export function TrainDashboard() {
           const arena = await getArena();
           const w = await arena.loadEntryWeights(draft.rival.entryId);
           if (w) {
-            rivals = [{ ...draft.rival.arch, weightsB64: w }];
+            rivals = [{ ...draft.rival.arch, weightsB64: w, setup: draft.rival.setup }];
             const cars = Number(config.nCars ?? 1);
             config = { ...config, nCars: Math.max(cars, models.length + 1) };
           } else {
@@ -213,6 +214,7 @@ export function TrainDashboard() {
           algorithm: slot.algorithm,
           config: draft.config,
           rewards: slot.rewards,
+          setup: slot.setup,
           hyper: slot.algorithm === 'ga' ? state.shape.gaHyper : state.shape.hyper,
           history: live[i]?.history ?? [],
           sessionStart: state.resumeLength,

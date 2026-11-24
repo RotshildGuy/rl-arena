@@ -40,7 +40,7 @@ export function TimingTower({
         if (!meta || !c) return null;
         const retired = c.done && !c.finished;
         return (
-          <div className={`row-t ${meta.mine ? 'me' : ''} ${retired ? 'out' : ''}`} key={carIdx}>
+          <div className={`row-t ${meta.mine ? 'me' : ''} ${retired ? 'out' : ''} ${meta.look?.frame ? `framed frame-${meta.look.frame}` : ''}`} key={carIdx}>
             <span className="p">{i + 1}</span>
             <span className="livery" style={{ background: meta.color }} />
             <span className="who">

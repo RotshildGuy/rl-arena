@@ -4,6 +4,7 @@ import { OBS_SIZE, RACING_SPEC } from '../games/racing/rewards';
 import { defaultRewards } from '../games/types';
 import { Policy } from '../rl/policy';
 import { lapsFor, planSessions, snakeSeed } from './format';
+import { SETUP_ROUND } from './schedule';
 import { awardPoints } from './points';
 import { encodeActions, RecordingDriver, ReplayDriver, type DayReplay } from './replay';
 import type {
@@ -42,6 +43,23 @@ export interface Driver {
 export interface SimCar {
   entryId: string;
   policy: Driver;
+  /** The car's setup (`racing/setup.ts`); the balanced car when absent. */
+  setup?: string;
+}
+
+/** Each car's setup on a card, by entry id. Empty before setups existed (`SETUP_ROUND`). */
+export type SetupMap = ReadonlyMap<string, string>;
+
+/**
+ * The setups a round races with. Before `SETUP_ROUND` every car is the
+ * balanced car, whatever its entry says, so a replay of an older day still
+ * produces the result that was published.
+ */
+export function setupsFor(round: number, entries: readonly ArenaEntry[]): SetupMap {
+  const out = new Map<string, string>();
+  if (round < SETUP_ROUND) return out;
+  for (const e of entries) if (e.setup) out.set(e.id, e.setup);
+  return out;
 }
 
 /**
@@ -82,6 +100,7 @@ export class SessionSim {
         maxSteps: maxStepsFor(laps),
         stuckLimit: STUCK_LIMIT,
         physics,
+        setups: cars.map((c) => c.setup),
       },
       RACE_REWARDS,
     );
@@ -176,6 +195,7 @@ export function runQualifying(
   trackId: string,
   seed: number,
   physics: number,
+  setups: SetupMap = new Map(),
 ): QualiLap[] {
   const laps: QualiLap[] = [];
   for (const e of entries) {
@@ -185,7 +205,7 @@ export function runQualifying(
       laps.push({ entryId: e.id, bestLapMs: null, sectorsMs: [null, null, null], topSpeed: 0 });
       continue;
     }
-    const sim = new SessionSim(trackId, QUALI_LAPS, [{ entryId: e.id, policy }], seed, physics);
+    const sim = new SessionSim(trackId, QUALI_LAPS, [{ entryId: e.id, policy, setup: setups.get(e.id) }], seed, physics);
     sim.runToEnd();
     const t = sim.env.telemetry(0);
     laps.push({ entryId: e.id, bestLapMs: t.bestLapMs, sectorsMs: t.bestSectorsMs, topSpeed: t.topSpeed });
@@ -207,13 +227,14 @@ export function policiesFor(
   ids: string[],
   entries: Map<string, ArenaEntry>,
   weights: Map<string, string>,
+  setups: SetupMap = new Map(),
 ): SimCar[] {
   const out: SimCar[] = [];
   for (const id of ids) {
     const e = entries.get(id);
     const w = weights.get(id);
     const policy = e && w ? policyOf(e, w) : null;
-    if (policy) out.push({ entryId: id, policy });
+    if (policy) out.push({ entryId: id, policy, setup: setups.get(id) });
   }
   return out;
 }
@@ -231,12 +252,12 @@ function policyOf(e: ArenaEntry, weightsB64: string): Policy | null {
 }
 
 /** The cars of a session driven from its replay, in grid order. */
-export function replayDriversFor(ids: string[], replay: Record<string, string>): SimCar[] {
+export function replayDriversFor(ids: string[], replay: Record<string, string>, setups: SetupMap = new Map()): SimCar[] {
   const out: SimCar[] = [];
   for (const id of ids) {
     const actions = replay[id];
     if (actions === undefined) continue;
-    out.push({ entryId: id, policy: new ReplayDriver(actions) });
+    out.push({ entryId: id, policy: new ReplayDriver(actions), setup: setups.get(id) });
   }
   return out;
 }
@@ -289,6 +310,7 @@ export function runRaceDay(card: RaceCard, weights: Map<string, string>, replay?
   // code that knows the circuit.
   if (!hasTrack(card.trackId)) throw new Error(`unknown track ${card.trackId}`);
   const entries = new Map(card.entries.map((e) => [e.id, e]));
+  const setups = setupsFor(card.round, card.entries);
   const order = qualifyingOrder(card.qualifying);
   const sessions = planSessions(order, card.round);
   const resolved = new Map<string, string[]>();
@@ -301,7 +323,7 @@ export function runRaceDay(card: RaceCard, weights: Map<string, string>, replay?
     const group = rounds.get(r)!;
     for (const session of group) {
       const grid = gridFor(session, resolved);
-      const cars = policiesFor(grid, entries, weights);
+      const cars = policiesFor(grid, entries, weights, setups);
       if (cars.length === 0) continue;
       const recorders = replay ? cars.map((c) => new RecordingDriver(c.policy)) : null;
       const driven = recorders ? cars.map((c, i) => ({ ...c, policy: recorders[i] })) : cars;

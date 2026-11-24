@@ -1,6 +1,7 @@
 import type { CarLook, CelebrationKind } from '../games/racing/render';
 import { DEFAULT_EMBLEM, normalizeEmblem, type Emblem } from './emblem';
 import { t, translated } from '../../i18n/dict';
+import { teamColor, teamLook } from './livery';
 
 /**
  * The catalogue. Everything here is paint: it changes how a car is drawn and
@@ -13,7 +14,21 @@ import { t, translated } from '../../i18n/dict';
  */
 export type ItemKind =
   | 'color' | 'secondary' | 'pattern' | 'number' | 'helmet' | 'smoke'
-  | 'shape' | 'wing' | 'rim' | 'emblem' | 'celebration';
+  | 'shape' | 'wing' | 'rim' | 'emblem' | 'celebration'
+  // Pack prizes (season 6): never sold, only found in packs.
+  | 'trail' | 'flame' | 'visor' | 'decal' | 'engine' | 'finish'
+  | 'trophy' | 'frame' | 'title' | 'banner' | 'quote';
+
+/** How rare a pack prize is: what a pack shows its odds by. */
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
+export const RARITIES: readonly Rarity[] = ['common', 'rare', 'epic', 'legendary'];
+
+/**
+ * The season packs open from (ROADMAP 5.7). Until then the prizes are in the
+ * catalogue - drawn, heard and shown in the shop's preview - but nobody can
+ * own one, and a look that wears one is not honoured (`validLook`).
+ */
+export const PACKS_SEASON = 6;
 
 export interface ShopItem {
   id: string;
@@ -28,6 +43,9 @@ export interface ShopItem {
    * coins paid still count and the paint still draws.
    */
   retired?: boolean;
+  /** A pack prize: not for sale at any price, only found in a pack. */
+  pack?: boolean;
+  rarity?: Rarity;
 }
 
 /** An item whose label is read from the dictionary by its id. */
@@ -42,6 +60,10 @@ const wing = (id: string, value: string): ShopItem => item({ id, kind: 'wing', p
 const rim = (id: string, value: string): ShopItem => item({ id, kind: 'rim', price: 50, value });
 /** What plays over the car when it stands on the podium. */
 const celebration = (id: string, value: CelebrationKind, price: number): ShopItem => item({ id, kind: 'celebration', price, value });
+
+/** A pack prize. Its price is 0 only so that it adds nothing to `spent`: it cannot be bought. */
+const prize = (id: string, kind: ItemKind, value: string, rarity: Rarity): ShopItem =>
+  item({ id, kind, price: 0, value, pack: true, rarity });
 
 export const SHOP_ITEMS: ShopItem[] = [
   color('color-scarlet', '#ff2e4d'),
@@ -105,6 +127,77 @@ export const SHOP_ITEMS: ShopItem[] = [
   celebration('celebrate-balloons', 'balloons', 100),
   celebration('celebrate-champagne', 'champagne', 120),
   celebration('celebrate-fireworks', 'fireworks', 150),
+
+  // Pack prizes, for season 6 (ROADMAP 5.7). Paint and show only, like everything above.
+  // A trail behind the car at speed.
+  prize('trail-white', 'trail', 'rgba(240, 244, 255, 0.55)', 'common'),
+  prize('trail-sky', 'trail', 'rgba(56, 189, 248, 0.6)', 'rare'),
+  prize('trail-scarlet', 'trail', 'rgba(255, 46, 77, 0.6)', 'rare'),
+  prize('trail-gold', 'trail', 'rgba(230, 180, 34, 0.7)', 'epic'),
+  prize('trail-rainbow', 'trail', 'rainbow', 'legendary'),
+  // A flame out of the exhaust while the car is on the throttle: core | outer.
+  prize('flame-orange', 'flame', '#ffe08a|#ff7a1a', 'common'),
+  prize('flame-blue', 'flame', '#e0f4ff|#2f8bff', 'rare'),
+  prize('flame-pink', 'flame', '#ffe0ef|#ff5fa2', 'epic'),
+  prize('flame-plasma', 'flame', '#ffffff|#38f0ff', 'legendary'),
+  // A design on the helmet, in the second colour.
+  prize('visor-stripe', 'visor', 'stripe', 'common'),
+  prize('visor-checker', 'visor', 'checker', 'rare'),
+  prize('visor-star', 'visor', 'star', 'rare'),
+  prize('visor-flames', 'visor', 'flames', 'epic'),
+  prize('visor-crown', 'visor', 'crown', 'legendary'),
+  // A sticker on both sidepods, from a closed set: no free text to moderate.
+  prize('decal-star', 'decal', 'star', 'common'),
+  prize('decal-bolt', 'decal', 'bolt', 'common'),
+  prize('decal-checker', 'decal', 'checker', 'rare'),
+  prize('decal-flame', 'decal', 'flame', 'rare'),
+  prize('decal-sun', 'decal', 'sun', 'epic'),
+  prize('decal-crown', 'decal', 'crown', 'legendary'),
+  // Painted versions of the wings and rims, in colours the shop does not sell.
+  prize('wing-titanium', 'wing', '#9aa7b8', 'rare'),
+  prize('wing-cobalt', 'wing', '#1d4ed8', 'rare'),
+  prize('wing-gold', 'wing', '#e6b422', 'epic'),
+  prize('rim-titanium', 'rim', '#9aa7b8', 'rare'),
+  prize('rim-cobalt', 'rim', '#1d4ed8', 'rare'),
+  prize('rim-chrome', 'rim', '#eef2f8', 'epic'),
+  // How the car sounds, to whoever has the sound on.
+  prize('engine-v8', 'engine', 'v8', 'rare'),
+  prize('engine-turbo', 'engine', 'turbo', 'rare'),
+  prize('engine-v10', 'engine', 'v10', 'epic'),
+  prize('engine-electric', 'engine', 'electric', 'legendary'),
+  // Played where the winner crosses the line.
+  prize('finish-shockwave', 'finish', 'shockwave', 'rare'),
+  prize('finish-sparks', 'finish', 'sparks', 'epic'),
+  prize('finish-stars', 'finish', 'stars', 'legendary'),
+  // The trophy over the winner on the podium. Six, one of them legendary.
+  prize('trophy-cup', 'trophy', 'cup', 'common'),
+  prize('trophy-laurel', 'trophy', 'laurel', 'rare'),
+  prize('trophy-star', 'trophy', 'star', 'rare'),
+  prize('trophy-wheel', 'trophy', 'wheel', 'epic'),
+  prize('trophy-crown', 'trophy', 'crown', 'epic'),
+  prize('trophy-diamond', 'trophy', 'diamond', 'legendary'),
+  // The frame round a driver's place in the timing tower and on the podium.
+  prize('frame-bronze', 'frame', 'bronze', 'common'),
+  prize('frame-silver', 'frame', 'silver', 'rare'),
+  prize('frame-gold', 'frame', 'gold', 'epic'),
+  prize('frame-week', 'frame', 'week', 'legendary'),
+  // A line under the team's name, from a closed list (the words are in the dictionary).
+  prize('title-braker', 'title', '', 'common'),
+  prize('title-rocket', 'title', '', 'common'),
+  prize('title-corners', 'title', '', 'rare'),
+  prize('title-night', 'title', '', 'rare'),
+  prize('title-iron', 'title', '', 'epic'),
+  prize('title-legend', 'title', '', 'legendary'),
+  // The backdrop of the team's podium place.
+  prize('banner-carbon', 'banner', 'carbon', 'common'),
+  prize('banner-checker', 'banner', 'checker', 'rare'),
+  prize('banner-sunset', 'banner', 'sunset', 'epic'),
+  prize('banner-aurora', 'banner', 'aurora', 'legendary'),
+  // What the driver says on the radio after a win, from a closed list.
+  prize('quote-told', 'quote', '', 'common'),
+  prize('quote-easy', 'quote', '', 'rare'),
+  prize('quote-champagne', 'quote', '', 'rare'),
+  prize('quote-team', 'quote', '', 'epic'),
 ];
 
 export const ITEM_BY_ID = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
@@ -120,6 +213,17 @@ export interface Equipped {
   wing?: string;
   rim?: string;
   celebration?: string;
+  trail?: string;
+  flame?: string;
+  visor?: string;
+  decal?: string;
+  engine?: string;
+  finish?: string;
+  trophy?: string;
+  frame?: string;
+  title?: string;
+  banner?: string;
+  quote?: string;
   /** Before season 2: one number for every car of the team. Still read for a car with none of its own. */
   number?: number;
   /** A number per car, by championship entry id. No two cars of a team share one. */
@@ -132,11 +236,22 @@ export interface ShopDoc {
   purchases: string[];
   equipped: Equipped;
   updatedAt: number;
+  /**
+   * Pack prizes the team has won, kept in its locker (the garage). Until packs
+   * open (`PACKS_SEASON`) only the dev server's sample teams have any; then
+   * each one will be checked against the packs the team opened.
+   */
+  prizes?: string[];
 }
 
 /** The kinds equipped by item id: one item of each on the car at a time. */
-export const SLOT_KINDS = ['color', 'secondary', 'pattern', 'helmet', 'smoke', 'shape', 'wing', 'rim', 'celebration'] as const;
+export const SLOT_KINDS = [
+  'color', 'secondary', 'pattern', 'helmet', 'smoke', 'shape', 'wing', 'rim', 'celebration',
+  'trail', 'flame', 'visor', 'decal', 'engine', 'finish', 'trophy', 'frame', 'title', 'banner', 'quote',
+] as const;
 export type SlotKind = (typeof SLOT_KINDS)[number];
+/** The kinds only packs give. */
+export const PRIZE_KINDS: readonly SlotKind[] = ['trail', 'flame', 'visor', 'decal', 'engine', 'finish', 'trophy', 'frame', 'title', 'banner', 'quote'];
 const KINDS = SLOT_KINDS;
 
 /** A car number as drawn: a whole number from 1 to 99. */
@@ -173,7 +288,8 @@ export function normalizeShop(raw: unknown): ShopDoc {
   }
   const emblem = normalizeEmblem(src.emblem);
   if (emblem) equipped.emblem = emblem;
-  return { purchases, equipped, updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0 };
+  const prizes = Array.isArray(d.prizes) ? d.prizes.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
+  return { purchases, equipped, updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0, ...(prizes.length ? { prizes } : {}) };
 }
 
 export function spent(purchases: string[]): number {
@@ -188,10 +304,16 @@ export function spent(purchases: string[]): number {
  * has earned. If either fails, the whole look is ignored - not just the bad
  * item - because a forged purchase list says nothing trustworthy about any of it.
  */
-export function validLook(raw: unknown, earned: number): Paint | null {
+export function validLook(
+  raw: unknown,
+  earned: number,
+  /** Honour pack prizes in `prizes`: only the dev server's sample teams, until packs open (`PACKS_SEASON`). */
+  opts: { packs?: boolean } = {},
+): Paint | null {
   if (!raw) return null;
   const doc = normalizeShop(raw);
   const owned = new Set(doc.purchases);
+  const won = new Set(ownedPrizes(doc, opts));
   if (spent(doc.purchases) > earned) return null;
   const e = doc.equipped;
   for (const kind of KINDS) {
@@ -199,10 +321,44 @@ export function validLook(raw: unknown, earned: number): Paint | null {
     if (!id) continue;
     const it = ITEM_BY_ID.get(id);
     if (it && it.kind === kind && it.price > 0 && !owned.has(id)) return null;
+    // A prize the team never won makes the look forged.
+    if (it?.pack && !won.has(id)) return null;
   }
   if ((e.number !== undefined || e.numbers) && !owned.has('number')) return null;
   if (e.emblem && !owned.has('emblem')) return null;
   return paintOf(e);
+}
+
+/**
+ * The prizes in a team's locker. Nobody has any until packs open; the dev
+ * server's sample teams (`opts.packs`) wear theirs so they can be seen.
+ */
+export function ownedPrizes(doc: ShopDoc, opts: { packs?: boolean } = {}): string[] {
+  return opts.packs ? (doc.prizes ?? []) : [];
+}
+
+/**
+ * The shop items that are what a team's car wears anyway: its colour, second
+ * colour and pattern come from its name (`livery.ts`), and when the shop sells
+ * the very same paint, that item is the team's already. It is shown as owned
+ * and never sold to it, and putting it on is going back to the default - so
+ * nobody pays for blue on a car that is blue.
+ */
+export function defaultItems(team: string): Partial<Record<SlotKind, string>> {
+  const look = teamLook(team, '');
+  const want: Partial<Record<SlotKind, string | undefined>> = {
+    color: teamColor(team),
+    secondary: look.secondary,
+    pattern: look.pattern,
+    shape: 'classic',
+  };
+  const out: Partial<Record<SlotKind, string>> = {};
+  for (const [kind, value] of Object.entries(want) as Array<[SlotKind, string | undefined]>) {
+    if (!value) continue;
+    const it = SHOP_ITEMS.find((i) => i.kind === kind && !i.pack && i.value.toLowerCase() === value.toLowerCase());
+    if (it) out[kind] = it.id;
+  }
+  return out;
 }
 
 /** A team's paint: the look its cars share, plus each car's own number and the team's emblem. */
@@ -237,6 +393,28 @@ export function paintOf(e: Equipped): Paint {
   const wingItem = pick(e.wing, 'wing');
   const rimItem = pick(e.rim, 'rim');
   const party = pick(e.celebration, 'celebration');
+  const prizes: Partial<CarLook> = {};
+  const trail = pick(e.trail, 'trail');
+  if (trail) prizes.trail = trail.value;
+  const flame = pick(e.flame, 'flame');
+  if (flame) prizes.flame = flame.value;
+  const visor = pick(e.visor, 'visor');
+  if (visor) prizes.visor = visor.value as CarLook['visor'];
+  const decal = pick(e.decal, 'decal');
+  if (decal) prizes.decal = decal.value as CarLook['decal'];
+  const engine = pick(e.engine, 'engine');
+  if (engine) prizes.engine = engine.value as CarLook['engine'];
+  const finish = pick(e.finish, 'finish');
+  if (finish) prizes.finish = finish.value as CarLook['finish'];
+  const trophy = pick(e.trophy, 'trophy');
+  if (trophy) prizes.trophy = trophy.value as CarLook['trophy'];
+  const frame = pick(e.frame, 'frame');
+  if (frame) prizes.frame = frame.value as CarLook['frame'];
+  const banner = pick(e.banner, 'banner');
+  if (banner) prizes.banner = banner.value as CarLook['banner'];
+  // A title and a quote travel as item ids: their words are read in the viewer's language.
+  if (pick(e.title, 'title')) prizes.title = e.title;
+  if (pick(e.quote, 'quote')) prizes.quote = e.quote;
   const n = e.number;
   return {
     color: c?.value,
@@ -251,6 +429,7 @@ export function paintOf(e: Equipped): Paint {
       ...(wingItem ? { wing: wingItem.value } : {}),
       ...(rimItem ? { rim: rimItem.value } : {}),
       ...(party ? { celebration: party.value as CelebrationKind } : {}),
+      ...prizes,
       ...(e.emblem ? { emblem: e.emblem } : {}),
       ...(validNumber(n) ? { number: n } : {}),
     },

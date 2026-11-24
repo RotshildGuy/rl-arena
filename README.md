@@ -86,6 +86,8 @@ Default network: `24 -> 64 -> 64 -> 9`, about 34 KB as base64. The gradient step
 - Standard 25-18-15-12-10-8-6-4-2-1 scoring, +1 for the fastest lap. A car that covers less than half the winner's distance is not classified.
 - Two cars per team. Team names are unique per account, and the server enforces both when it builds the grid.
 - Results and race cards are write-once. Exact weight copies of another team's car are fingerprinted and flagged.
+- Since season 5 (round 33) each car races on its own setup, chosen before training and saved with the model: balanced, high wing (more grip and braking, lower top speed) or low wing (higher top speed, less grip). It is free and a trade-off - a reference driver finds each setup fastest on some circuits and slowest on others (`scripts/setupCheck.ts`). The balanced car drives exactly as cars did before setups, so older replays are unchanged.
+- Coins can also be bet on the winner of the next race or of the season, a driver or a team. The odds come from hidden ratings of every driver and team, kept across seasons and never shown, and fitted to who actually won (`scripts/oddsCheck.ts`); season odds simulate the rounds still to run, so they shorten as the season goes. A bet can be anything from 5 coins to everything the team has. Bets are private, paid at the odds of the field that actually lined up, and settled on the server.
 - Coins earned from results buy paint only: colours, patterns, body shapes, wings, rims, helmets, drift smoke, a number for each car and a team emblem built from a fixed set of shapes, symbols and colours. A team's cars share one colour and are told apart by their numbers. Nothing bought changes how a car drives, and every browser re-derives each team's earnings before it paints a car.
 
 ## Security model
@@ -95,6 +97,8 @@ Default network: `24 -> 64 -> 64 -> 9`, about 34 KB as base64. The gradient step
 - Race cards, frozen weights, results and replays are written only by the server (Admin SDK). Results and replays become readable at lights-out.
 - User-chosen names are checked for links, email addresses and invisible bidi characters on the client and length-capped again in the rules.
 - `shop/{uid}` (purchases and what the car wears) is public to read and writable only by its owner. Since season 2 its `equipped` map may hold up to 16 fields (it was 10), to fit the body shape, wings, rims, per-car numbers and the emblem. Season 4 adds `equipped.celebration` (the podium celebration), still within the 16; no rule change is needed.
+- Season 5 needs three rule changes, all in `firestore.rules.example`: `arena/{id}` may carry a `setup` field (one of the three setup ids); `users/{uid}/bets/{betId}` is readable and creatable by its owner only, never updated or deleted, and only while the race it names has not started; `wallets/{uid}` is public to read and written only by the server, which publishes each team's net from finished bets there so other browsers can count it when they check that team's purchases. `settlements/{raceId}` is the server's own bookkeeping, closed to every browser.
+- `firestore.rules.example` is the rules file the site runs, with the moderator's uid replaced by a placeholder.
 - Season 4 removed the friends' leagues; the app no longer reads or writes `leagues/{id}`, and the collection was never created. The owner can delete the `leagues` rule from `firestore.rules`.
 - Fonts are self-hosted, and the hosting config sets `nosniff`, a strict referrer policy and a restrictive permissions policy.
 

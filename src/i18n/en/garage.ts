@@ -61,6 +61,7 @@ export const garage: typeof He.garage = {
   enter: 'Enter in championship',
   continue: 'Continue training',
   race: 'Race against it',
+  design: 'Design',
   close: 'Close',
   rename: 'Rename',
   duplicate: 'Duplicate',

@@ -58,6 +58,8 @@ export const broadcast: typeof He.broadcast = {
   position: 'Position in the replay',
   forward10: 'Forward 10 seconds',
   radioOn: 'Radio',
+  soundOn: 'Sound',
+  soundTitle: 'Sound: engines, tyres, hits, and the team radio out loud',
   radioTitle: 'Team radio: drivers and teams talking',
   radioFrom: (driver) => `Radio · ${driver}`,
   radioTeam: 'Team',

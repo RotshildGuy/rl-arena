@@ -1,5 +1,6 @@
 import * as account from './he/account';
 import * as app from './he/app';
+import * as bets from './he/bets';
 import * as broadcast from './he/broadcast';
 import * as championship from './he/championship';
 import * as components from './he/components';
@@ -20,6 +21,7 @@ import * as trainSetup from './he/trainSetup';
 export const he = {
   ...account,
   ...app,
+  ...bets,
   ...broadcast,
   ...championship,
   ...components,

@@ -37,6 +37,13 @@ export interface ArenaEntry {
    * and reads as unregistered until its model is entered again.
    */
   retired?: boolean;
+  /**
+   * The car's setup (`racing/setup.ts`), saved with the model it was trained
+   * on. Absent for the balanced car, and on entries from before setups, so an
+   * entry only carries the field when it means something. Races use it from
+   * `SETUP_ROUND`.
+   */
+  setup?: string;
 }
 
 /** An entry plus the weights frozen for one specific race. */

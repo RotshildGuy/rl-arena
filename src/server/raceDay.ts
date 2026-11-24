@@ -123,3 +123,5 @@ function canonical(value: unknown): string {
       : v,
   );
 }
+
+export { settleWallets, type WalletStore } from './wallets';
