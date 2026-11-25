@@ -39,6 +39,22 @@ const STORE = 'kv';
  */
 const P = 'cc2:';
 
+/**
+ * Cards the operator corrected by hand after they were written, with how many
+ * times. A card is meant never to change, so a browser that already holds the
+ * old copy would show it forever; a new number moves the card to a new key and
+ * that browser reads it once more.
+ *
+ * - S4-R032: a driver renamed from "ספידי מקווין איכ" to "ספידי מקווין" just
+ *   after the season-4 finale card froze the old name (2026-11-25).
+ */
+const CORRECTED_CARDS: Record<string, number> = { 'S4-R032': 1 };
+
+const cardKey = (raceId: string) => {
+  const fix = CORRECTED_CARDS[raceId];
+  return fix ? `card:${raceId}#${fix}` : `card:${raceId}`;
+};
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -85,10 +101,10 @@ class IdbCache implements ChampCache {
   }
 
   getCard(raceId: string) {
-    return this.get<RaceCard>(`card:${raceId}`);
+    return this.get<RaceCard>(cardKey(raceId));
   }
   putCard(card: RaceCard) {
-    return this.put(`card:${card.id}`, card);
+    return this.put(cardKey(card.id), card);
   }
   getResult(raceId: string) {
     return this.get<RaceResult>(`result:${raceId}`);
