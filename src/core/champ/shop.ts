@@ -2,7 +2,8 @@ import type { CarLook, CelebrationKind } from '../games/racing/render';
 import { DEFAULT_EMBLEM, normalizeEmblem, type Emblem } from './emblem';
 import { t, translated } from '../../i18n/dict';
 import { teamColor, teamLook } from './livery';
-import { normalizePacks, packSpent, type PackRecord } from './packs';
+import { prizeRows } from './prizeSet';
+import { normalizeGifts, type GiftRecord } from './packs';
 
 /**
  * The catalogue. Everything here is paint: it changes how a car is drawn and
@@ -199,6 +200,8 @@ export const SHOP_ITEMS: ShopItem[] = [
   prize('quote-easy', 'quote', '', 'rare'),
   prize('quote-champagne', 'quote', '', 'rare'),
   prize('quote-team', 'quote', '', 'epic'),
+  // Season 6: the many more that packs need so a daily pack keeps finding something new (`prizeSet.ts`).
+  ...prizeRows().map((r) => prize(r.id, r.kind, r.value, r.rarity)),
 ];
 
 export const ITEM_BY_ID = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
@@ -239,12 +242,15 @@ export interface ShopDoc {
   updatedAt: number;
   /**
    * A hand-written list of prizes, honoured only for the dev server's sample
-   * teams (`?demo`). Real teams own what their `packs` and `crafted` give,
+   * teams (`?demo`). Real teams own what their `gifts` and `crafted` give,
    * worked out by every browser (`packs.ts`); a list like this proves nothing.
    */
   prizes?: string[];
-  /** Packs bought, in order (`packs.ts`). Each one's prizes are worked out from it, not stored. */
-  packs?: PackRecord[];
+  /**
+   * The daily gift packs claimed, one per day, in order (`packs.ts`). Each
+   * one's prizes are worked out from it and the race card, never stored.
+   */
+  gifts?: GiftRecord[];
   /** Prizes bought with chips, in order. Each is taken only if the chips were there. */
   crafted?: string[];
 }
@@ -294,14 +300,14 @@ export function normalizeShop(raw: unknown): ShopDoc {
   const emblem = normalizeEmblem(src.emblem);
   if (emblem) equipped.emblem = emblem;
   const prizes = Array.isArray(d.prizes) ? d.prizes.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
-  const packs = normalizePacks(d.packs);
+  const gifts = normalizeGifts(d.gifts);
   const crafted = Array.isArray(d.crafted) ? d.crafted.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
   return {
     purchases,
     equipped,
     updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0,
     ...(prizes.length ? { prizes } : {}),
-    ...(packs.length ? { packs } : {}),
+    ...(gifts.length ? { gifts } : {}),
     ...(crafted.length ? { crafted } : {}),
   };
 }
@@ -310,10 +316,6 @@ export function spent(purchases: string[]): number {
   return [...new Set(purchases)].reduce((s, id) => s + (ITEM_BY_ID.get(id)?.price ?? 0), 0);
 }
 
-/** Every coin a team has spent: paint in the shop and packs (`packs.ts`). What other browsers count too. */
-export function spentAll(doc: ShopDoc): number {
-  return spent(doc.purchases) + packSpent(doc.packs ?? []);
-}
 
 /**
  * The look a team's car may actually wear, or null for "draw the default".
@@ -332,7 +334,7 @@ export function validLook(
   const doc = normalizeShop(raw);
   const owned = new Set(doc.purchases);
   const won = new Set(ownedPrizes(doc, opts));
-  if (spentAll(doc) > earned) return null;
+  if (spent(doc.purchases) > earned) return null;
   const e = doc.equipped;
   for (const kind of KINDS) {
     const id = e[kind];
@@ -351,7 +353,7 @@ export interface PrizeOpts {
   /** Honour the hand-written `prizes` list: only the dev server's sample teams (`?demo`). */
   packs?: boolean;
   /**
-   * The prizes the team's packs and chips gave, worked out from its pack
+   * The prizes the team's packs and chips gave, worked out from its gift
    * records and the race cards (`teamPrizes` in `packs.ts`). The only way a
    * real team owns a prize: a list the team writes itself proves nothing.
    */

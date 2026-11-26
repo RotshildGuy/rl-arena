@@ -2,27 +2,27 @@ import { useEffect, useMemo, useState } from 'react';
 import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
-import { useMyBets } from '../useBets';
 import { ITEM_BY_ID, PACKS_SEASON, RARITIES, normalizeShop, paintOf, type Rarity, type ShopDoc, type ShopItem } from '../../core/champ/shop';
 import {
   CRAFT_COST,
+  DAY_MS,
   DUPE_CHIPS,
-  MAX_PACKS,
   PACK_TYPES,
+  STREAK_DAYS,
+  currentStreak,
+  giftDay,
   locker,
   packPrizes,
-  packRound,
+  packsOpen,
+  type GiftRecord,
   type OpenedPack,
-  type PackRecord,
-  type PackType,
 } from '../../core/champ/packs';
-import { lockAtForRound, raceIdForRound, seasonForRound, seasonNumber, seasonRange } from '../../core/champ/schedule';
+import { lockAtForRound, seasonRange } from '../../core/champ/schedule';
 import { teamColor, teamLook } from '../../core/champ/livery';
 import type { CarLook } from '../../core/games/racing/render';
-import { myShop, saveShop } from '../../storage/shop';
+import { myShop, onShopChanged, saveShop } from '../../storage/shop';
 import { useT } from '../../i18n';
 import { dateText, whenText } from '../format';
-import { Coin } from './Shop';
 import { ItemArt } from './Design';
 
 /** Packs this browser has already watched being opened: the reveal is shown once, the prizes are the team's either way. */
@@ -42,10 +42,14 @@ function markSeen(keys: string[]): void {
   }
 }
 
+/** A gift day as a date, read at its middle so no time zone moves it to the day before. */
+const dayDate = (g: GiftRecord) => dateText(g.day * DAY_MS + DAY_MS / 2);
+
 /**
- * Packs (ROADMAP 5.7): buy with coins, open after the next lock. What is in
- * each pack is worked out here from its record and the race card (`packs.ts`),
- * exactly as every other browser works it out when it checks the team's look.
+ * Packs (ROADMAP 5.7): a gift for every day the team opens the game, opened
+ * after the next lock. What is in each one is worked out here from its claim
+ * and the race card (`packs.ts`), exactly as every other browser works it out
+ * when it checks the team's look. Nothing here is for sale.
  */
 export function Packs() {
   const words = useT();
@@ -58,54 +62,36 @@ export function Packs() {
   const [busy, setBusy] = useState(false);
   const [seen, setSeen] = useState(readSeen);
   const [opening, setOpening] = useState<OpenedPack[] | null>(null);
+  const [tick, setTick] = useState(0);
   const uid = state?.uid ?? '';
 
+  // Read again when today's gift lands (it is claimed as the app opens, maybe while this screen is up).
+  useEffect(() => onShopChanged(() => setTick((t) => t + 1)), []);
   useEffect(() => {
     if (!uid) return;
     void myShop(uid).then((d) => setDoc(normalizeShop(d)));
-  }, [uid]);
+  }, [uid, tick]);
 
-  const mine = useMyBets(doc);
-  const box = useMemo(() => (doc && state ? locker(uid, doc.packs ?? [], doc.crafted ?? [], state.cards) : null), [doc, state, uid]);
+  const box = useMemo(() => (doc && state ? locker(uid, doc.gifts ?? [], doc.crafted ?? [], state.cards) : null), [doc, state, uid]);
 
-  if (!state || !doc || !mine || !box) return <PageSkeleton variant="cards" />;
+  if (!state || !doc || !box) return <PageSkeleton variant="cards" />;
 
   const team = competitor || 'הקבוצה שלי';
   const paint = paintOf(doc.equipped);
   const color = paint.color ?? teamColor(team);
   const look: CarLook = { ...teamLook(team, ''), ...paint.look };
-  const round = packRound(now);
-  const open = seasonNumber(round) >= PACKS_SEASON;
+  const open = packsOpen(now);
+  const today = giftDay(now);
+  const gifts = doc.gifts ?? [];
+  const claimedToday = gifts.some((g) => g.day === today);
+  const streak = currentStreak(gifts, today);
+  // Days until the next premium, today included while it is still to come.
+  const toPremium = STREAK_DAYS - (streak % STREAK_DAYS) - (claimedToday ? 0 : 1);
   const firstPackRound = seasonRange(PACKS_SEASON).first;
-  const key = (pk: PackRecord) => `${uid}:${pk.n}`;
-  const ready = box.opened.filter((o) => !seen.has(key(o.pack)));
-  const history = box.opened.filter((o) => seen.has(key(o.pack))).reverse();
+  const key = (g: GiftRecord) => `${uid}:${g.day}`;
+  const ready = box.opened.filter((o) => !seen.has(key(o.gift)));
+  const history = box.opened.filter((o) => seen.has(key(o.gift))).reverse();
   const prizes = packPrizes();
-
-  const buy = async (type: PackType) => {
-    if (busy || type.price > mine.balance || !open) return;
-    const packs = doc.packs ?? [];
-    if (packs.length >= MAX_PACKS) return;
-    const record: PackRecord = {
-      n: packs.length + 1,
-      type: type.id,
-      round,
-      raceId: raceIdForRound(round),
-      seasonId: seasonForRound(round),
-      boughtAt: Date.now(),
-    };
-    const next: ShopDoc = { ...doc, packs: [...packs, record] };
-    setBusy(true);
-    try {
-      await saveShop(uid, next);
-      setDoc(next);
-      showToast(p.bought(round));
-    } catch (e) {
-      showToast((e as { code?: string })?.code === 'permission-denied' ? p.denied : p.failed);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const craft = async (it: ShopItem) => {
     if (busy || !it.rarity || CRAFT_COST[it.rarity] > box.chips) return;
@@ -123,7 +109,7 @@ export function Packs() {
   };
 
   const finishOpening = (list: OpenedPack[]) => {
-    markSeen(list.map((o) => key(o.pack)));
+    markSeen(list.map((o) => key(o.gift)));
     setSeen(readSeen());
     setOpening(null);
   };
@@ -139,18 +125,47 @@ export function Packs() {
         </div>
         <div className="actions">
           <span className="pill" style={{ fontSize: 15 }}>
-            <Coin /> <span className="mono" dir="ltr" style={{ fontWeight: 800 }}>{mine.balance}</span> {p.coins}
-          </span>
-          <span className="pill" style={{ fontSize: 15 }}>
             <span aria-hidden="true">◆</span> <span className="mono" style={{ fontWeight: 800 }}>{box.chips}</span> {p.chips}
           </span>
         </div>
       </div>
 
-      {!open && <div className="card notched small" style={{ marginBottom: 14 }}>🔒 {p.locked(PACKS_SEASON, dateText(lockAtForRound(firstPackRound)))}</div>}
+      {!open ? (
+        <div className="card notched small" style={{ marginBottom: 14 }}>
+          🔒 {p.locked(PACKS_SEASON, dateText(lockAtForRound(firstPackRound)))}
+        </div>
+      ) : (
+        <div className="card notched" style={{ marginBottom: 14 }}>
+          <div className="eyebrow">{p.daily}</div>
+          <div className="pack-daily-row">
+            <div className="pack-streak" aria-label={p.streak(streak)}>
+              {Array.from({ length: STREAK_DAYS }, (_, i) => {
+                const filled = i < streak % STREAK_DAYS || (streak > 0 && streak % STREAK_DAYS === 0 && claimedToday);
+                const last = i === STREAK_DAYS - 1;
+                return (
+                  <span key={i} className={`pack-streak-dot ${filled ? 'on' : ''} ${last ? 'premium' : ''}`}>
+                    {last ? '★' : i + 1}
+                  </span>
+                );
+              })}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="small" style={{ fontWeight: 700 }}>
+                {claimedToday ? p.claimed : p.notYet}
+              </div>
+              <div className="small muted">
+                {p.streak(streak)} · {toPremium <= 0 ? p.types.premium.name : p.nextPremium(toPremium)}
+              </div>
+              <div className="tiny dim" style={{ marginTop: 4 }}>
+                {p.streakRule(STREAK_DAYS)} {p.dayTurns}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {ready.length > 0 && (
-        <div className="card notched pack-ready" style={{ marginBottom: 14 }}>
+        <div className="card notched" style={{ marginBottom: 14 }}>
           <div className="head">
             <div className="eyebrow">{p.ready}</div>
             <div className="fill" />
@@ -160,11 +175,35 @@ export function Packs() {
           </div>
           <div className="pack-row">
             {ready.map((o) => (
-              <button key={o.pack.n} className={`pack-box pack-${o.pack.type} small-box wobble`} onClick={() => setOpening([o])} aria-label={`${p.open} ${p.packNo(o.pack.n)}`}>
-                <span className="pack-box-mark">?</span>
-                <span className="tiny">{p.packNo(o.pack.n)}</span>
+              <button
+                key={o.gift.day}
+                className={`pack-box pack-${o.type} small-box wobble`}
+                onClick={() => setOpening([o])}
+                aria-label={`${p.open} ${p.packOf(dayDate(o.gift))}`}
+              >
+                <span className="pack-box-mark">{o.type === 'premium' ? '★' : '?'}</span>
+                <span className="tiny">{dayDate(o.gift)}</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {box.waiting.length > 0 && (
+        <div className="card notched" style={{ marginBottom: 14 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>
+            {p.waiting}
+          </div>
+          <div className="pack-row">
+            {box.waiting.map(({ gift, type }) => (
+              <div key={gift.day} className={`pack-box pack-${type} small-box sealed`}>
+                <span className="pack-box-mark">🔒</span>
+                <span className="tiny">{dayDate(gift)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="small muted" style={{ marginTop: 8 }}>
+            {[...new Set(box.waiting.map(({ gift }) => gift.round))].map((r) => p.opensAt(r, whenText(lockAtForRound(r), now))).join(' · ')}
           </div>
         </div>
       )}
@@ -187,18 +226,12 @@ export function Packs() {
                 {RARITIES.map((r) => (
                   <div key={r} className={`pack-odd rarity-${r}`}>
                     <span>{rarityWords[r]}</span>
-                    <span className="mono" dir="ltr">{type.odds[r]}%</span>
+                    <span className="mono" dir="ltr">
+                      {type.odds[r]}%
+                    </span>
                   </div>
                 ))}
               </div>
-              <button
-                className="primary"
-                style={{ marginTop: 10, width: '100%' }}
-                disabled={busy || !open || type.price > mine.balance}
-                onClick={() => void buy(type)}
-              >
-                {busy ? p.buying : type.price > mine.balance ? <>{p.missing(type.price - mine.balance)} <Coin /></> : <>{p.buy(type.price)} <Coin /></>}
-              </button>
             </div>
           </div>
         ))}
@@ -207,34 +240,16 @@ export function Packs() {
         {p.noPity}
       </div>
 
-      {box.waiting.length > 0 && (
-        <div className="card notched" style={{ marginBottom: 14 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>
-            {p.waiting}
-          </div>
-          <div className="pack-row">
-            {box.waiting.map((pk) => (
-              <div key={pk.n} className={`pack-box pack-${pk.type} small-box sealed`}>
-                <span className="pack-box-mark">🔒</span>
-                <span className="tiny">{p.packNo(pk.n)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="small muted" style={{ marginTop: 8 }}>
-            {[...new Set(box.waiting.map((pk) => pk.round))].map((r) => p.opensAt(r, whenText(lockAtForRound(r), now))).join(' · ')}
-          </div>
-        </div>
-      )}
-
       <div className="card notched" style={{ marginBottom: 14 }}>
         <div className="eyebrow" style={{ marginBottom: 8 }}>
           {p.history}
         </div>
         {history.length === 0 && box.waiting.length === 0 && ready.length === 0 && <div className="small muted">{p.noneYet}</div>}
         {history.map((o) => (
-          <div key={o.pack.n} className="pack-history-row">
-            <span className="small" style={{ minWidth: 90 }}>
-              {p.packNo(o.pack.n)}
+          <div key={o.gift.day} className="pack-history-row">
+            <span className="small" style={{ minWidth: 110 }}>
+              {o.type === 'premium' ? '★ ' : ''}
+              {p.packOf(dayDate(o.gift))}
             </span>
             <div className="prize-chips" style={{ flex: 1 }}>
               {o.items.map((x) => {
@@ -252,7 +267,6 @@ export function Packs() {
             </div>
           </div>
         ))}
-        {box.invalid.length > 0 && <div className="tiny dim">{p.invalid(box.invalid.length)}</div>}
         <div className="row" style={{ gap: 8, marginTop: 10 }}>
           <button className="ghost small" onClick={() => go('shop')}>
             {p.back}
@@ -278,7 +292,9 @@ export function Packs() {
               <span>
                 {p.dupeValue} ({rarityWords[r]})
               </span>
-              <span className="mono" dir="ltr">+{DUPE_CHIPS[r]}</span>
+              <span className="mono" dir="ltr">
+                +{DUPE_CHIPS[r]}
+              </span>
             </div>
           ))}
         </div>
@@ -289,10 +305,10 @@ export function Packs() {
             const missing = prizes.filter((it) => it.rarity === r && !box.owned.has(it.id));
             if (!missing.length) return null;
             return (
-              <div key={r} style={{ marginBottom: 10 }}>
-                <div className={`tiny pack-rarity-head rarity-${r}`}>
-                  {rarityWords[r]} · {p.craft(CRAFT_COST[r])}
-                </div>
+              <details key={r} className="pack-workshop-group">
+                <summary className={`small pack-rarity-head rarity-${r}`}>
+                  {rarityWords[r]} · {p.craft(CRAFT_COST[r])} · {missing.length}
+                </summary>
                 <div className="prize-chips">
                   {missing.map((it) => (
                     <button
@@ -310,7 +326,7 @@ export function Packs() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </details>
             );
           })
         )}
@@ -335,6 +351,7 @@ function PackOpening({ packs, color, look, onDone }: { packs: OpenedPack[]; colo
   const pack = packs[which];
   const total = pack.items.length;
   const best = pack.items.reduce((b, x) => Math.max(b, RARITIES.indexOf(ITEM_BY_ID.get(x.id)!.rarity!)), 0);
+  const label = p.packOf(dayDate(pack.gift));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -359,15 +376,15 @@ function PackOpening({ packs, color, look, onDone }: { packs: OpenedPack[]; colo
 
   const done = shown >= total;
   return (
-    <div className={`pack-open-backdrop glow-${RARITIES[best]}`} role="dialog" aria-modal="true" aria-label={p.packNo(pack.pack.n)} onClick={step}>
+    <div className={`pack-open-backdrop glow-${RARITIES[best]}`} role="dialog" aria-modal="true" aria-label={label} onClick={step}>
       <div className="pack-open-stage">
         <div className="eyebrow">
-          {p.types[pack.pack.type].name} · {p.packNo(pack.pack.n)}
+          {p.types[pack.type].name} · {label}
           {packs.length > 1 ? ` · ${which + 1}/${packs.length}` : ''}
         </div>
         {shown < 0 ? (
-          <div className={`pack-box pack-${pack.pack.type} big-box shake`}>
-            <span className="pack-box-mark">?</span>
+          <div className={`pack-box pack-${pack.type} big-box shake`}>
+            <span className="pack-box-mark">{pack.type === 'premium' ? '★' : '?'}</span>
           </div>
         ) : (
           <div className="pack-cards">
@@ -401,7 +418,7 @@ function PackOpening({ packs, color, look, onDone }: { packs: OpenedPack[]; colo
               step();
             }}
           >
-            {which < packs.length - 1 ? `${p.open} ${p.packNo(packs[which + 1].pack.n)}` : p.done}
+            {which < packs.length - 1 ? `${p.open} · ${p.packOf(dayDate(packs[which + 1].gift))}` : p.done}
           </button>
         )}
       </div>

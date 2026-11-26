@@ -1,3 +1,4 @@
+import { prizeWords } from '../../core/champ/prizeSet';
 import type * as He from '../he/core';
 
 export const tracks: typeof He.tracks = {
@@ -127,6 +128,7 @@ export const shopItems: typeof He.shopItems = {
   'quote-easy': 'That was too easy',
   'quote-champagne': 'Get the champagne ready!',
   'quote-team': 'Thanks to the whole team, this one is yours!',
+  ...prizeWords('en'),
   'helmet-black': 'Black helmet',
   'helmet-red': 'Red helmet',
   'smoke-blue': 'Blue drift smoke',

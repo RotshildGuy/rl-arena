@@ -120,14 +120,16 @@ export interface CarLook {
   finish?: 'shockwave' | 'sparks' | 'stars';
   /** Off track: the trophy on the podium, the frame of the driver's place, the podium backdrop. */
   trophy?: 'cup' | 'laurel' | 'star' | 'wheel' | 'crown' | 'diamond';
-  frame?: 'bronze' | 'silver' | 'gold' | 'week';
-  banner?: 'carbon' | 'checker' | 'sunset' | 'aurora';
+  frame?: 'bronze' | 'silver' | 'gold' | 'week' | 'copper' | 'steel' | 'carbon' | 'ruby' | 'sapphire' | 'ice' | 'platinum' | 'fire';
+  banner?:
+    | 'carbon' | 'checker' | 'sunset' | 'aurora'
+    | 'ocean' | 'midnight' | 'stripes' | 'desert' | 'lava' | 'sakura' | 'storm' | 'chrome' | 'neon' | 'galaxy';
   /** Item ids: the line under the team's name and the radio call after a win. */
   title?: string;
   quote?: string;
 }
 
-export type DecalKind = 'star' | 'bolt' | 'checker' | 'flame' | 'sun' | 'crown';
+export type DecalKind = 'star' | 'bolt' | 'checker' | 'flame' | 'sun' | 'crown' | 'chevron' | 'arrow' | 'heart' | 'drop' | 'mountain' | 'wheel';
 
 export type CarShape = 'classic' | 'wedge' | 'arrow' | 'bulldog';
 
@@ -932,6 +934,12 @@ const DECAL_SYMBOL: Record<DecalKind, string> = {
   flame: 'flame',
   sun: 'sun',
   crown: 'crown',
+  chevron: 'chevron',
+  arrow: 'arrow',
+  heart: 'heart',
+  drop: 'drop',
+  mountain: 'mountain',
+  wheel: 'wheel',
 };
 
 export const RAINBOW = ['#ff2e4d', '#ff7a1a', '#ffd84d', '#38f08a', '#38bdf8', '#a855f7'];

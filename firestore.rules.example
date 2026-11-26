@@ -262,60 +262,67 @@ service cloud.firestore {
 
     // Shop: looks, never speed.
     //
-    // Season 6 (src/core/champ/packs.ts): `packs` is the list of packs bought,
-    // only ever added to, one at a time. A new pack names the round whose lock
-    // opens it, and that round's card must not exist yet - the card is written
-    // at the lock, with the seed nobody knows before it - so a pack cannot be
-    // bought once its contents could be worked out. What a pack gave is never
-    // written: every browser works it out from the pack and the card.
-    // `crafted` is the prizes bought with chips; browsers check them against
-    // the chips the packs gave. `prizes` is read only for the dev server's
-    // sample teams. `equipped` holds up to 23 fields with the prizes on.
+    // Season 6 (src/core/champ/packs.ts): `gifts` is the list of daily gift
+    // packs claimed, only ever added to, one at a time and at most one per
+    // day. A day is the UTC day of the server's clock (it turns at 02:00 or
+    // 03:00 Israel time, never during a race evening). A new claim names the
+    // round whose lock opens it, and that round's card must not exist yet -
+    // the card is written at the lock, with the seed nobody knows before it -
+    // so a pack cannot be claimed once its contents could be worked out. What
+    // a pack gave is never written: every browser works it out from the claim
+    // and the card, and counts the streak (every third day in a row is a
+    // premium pack) from the days. Packs are never bought; nothing here costs
+    // coins. `crafted` is the prizes picked with chips; browsers check them
+    // against the chips the packs gave. `prizes` is read only for the dev
+    // server's sample teams. `equipped` holds up to 23 fields with the prizes on.
     match /shop/{uid} {
-      function packsBefore() {
-        return resource != null && 'packs' in resource.data ? resource.data.packs : [];
+      function giftsBefore() {
+        return resource != null && 'gifts' in resource.data ? resource.data.gifts : [];
       }
-      function packsAfter() {
-        return 'packs' in request.resource.data ? request.resource.data.packs : [];
+      function giftsAfter() {
+        return 'gifts' in request.resource.data ? request.resource.data.gifts : [];
       }
-      function newPack(p, n) {
-        return p is map
-          && p.keys().hasOnly(['n', 'type', 'round', 'raceId', 'seasonId', 'boughtAt'])
-          && p.n == n
-          && p.type in ['standard', 'premium']
-          && p.round is int
-          && p.round >= 41
-          && text(p.raceId, 20)
-          && text(p.seasonId, 10)
-          && p.raceId.matches('S[0-9]+-R[0-9]+')
-          && p.raceId.split('-')[0] == p.seasonId
-          && stamped(p.boughtAt)
-          && p.boughtAt >= nowMs() - 5 * 60 * 1000
-          && !exists(/databases/$(database)/documents/seasons/$(p.seasonId)/races/$(p.raceId));
+      function today() {
+        return math.floor(nowMs() / 86400000);
       }
-      function packsOk() {
-        let before = packsBefore();
-        let after = packsAfter();
+      function newGift(g, before) {
+        return g is map
+          && g.keys().hasOnly(['day', 'at', 'round', 'raceId', 'seasonId'])
+          && g.day == today()
+          && (before.size() == 0 || before[before.size() - 1].day < g.day)
+          && g.round is int
+          && g.round >= 41
+          && text(g.raceId, 20)
+          && text(g.seasonId, 10)
+          && g.raceId.matches('S[0-9]+-R[0-9]+')
+          && g.raceId.split('-')[0] == g.seasonId
+          && stamped(g.at)
+          && g.at >= nowMs() - 5 * 60 * 1000
+          && !exists(/databases/$(database)/documents/seasons/$(g.seasonId)/races/$(g.raceId));
+      }
+      function giftsOk() {
+        let before = giftsBefore();
+        let after = giftsAfter();
         return after == before
           || (after is list
             && after.size() == before.size() + 1
-            && after.size() <= 500
+            && after.size() <= 2000
             && after[0:before.size()] == before
-            && newPack(after[before.size()], before.size() + 1));
+            && newGift(after[before.size()], before));
       }
 
       allow get: if true;
       allow list: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt', 'prizes', 'packs', 'crafted'])
+        && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt', 'prizes', 'gifts', 'crafted'])
         && request.resource.data.purchases is list
         && request.resource.data.purchases.size() <= 100
         && request.resource.data.equipped is map
         && request.resource.data.equipped.size() <= 24
         && (!('prizes' in request.resource.data) || (request.resource.data.prizes is list && request.resource.data.prizes.size() <= 100))
-        && (!('crafted' in request.resource.data) || (request.resource.data.crafted is list && request.resource.data.crafted.size() <= 100))
+        && (!('crafted' in request.resource.data) || (request.resource.data.crafted is list && request.resource.data.crafted.size() <= 300))
         && stamped(request.resource.data.updatedAt)
-        && packsOk();
+        && giftsOk();
     }
   }
 }

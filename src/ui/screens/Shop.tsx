@@ -12,7 +12,7 @@ import {
   emblemOf,
   normalizeShop,
   paintOf,
-  spentAll,
+  spent,
   validNumber,
   type Equipped,
   type SlotKind,
@@ -76,7 +76,7 @@ export function Shop() {
     .sort((a, b) => a.createdAt - b.createdAt);
 
   // Bets count too: won coins can be spent, coins on an open bet cannot.
-  const balance = wallet.total - spentAll(doc) + mine.book.net;
+  const balance = wallet.total - spent(doc.purchases) + mine.book.net;
   const owned = new Set(doc.purchases);
   // A pack prize is not the shop's: it is won in a pack and worn from the garage's design screen.
   // The paint a team's name already gives its car is its own: shown as owned, never sold.
@@ -347,11 +347,11 @@ export function Shop() {
                 <span className="mono">+{e.coins}</span>
               </div>
             ))}
-            {spentAll(doc) > 0 && (
+            {doc.purchases.length > 0 && (
               <div className="row small" style={{ padding: '3px 0', borderTop: '1px solid var(--line)', marginTop: 4 }}>
                 <span className="muted">{s.spent}</span>
                 <div style={{ flex: 1 }} />
-                <span className="mono muted">-{spentAll(doc)}</span>
+                <span className="mono muted">-{spent(doc.purchases)}</span>
               </div>
             )}
             {mine.bets.length > 0 && (

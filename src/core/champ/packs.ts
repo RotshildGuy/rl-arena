@@ -4,61 +4,77 @@ import { ITEM_BY_ID, PACKS_SEASON, RARITIES, SHOP_ITEMS, type Rarity, type ShopI
 import type { RaceCard } from './types';
 
 /**
- * Packs (ROADMAP 5.7, season 6): bought with coins, opened like a Rocket
- * League drop or a FIFA pack.
+ * Packs (ROADMAP 5.7, season 6): a gift, never bought.
  *
- * Nothing about what a pack gave is stored. A pack is a record the team writes
- * when it buys it - its number, its type, and the round it opens on - and its
- * contents are a pure function of that record, the team's id, and the race
- * card of that round: the seed the server draws after the entry list locks,
- * and a fingerprint of every car's weights, which nobody but the server can
- * read. So a pack bought today opens at the next lock, nobody (the buyer
- * included) can know what is in it before then, and every browser works out
- * the same prizes for every team - the way it works out coins from results.
+ * Every day a team opens the game it gets one pack. Three days in a row and
+ * the third day's pack is a premium one instead (then the count starts again:
+ * days 3, 6, 9... of an unbroken run are premium). Nothing about a pack is
+ * for sale, and neither is anything inside one.
  *
- * The security rules make a pack record create-only and refuse one whose
- * round already has its card; `packValid` refuses one stamped after that
- * round's lock. Duplicates turn into chips, and chips buy a chosen prize.
- * There is no guaranteed rare after a run of bad luck (decided 24.11): every
- * pack has the odds it shows, every time.
+ * A day is a UTC day: it turns at 02:00 Israel time in winter and 03:00 in
+ * summer, so a whole race evening (19:55 to about 22:00) is always the same
+ * gift day. The security rules can check a UTC day against the server clock
+ * without knowing about daylight saving.
+ *
+ * Nothing about what a pack gave is stored. A claim is a record the team
+ * writes in `shop/{uid}.gifts` - the day, the moment, and the round whose
+ * lock opens it - and the pack's contents are a pure function of that record,
+ * the team's id and the race card of that round: the seed the server draws
+ * after the entry list locks, and a fingerprint of every car's weights, which
+ * nobody but the server can read. So nobody, the team included, can know what
+ * is in a pack before its lock, and every browser works out the same prizes
+ * for every team - the way it works out coins from results.
+ *
+ * The rules allow one claim per day, dated by the server's clock, and refuse
+ * one whose round already has its card; `giftValid` refuses one stamped after
+ * that round's lock. Duplicates turn into chips (see `locker`).
  */
 
 export type PackTypeId = 'standard' | 'premium';
 
 export interface PackType {
   id: PackTypeId;
-  price: number;
   /** Prizes in one pack, never the same one twice in the same pack. */
   items: number;
   /** Per prize, in percent: shown next to the pack. Sums to 100. */
   odds: Record<Rarity, number>;
 }
 
-/** Proposed defaults (awaiting the owner's go-ahead on prices and odds). */
+/** Proposed defaults, awaiting the owner's go-ahead on the odds. */
 export const PACK_TYPES: readonly PackType[] = [
-  { id: 'standard', price: 100, items: 3, odds: { common: 68, rare: 24, epic: 7, legendary: 1 } },
-  { id: 'premium', price: 250, items: 3, odds: { common: 35, rare: 40, epic: 20, legendary: 5 } },
+  { id: 'standard', items: 3, odds: { common: 68, rare: 24, epic: 7, legendary: 1 } },
+  { id: 'premium', items: 3, odds: { common: 35, rare: 40, epic: 20, legendary: 5 } },
 ];
 export const PACK_BY_ID = new Map(PACK_TYPES.map((p) => [p.id, p]));
+
+/** Every this many days in a row, the day's pack is premium. */
+export const STREAK_DAYS = 3;
 
 /** What a duplicate is worth, by its rarity. */
 export const DUPE_CHIPS: Record<Rarity, number> = { common: 10, rare: 25, epic: 60, legendary: 150 };
 /** What a chosen prize costs in chips, by its rarity. */
 export const CRAFT_COST: Record<Rarity, number> = { common: 40, rare: 100, epic: 250, legendary: 600 };
 
-/** How many packs one team may ever hold records for (the rules cap the list too). */
-export const MAX_PACKS = 500;
+/** How many claims a team's document may hold (the rules cap the list too): years of days. */
+export const MAX_GIFTS = 2000;
 
-/** One pack bought: stored in `shop/{uid}.packs`, in the order bought. */
-export interface PackRecord {
-  /** 1, 2, 3... - its place in the list. */
-  n: number;
-  type: PackTypeId;
-  /** The round whose lock opens it: the next lock after it was bought. */
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The gift day of a moment: days since 1.1.1970, UTC. */
+export function giftDay(ms: number): number {
+  return Math.floor(ms / DAY_MS);
+}
+
+/** One daily pack claimed: stored in `shop/{uid}.gifts`, in day order. */
+export interface GiftRecord {
+  /** The gift day (`giftDay`), by the server's clock. */
+  day: number;
+  /** When it was claimed. */
+  at: number;
+  /** The round whose lock opens it: the next lock after it was claimed. */
   round: number;
   raceId: string;
   seasonId: string;
-  boughtAt: number;
 }
 
 let prizeList: readonly ShopItem[] | null = null;
@@ -67,56 +83,90 @@ export function packPrizes(): readonly ShopItem[] {
   return (prizeList ??= SHOP_ITEMS.filter((i) => i.pack && i.rarity));
 }
 
-/** A stored list of pack records as read: anybody writes their own, so nothing is trusted. */
-export function normalizePacks(raw: unknown): PackRecord[] {
+/** A stored list of claims as read: anybody writes their own, so nothing is trusted. */
+export function normalizeGifts(raw: unknown): GiftRecord[] {
   if (!Array.isArray(raw)) return [];
-  const out: PackRecord[] = [];
-  for (const p of raw.slice(0, MAX_PACKS)) {
-    if (!p || typeof p !== 'object') continue;
-    const r = p as Record<string, unknown>;
-    if (typeof r.type !== 'string' || !PACK_BY_ID.has(r.type as PackTypeId)) continue;
-    if (!Number.isInteger(r.n) || !Number.isInteger(r.round) || typeof r.boughtAt !== 'number') continue;
+  const out: GiftRecord[] = [];
+  for (const g of raw.slice(0, MAX_GIFTS)) {
+    if (!g || typeof g !== 'object') continue;
+    const r = g as Record<string, unknown>;
+    if (!Number.isInteger(r.day) || !Number.isInteger(r.round) || typeof r.at !== 'number') continue;
     if (typeof r.raceId !== 'string' || typeof r.seasonId !== 'string') continue;
-    out.push({ n: r.n as number, type: r.type as PackTypeId, round: r.round as number, raceId: r.raceId, seasonId: r.seasonId, boughtAt: r.boughtAt });
+    out.push({ day: r.day as number, at: r.at, round: r.round as number, raceId: r.raceId, seasonId: r.seasonId });
   }
   return out;
 }
 
-/** Coins spent on packs. Every pack recorded counts, honest or not: a forged one still costs. */
-export function packSpent(packs: PackRecord[]): number {
-  return packs.reduce((s, p) => s + (PACK_BY_ID.get(p.type)?.price ?? 0), 0);
-}
-
 /**
- * A pack whose contents count: in its place in the list, of a season that has
- * packs, and bought before the lock of the round it names. The rules refuse a
- * pack whose card already exists; this refuses one stamped late.
+ * A claim whose pack counts: of a season that has packs, stamped on the day
+ * it names (give or take the five minutes the rules allow a clock), and
+ * before the lock of the round it names. The rules refuse a claim whose card
+ * already exists; this refuses one stamped late.
  */
-export function packValid(p: PackRecord, index: number): boolean {
+export function giftValid(g: GiftRecord): boolean {
+  const slack = 5 * 60 * 1000;
   return (
-    p.n === index + 1 &&
-    seasonNumber(p.round) >= PACKS_SEASON &&
-    p.raceId === raceIdForRound(p.round) &&
-    p.seasonId === seasonForRound(p.round) &&
-    p.boughtAt < lockAtForRound(p.round)
+    seasonNumber(g.round) >= PACKS_SEASON &&
+    g.raceId === raceIdForRound(g.round) &&
+    g.seasonId === seasonForRound(g.round) &&
+    g.at < lockAtForRound(g.round) &&
+    g.at >= g.day * DAY_MS - slack &&
+    g.at < (g.day + 1) * DAY_MS + slack
   );
 }
 
-/** The round a pack is opened on, for a new pack bought now: the next lock. */
+/** The round a pack claimed now opens on: the next lock. */
 export function packRound(now: number): number {
-  let r = Math.max(1, Math.floor((now - lockAtForRound(1)) / (24 * 60 * 60 * 1000)));
+  let r = Math.max(1, Math.floor((now - lockAtForRound(1)) / DAY_MS));
   while (lockAtForRound(r) <= now) r++;
   while (r > 1 && lockAtForRound(r - 1) > now) r--;
   return r;
 }
 
+/** Whether packs are given at all at this moment: from the season they open in. */
+export function packsOpen(now: number): boolean {
+  return seasonNumber(packRound(now)) >= PACKS_SEASON;
+}
+
+/** The claim a team would write now. */
+export function newGift(now: number): GiftRecord {
+  const round = packRound(now);
+  return { day: giftDay(now), at: now, round, raceId: raceIdForRound(round), seasonId: seasonForRound(round) };
+}
+
+/**
+ * The honest claims, in day order, each with its pack type: the
+ * `STREAK_DAYS`th, 2*`STREAK_DAYS`th... day of an unbroken run of days is premium.
+ */
+export function giftPacks(gifts: GiftRecord[]): Array<{ gift: GiftRecord; type: PackTypeId; streak: number }> {
+  const out: Array<{ gift: GiftRecord; type: PackTypeId; streak: number }> = [];
+  let last = -Infinity;
+  let streak = 0;
+  for (const g of gifts) {
+    // One a day, in order: anything else is not a claim the rules let through.
+    if (g.day <= last || !giftValid(g)) continue;
+    streak = g.day === last + 1 ? streak + 1 : 1;
+    last = g.day;
+    out.push({ gift: g, type: streak % STREAK_DAYS === 0 ? 'premium' : 'standard', streak });
+  }
+  return out;
+}
+
+/** Days in a row up to `today`: today counts once claimed, and a run that ended yesterday is still alive. */
+export function currentStreak(gifts: GiftRecord[], today: number): number {
+  const packs = giftPacks(gifts);
+  const last = packs[packs.length - 1];
+  if (!last || last.gift.day < today - 1) return 0;
+  return last.streak;
+}
+
 /**
  * The card a pack opens on: its round's, or - if that day had too thin a grid
- * to race - the first card after it. Either way one made after the pack was bought.
+ * to race - the first card after it. Either way one made after the claim.
  */
-export function openingCard(p: PackRecord, cards: RaceCard[]): RaceCard | null {
+export function openingCard(g: GiftRecord, cards: RaceCard[]): RaceCard | null {
   let best: RaceCard | null = null;
-  for (const c of cards) if (c.round >= p.round && (!best || c.round < best.round)) best = c;
+  for (const c of cards) if (c.round >= g.round && (!best || c.round < best.round)) best = c;
   return best;
 }
 
@@ -146,65 +196,64 @@ export function rarityFor(roll: number, odds: Record<Rarity, number>): Rarity {
   return 'common';
 }
 
-/** What is in a pack: prize ids, in the order they are revealed. */
-export function packContents(uid: string, p: PackRecord, card: RaceCard): string[] {
-  const type = PACK_BY_ID.get(p.type)!;
-  const rng = mulberry32(fnv(`${uid}|${p.n}|${p.type}|${cardSecret(card)}`));
+/** What is in a pack: prize ids, in the order they are revealed (the rarest last). */
+export function packContents(uid: string, day: number, type: PackTypeId, card: RaceCard): string[] {
+  const pack = PACK_BY_ID.get(type)!;
+  const rng = mulberry32(fnv(`${uid}|${day}|${type}|${cardSecret(card)}`));
   const out: string[] = [];
-  for (let i = 0; i < type.items; i++) {
-    const rarity = rarityFor(rng(), type.odds);
+  for (let i = 0; i < pack.items; i++) {
+    const rarity = rarityFor(rng(), pack.odds);
     const pool = packPrizes().filter((x) => x.rarity === rarity && !out.includes(x.id));
     const from = pool.length ? pool : packPrizes().filter((x) => !out.includes(x.id));
     out.push(from[Math.min(from.length - 1, Math.floor(rng() * from.length))].id);
   }
-  // The best one last, the way a pack is opened.
   return out.sort((a, b) => RARITIES.indexOf(ITEM_BY_ID.get(a)!.rarity!) - RARITIES.indexOf(ITEM_BY_ID.get(b)!.rarity!));
 }
 
 export interface OpenedPack {
-  pack: PackRecord;
+  gift: GiftRecord;
+  type: PackTypeId;
   card: RaceCard;
   items: Array<{ id: string; dupe: boolean; chips: number }>;
 }
 
 export interface Locker {
-  /** Every prize the team owns: won in a pack or bought with chips. */
+  /** Every prize the team owns: from a pack or bought with chips. */
   owned: Set<string>;
   chips: number;
   opened: OpenedPack[];
-  /** Bought, waiting for their lock. */
-  waiting: PackRecord[];
-  /** Records that do not count: bought late, or out of place. They still cost coins. */
-  invalid: PackRecord[];
+  /** Claimed, waiting for their lock. */
+  waiting: Array<{ gift: GiftRecord; type: PackTypeId }>;
   /** The chip purchases that went through. */
   crafted: string[];
 }
 
 /**
- * A team's prizes, worked out from scratch: every honest pack in order (a
- * prize the team already has is a duplicate, worth chips), then every chip
+ * A team's prizes, worked out from scratch: every honest pack in day order
+ * (a prize the team already has is a duplicate, worth chips), then every chip
  * purchase in order, each taken only if the chips are there. The same in
  * every browser, from public data.
  */
-export function locker(uid: string, packs: PackRecord[], crafted: string[], cards: RaceCard[]): Locker {
+export function locker(uid: string, gifts: GiftRecord[], crafted: string[], cards: RaceCard[]): Locker {
   const owned = new Set<string>();
   let chips = 0;
   const opened: OpenedPack[] = [];
-  const waiting: PackRecord[] = [];
-  const invalid: PackRecord[] = [];
-  packs.forEach((p, i) => {
-    if (!packValid(p, i)) return void invalid.push(p);
-    const card = openingCard(p, cards);
-    if (!card) return void waiting.push(p);
-    const items = packContents(uid, p, card).map((id) => {
+  const waiting: Locker['waiting'] = [];
+  for (const { gift, type } of giftPacks(gifts)) {
+    const card = openingCard(gift, cards);
+    if (!card) {
+      waiting.push({ gift, type });
+      continue;
+    }
+    const items = packContents(uid, gift.day, type, card).map((id) => {
       const dupe = owned.has(id);
       const worth = dupe ? DUPE_CHIPS[ITEM_BY_ID.get(id)!.rarity!] : 0;
       chips += worth;
       owned.add(id);
       return { id, dupe, chips: worth };
     });
-    opened.push({ pack: p, card, items });
-  });
+    opened.push({ gift, type, card, items });
+  }
   const took: string[] = [];
   for (const id of crafted) {
     const it = ITEM_BY_ID.get(id);
@@ -215,7 +264,7 @@ export function locker(uid: string, packs: PackRecord[], crafted: string[], card
     owned.add(id);
     took.push(id);
   }
-  return { owned, chips, opened, waiting, invalid, crafted: took };
+  return { owned, chips, opened, waiting, crafted: took };
 }
 
 /** The chance, in percent, that one prize of a pack is this particular item. */
@@ -226,7 +275,7 @@ export function itemChance(type: PackType, id: string): number {
 }
 
 /** A team's prizes from its shop document, as `validLook` takes them (`opts.won`). */
-export function teamPrizes(uid: string, doc: { packs?: PackRecord[]; crafted?: string[] }, cards: RaceCard[]): Set<string> {
-  if (!doc.packs?.length) return new Set();
-  return locker(uid, doc.packs, doc.crafted ?? [], cards).owned;
+export function teamPrizes(uid: string, doc: { gifts?: GiftRecord[]; crafted?: string[] }, cards: RaceCard[]): Set<string> {
+  if (!doc.gifts?.length) return new Set();
+  return locker(uid, doc.gifts, doc.crafted ?? [], cards).owned;
 }
