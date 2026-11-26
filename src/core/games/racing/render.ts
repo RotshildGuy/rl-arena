@@ -3,6 +3,7 @@ import { CAR_RADIUS, type RacingSnapshot } from './env';
 import { SENSOR_COUNT, SENSOR_SPREAD } from './rewards';
 import { EMBLEM_SHAPES, EMBLEM_SYMBOLS, type Emblem } from '../../champ/emblem';
 import { trailStrip, type TrailHistory } from './trail';
+import { settle } from './settle';
 
 export const CAR_COLORS = ['#38bdf8', '#f472b6', '#4ade80', '#fbbf24', '#a78bfa', '#fb7185', '#2dd4bf', '#f97316'];
 
@@ -564,11 +565,16 @@ function drawWorld(
     const look = opts.looks?.[i];
     if (!look || c.done) continue;
     if (look.trail && opts.trails) drawTrailPath(ctx, trailStrip(opts.trails.of(i), snap.raceMs, wid * 0.22), look.trail);
-    if (look.flame && c.onGas) {
+    // Eased with the throttle (`TrailHistory.gas`), so it grows and fades instead of strobing.
+    const gas = opts.trails ? opts.trails.gas(i, c) : c.onGas ? 1 : 0;
+    if (look.flame && gas > 0.05) {
       ctx.save();
       ctx.translate(c.x, c.y);
-      ctx.rotate(c.angle);
-      drawFlame(ctx, len, wid, look.flame, jitter(i * 13, Math.floor(snap.raceMs / 40)));
+      ctx.rotate(opts.trails ? opts.trails.heading(i, c) : c.angle);
+      ctx.translate(-len * 0.5, 0);
+      ctx.scale(gas, 0.6 + 0.4 * gas);
+      ctx.translate(len * 0.5, 0);
+      drawFlame(ctx, len, wid, look.flame, jitter(i * 13, Math.floor(snap.raceMs / 60)));
       ctx.restore();
     }
   }
@@ -577,7 +583,8 @@ function drawWorld(
     const c = snap.cars[i];
     ctx.save();
     ctx.translate(c.x, c.y);
-    ctx.rotate(c.angle);
+    // Eased when there is a history to ease with (`trail.ts`): a model flicks the steering every few steps.
+    ctx.rotate(opts.trails ? opts.trails.heading(i, c) : c.angle);
     ctx.globalAlpha = opts.dimDone && c.done ? 0.3 : 1;
 
     drawCar(ctx, len, wid, colorOf(opts, i), opts.looks?.[i], view.scale * bump);
@@ -869,9 +876,12 @@ function drawMinimap(ctx: CanvasRenderingContext2D, snap: RacingSnapshot, track:
   ctx.restore();
 }
 
-export function renderRacing(ctx: CanvasRenderingContext2D, snap: RacingSnapshot, opts: RenderOpts = {}): void {
+export function renderRacing(ctx: CanvasRenderingContext2D, raw: RacingSnapshot, opts: RenderOpts = {}): void {
   const canvas = ctx.canvas;
-  const track = getTrack(snap.trackId);
+  const track = getTrack(raw.trackId);
+  // Drawn where `settle` puts them, so a car never shows inside another or a wall.
+  const at = settle(raw, track);
+  const snap: RacingSnapshot = { ...raw, cars: raw.cars.map((c, i) => ({ ...c, x: at[i * 2], y: at[i * 2 + 1] })) };
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   // Grass: what is outside the circuit and inside its infield.
@@ -925,7 +935,7 @@ export function drawCarPreview(
 export const FINISH_FX_MS = 2200;
 
 /** Which emblem symbol each sticker is: the same drawings, so they look like the emblem's. */
-const DECAL_SYMBOL: Record<DecalKind, string> = {
+export const DECAL_SYMBOL: Record<DecalKind, string> = {
   star: 'star',
   bolt: 'bolt',
   checker: 'chequer',

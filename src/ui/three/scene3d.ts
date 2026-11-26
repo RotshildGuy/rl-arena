@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { getTrack, type Track } from '../../core/games/racing/tracks';
-import { CAR_RADIUS, type RacingSnapshot } from '../../core/games/racing/env';
-import { BODY_SHAPES, FINISH_FX_MS, RAINBOW, darker, drawCarLivery, drawFinishFx, drawVisor, hasKerb, type CarLook } from '../../core/games/racing/render';
+import type { RacingSnapshot } from '../../core/games/racing/env';
+import { settle } from '../../core/games/racing/settle';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { FINISH_FX_MS, RAINBOW, drawFinishFx, hasKerb, type CarLook } from '../../core/games/racing/render';
+import { buildCar, LEN, WID, type Car3D, type CarPaint } from './car3d';
 import { mulberry32 } from '../../core/rng';
 import { TrailHistory, trailStrip } from '../../core/games/racing/trail';
 import type { CameraSpec } from './director';
@@ -17,32 +21,25 @@ import type { CameraSpec } from './director';
  * merged mesh per kind of scenery, instanced trees, and the pixel ratio capped.
  */
 
-/**
- * One size for the car on every shot, matched to the physics: two cars touch
- * when their centres are 2 x `CAR_RADIUS` apart, so a car about that long meets
- * the car ahead nose to tail exactly when the physics says they touch, and
- * never looks as if it drove into it. (A car drawn larger on the wide shots
- * seemed to sink into its neighbours, and changed size with every cut.)
- */
-const LEN = CAR_RADIUS * 1.95;
-const WID = CAR_RADIUS * 1.15;
+// The car's size on every shot lives in `car3d.ts` (`LEN` x `WID`, matched to the physics).
 /** How see-through a car that is out of the race is, as on the 2D view. */
 const GHOST_OPACITY = 0.3;
 const BODY_H = WID * 0.28;
 const WHEEL_R = WID * 0.17;
 
 const SKY = 0x9cc7f0;
-const GRASS = 0x4c8a3f;
 const ASPHALT = 0x3b404c;
 const GRAVEL = 0xcdbb8f;
 
-export interface CarPaint {
-  color: string;
-  look?: CarLook;
-}
+export type { CarPaint };
 
 interface CarRig {
   group: THREE.Group;
+  car: Car3D;
+  /** For the wheels: the heading and race step last frame, and how far each wheel has turned. */
+  lastStep: number;
+  /** Distance covered, which is what turns the wheels. */
+  roll: number;
   smoke: THREE.Sprite[];
   sparks: THREE.Sprite;
   key: string;
@@ -58,6 +55,7 @@ export class RaceScene {
   private readonly camera = new THREE.PerspectiveCamera(48, 16 / 9, 4, 6000);
   private trackId = '';
   private trackGroup: THREE.Group | null = null;
+  private readonly sky: THREE.Mesh;
   private track: Track | null = null;
   private cars: CarRig[] = [];
   private readonly disposables: Array<{ dispose(): void }> = [];
@@ -79,6 +77,8 @@ export class RaceScene {
   private readonly fxCanvas = document.createElement('canvas');
   private readonly fxTex: THREE.CanvasTexture;
   private readonly fx: THREE.Sprite;
+  /** Where each car is drawn this frame (`settle`), reused between frames. */
+  private settled: Float32Array = new Float32Array(0);
   /** Where every car has just been, for trails. */
   private readonly trails = new TrailHistory();
 
@@ -87,8 +87,24 @@ export class RaceScene {
     this.renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.scene.background = new THREE.Color(SKY);
+    // A sky that is paler at the horizon than overhead, instead of one flat colour. It follows the camera.
+    this.sky = new THREE.Mesh(
+      new THREE.SphereGeometry(5000, 24, 12),
+      new THREE.MeshBasicMaterial({ map: skyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }),
+    );
+    this.sky.renderOrder = -1;
+    this.scene.add(this.sky);
+    this.disposables.push(this.sky.geometry, this.sky.material as THREE.Material, (this.sky.material as THREE.MeshBasicMaterial).map!);
     this.scene.fog = new THREE.Fog(SKY, 1100, 3200);
 
+    // Reflections for the paint and the carbon. Only the car materials read it;
+    // the scenery is matte (Lambert) and looks the same as before.
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    this.scene.environment = env;
+    this.scene.environmentIntensity = 0.6;
+    this.disposables.push(env);
     this.scene.add(new THREE.HemisphereLight(0xdcecff, 0x3a5a30, 1.5));
     const sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
     sun.position.set(400, 700, 250);
@@ -131,6 +147,7 @@ export class RaceScene {
   private dropCar(rig: CarRig): void {
     this.scene.remove(rig.group, rig.sparks, ...rig.smoke);
     disposeTree(rig.group);
+    rig.car.dispose();
     if (rig.trail) {
       this.scene.remove(rig.trail);
       disposeTree(rig.trail);
@@ -146,7 +163,15 @@ export class RaceScene {
       const key = JSON.stringify(p);
       if (rig && rig.key === key) continue;
       if (rig) this.dropCar(rig);
-      const group = buildCar(p, this.shadowTex);
+      const car = buildCar(p);
+      const group = car.group;
+      const shadow = new THREE.Mesh(
+        new THREE.PlaneGeometry(LEN * 1.25, WID * 1.6),
+        new THREE.MeshBasicMaterial({ map: this.shadowTex, transparent: true, depthWrite: false }),
+      );
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.y = 0.3;
+      group.add(shadow);
       this.scene.add(group);
       const trail = p.look?.trail ? trailMesh(p.look.trail) : null;
       if (trail) this.scene.add(trail);
@@ -161,7 +186,7 @@ export class RaceScene {
       const sparks = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
       sparks.visible = false;
       this.scene.add(sparks);
-      this.cars[i] = { group, smoke, sparks, key, ghost: false, trail, flame };
+      this.cars[i] = { group, car, lastStep: -1, roll: 0, smoke, sparks, key, ghost: false, trail, flame };
     }
   }
 
@@ -174,6 +199,7 @@ export class RaceScene {
     this.ensureCars(paints);
     const scale = 1;
     this.trails.update(snap, LEN * 0.45);
+    const at = this.track ? (this.settled = settle(snap, this.track, this.settled)) : null;
 
     for (let i = 0; i < this.cars.length; i++) {
       const rig = this.cars[i];
@@ -183,10 +209,12 @@ export class RaceScene {
         continue;
       }
       rig.group.visible = true;
-      rig.group.position.set(c.x, 0, c.y);
-      rig.group.rotation.y = -c.angle;
+      rig.group.position.set(at ? at[i * 2] : c.x, 0, at ? at[i * 2 + 1] : c.y);
+      // Eased: a model flicks between full lock and straight every few steps (`trail.ts`).
+      rig.group.rotation.y = -this.trails.heading(i, c);
       rig.group.scale.setScalar(scale);
       if (rig.ghost !== c.done) setGhost(rig, c.done);
+      turnWheels(rig, c, snap.step, this.trails.steer(i));
 
       // Smoke off the rear wheels while sliding, along the way the car is travelling.
       const slip = c.sliding && !c.done ? Math.min(4, Math.abs(c.slip)) : 0;
@@ -208,9 +236,11 @@ export class RaceScene {
       // Pack prizes: the trail grows with the speed, the flame flickers on the throttle.
       if (rig.trail) fillTrail(rig.trail, c.done ? [] : trailStrip(this.trails.of(i), snap.raceMs, WID * 0.24));
       if (rig.flame) {
-        rig.flame.visible = !c.done && !!c.onGas;
-        const flick = 0.75 + 0.5 * (((Math.floor(snap.raceMs / 40) * 2654435761 + i * 97) >>> 0) % 1000) / 1000;
-        rig.flame.scale.set(flick, 1, 1);
+        // Grows and fades with the eased throttle instead of strobing on and off.
+        const gas = this.trails.gas(i, c);
+        rig.flame.visible = !c.done && gas > 0.05;
+        const flick = 0.85 + 0.3 * (((Math.floor(snap.raceMs / 60) * 2654435761 + i * 97) >>> 0) % 1000) / 1000;
+        rig.flame.scale.set(flick * gas, 0.6 + 0.4 * gas, 0.6 + 0.4 * gas);
       }
 
       // Sparks off the wall, flickering with the race clock so a replay throws the same ones.
@@ -224,6 +254,7 @@ export class RaceScene {
 
     this.finishFx(snap, paints);
     this.aim(snap, spec, dt);
+    this.sky.position.copy(this.camera.position);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -482,23 +513,39 @@ function buildTrack(track: Track): THREE.Group {
   const cx = (b.minX + b.maxX) / 2;
   const cz = (b.minY + b.maxY) / 2;
   const span = Math.max(b.maxX - b.minX, b.maxY - b.minY);
-  const twoSided = (color: number) => new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide });
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(span * 8, span * 8), new THREE.MeshLambertMaterial({ color: GRASS }));
+  // Mown grass: light and dark stripes, as a circuit's verges are cut.
+  const grassTex = grassTexture();
+  grassTex.repeat.set((span * 8) / 160, (span * 8) / 160);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(span * 8, span * 8), new THREE.MeshLambertMaterial({ map: grassTex }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(cx, -1.5, cz);
   group.add(ground);
 
   for (const wall of [track.inner, track.outer]) {
-    group.add(new THREE.Mesh(ribbon(wall, beyond(track, wall, 17), -0.6), twoSided(GRAVEL)));
+    const gravel = gravelTexture();
+    group.add(new THREE.Mesh(ribbon(wall, beyond(track, wall, 17), -0.6, 1 / 30), new THREE.MeshLambertMaterial({ color: GRAVEL, map: gravel, side: THREE.DoubleSide })));
   }
 
-  const asphaltTex = noiseTexture();
+  const asphaltTex = asphaltTexture();
   const road = new THREE.Mesh(
-    ribbon(track.inner, track.outer, 0, 1 / 40),
+    ribbon(track.inner, track.outer, 0, 1 / 60),
     new THREE.MeshLambertMaterial({ color: ASPHALT, map: asphaltTex, side: THREE.DoubleSide }),
   );
   group.add(road);
+
+  // Rubber laid down where the cars run: a darker band down the middle of the road.
+  const rubber = new THREE.Mesh(
+    ribbon(beyond(track, track.inner, -track.def.width * 0.22), beyond(track, track.outer, -track.def.width * 0.22), 0.15),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  group.add(rubber);
+
+  // The white track-limit line just inside each edge.
+  const lineMat = new THREE.MeshLambertMaterial({ color: 0xe9edf3, side: THREE.DoubleSide });
+  for (const wall of [track.inner, track.outer]) {
+    group.add(new THREE.Mesh(ribbon(beyond(track, wall, -1.2), beyond(track, wall, -2.6), 0.3), lineMat));
+  }
 
   const flat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   const red = new THREE.Color(0xc8243b);
@@ -585,12 +632,15 @@ function clearOfRoad(track: Track, x: number, z: number, margin: number): boolea
   return true;
 }
 
-/** Grandstands along the outside of the start straight. */
+/**
+ * Grandstands along the outside of the start straight: rows of seats stepping
+ * up away from the track, full of people, under a roof held up on posts at the
+ * back, with advertising boards along the front and concrete at the ends.
+ */
 function addStands(group: THREE.Group, track: Track, outside: Float32Array): void {
   const n = track.def.samples;
-  const crowd = crowdTexture();
-  const seat = new THREE.MeshLambertMaterial({ map: crowd });
-  const roof = new THREE.MeshLambertMaterial({ color: 0xd9dee8 });
+  const { seatMat, concrete, roofMat, steel, boardMat } = standMaterials();
+  const up = new THREE.Vector3(0, 1, 0);
   for (let k = -30; k <= 12; k += 7) {
     const i = (k + n) % n;
     const ox = outside[i * 2];
@@ -602,15 +652,106 @@ function addStands(group: THREE.Group, track: Track, outside: Float32Array): voi
     const z = oz + (dz / d) * 34;
     if (!clearOfRoad(track, x, z, 30)) continue;
     const seg = Math.hypot(track.center[((i + 7) % n) * 2] - track.center[i * 2], track.center[((i + 7) % n) * 2 + 1] - track.center[i * 2 + 1]);
-    const stand = new THREE.Mesh(new THREE.BoxGeometry(seg * 0.95, 16, 24), seat);
-    stand.position.set(x, 8, z);
-    stand.rotation.y = -Math.atan2(track.tangent[i * 2 + 1], track.tangent[i * 2]);
+    const stand = buildStand(seg * 0.95, { seatMat, concrete, roofMat, steel, boardMat });
+    // Local +z runs away from the track, so the seats face it.
+    const away = new THREE.Vector3(dx / d, 0, dz / d);
+    const along = new THREE.Vector3().crossVectors(up, away);
+    stand.matrix.makeBasis(along, up, away).setPosition(ox + (dx / d) * 20, 0, oz + (dz / d) * 20);
+    stand.matrixAutoUpdate = false;
     group.add(stand);
-    const top = new THREE.Mesh(new THREE.BoxGeometry(seg * 0.95, 1.5, 28), roof);
-    top.position.set(x + (dx / d) * 2, 18, z + (dz / d) * 2);
-    top.rotation.y = stand.rotation.y;
-    group.add(top);
   }
+}
+
+function standMaterials() {
+  return {
+    seatMat: new THREE.MeshLambertMaterial({ map: crowdTexture() }),
+    concrete: new THREE.MeshLambertMaterial({ color: 0xb9bec8 }),
+    roofMat: new THREE.MeshLambertMaterial({ color: 0xeef1f6, side: THREE.DoubleSide }),
+    steel: new THREE.MeshLambertMaterial({ color: 0x59606e }),
+    boardMat: new THREE.MeshLambertMaterial({ map: boardsTexture() }),
+  };
+}
+
+/** One grandstand on its own, for the dev car lab. */
+export function standPreview(len: number): THREE.Group {
+  return buildStand(len, standMaterials());
+}
+
+/** Rows of seats this deep and this high, front to back. */
+const STAND_ROWS = 8;
+const ROW_DEPTH = 3;
+const ROW_RISE = 2;
+
+/** One grandstand, `len` long, its front edge on local z = 0 and its seats rising towards +z. */
+function buildStand(
+  len: number,
+  m: { seatMat: THREE.Material; concrete: THREE.Material; roofMat: THREE.Material; steel: THREE.Material; boardMat: THREE.Material },
+): THREE.Group {
+  const g = new THREE.Group();
+  const front = 3;
+  const depth = front + STAND_ROWS * ROW_DEPTH;
+  const top = 2 + STAND_ROWS * ROW_RISE;
+
+  // The seats: one step per row, the crowd on the riser and the tread. The texture repeats along the row.
+  const rows: THREE.BufferGeometry[] = [];
+  for (let r = 0; r < STAND_ROWS; r++) {
+    const y = 2 + r * ROW_RISE;
+    const row = new THREE.BoxGeometry(len, ROW_RISE, ROW_DEPTH);
+    row.translate(0, y + ROW_RISE / 2, front + r * ROW_DEPTH + ROW_DEPTH / 2);
+    const uv = row.attributes.uv;
+    // About half a metre a person, at the car's scale (a car is about 21 units for 5.6 m).
+    for (let k = 0; k < uv.count; k++) uv.setX(k, uv.getX(k) * (len / 60));
+    rows.push(row);
+  }
+  g.add(new THREE.Mesh(mergeGeometries(rows)!, m.seatMat));
+
+  // Concrete: the base under the rows, the wall at the back, the stepped ends.
+  const solid: THREE.BufferGeometry[] = [];
+  solid.push(new THREE.BoxGeometry(len, 2, depth).translate(0, 1, depth / 2));
+  solid.push(new THREE.BoxGeometry(len, top + 1, 1).translate(0, (top + 1) / 2, depth + 0.5));
+  const side = new THREE.Shape();
+  side.moveTo(0, 0);
+  side.lineTo(0, 2.6);
+  for (let r = 0; r < STAND_ROWS; r++) {
+    side.lineTo(front + r * ROW_DEPTH, 2.6 + r * ROW_RISE);
+    side.lineTo(front + r * ROW_DEPTH, 2.6 + (r + 1) * ROW_RISE);
+  }
+  side.lineTo(depth + 1, top + 1);
+  side.lineTo(depth + 1, 0);
+  side.closePath();
+  for (const sx of [-1, 1]) {
+    const end = new THREE.ExtrudeGeometry(side, { depth: 0.8, bevelEnabled: false });
+    // Shape (u, v) -> (x = thickness, y = v, z = u).
+    end.rotateY(-Math.PI / 2);
+    end.translate(sx * (len / 2) + (sx > 0 ? 0.8 : 0), 0, 0);
+    solid.push(end);
+  }
+  g.add(new THREE.Mesh(mergeGeometries(solid.map((x) => x.toNonIndexed()))!, m.concrete));
+
+  // Advertising boards along the front, coloured panels with no names on them.
+  const board = new THREE.BoxGeometry(len, 2.4, 0.4).translate(0, 1.2, -0.6);
+  const buv = board.attributes.uv;
+  for (let k = 0; k < buv.count; k++) buv.setX(k, buv.getX(k) * (len / 40));
+  g.add(new THREE.Mesh(board, m.boardMat));
+
+  // The roof, cantilevered out over the seats from posts at the back, tilted up at the front.
+  const roof = new THREE.BoxGeometry(len + 2, 0.6, depth + 2);
+  roof.rotateX(-0.08);
+  roof.translate(0, top + 7, depth / 2 + 0.5);
+  g.add(new THREE.Mesh(roof, m.roofMat));
+  const posts: THREE.BufferGeometry[] = [];
+  const count = Math.max(2, Math.round(len / 18));
+  for (let p = 0; p <= count; p++) {
+    const px = -len / 2 + (len * p) / count;
+    posts.push(new THREE.CylinderGeometry(0.5, 0.5, top + 7, 6).translate(px, (top + 7) / 2, depth + 1.2));
+    // A brace from the post up to the roof's leading edge.
+    const brace = new THREE.CylinderGeometry(0.3, 0.3, depth * 0.75, 5);
+    brace.rotateX(Math.PI / 2 - 0.3);
+    brace.translate(px, top + 4.5, depth * 0.62);
+    posts.push(brace);
+  }
+  g.add(new THREE.Mesh(mergeGeometries(posts)!, m.steel));
+  return g;
 }
 
 /** Trees in the grass, the same ones on every visit: seeded by the circuit's id. */
@@ -619,23 +760,56 @@ function addTrees(group: THREE.Group, track: Track): void {
   for (const ch of track.def.id) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
   const rng = mulberry32(seed >>> 0);
   const b = track.bounds;
-  const spots: Array<[number, number, number]> = [];
-  for (let tries = 0; tries < 900 && spots.length < 140; tries++) {
-    const x = b.minX - 220 + rng() * (b.maxX - b.minX + 440);
-    const z = b.minY - 220 + rng() * (b.maxY - b.minY + 440);
+  const spots: Array<[number, number, number, number]> = [];
+  for (let tries = 0; tries < 1400 && spots.length < 220; tries++) {
+    const x = b.minX - 260 + rng() * (b.maxX - b.minX + 520);
+    const z = b.minY - 260 + rng() * (b.maxY - b.minY + 520);
     if (!clearOfRoad(track, x, z, 50)) continue;
-    spots.push([x, z, 0.8 + rng() * 0.7]);
+    spots.push([x, z, 0.7 + rng() * 0.8, rng()]);
   }
-  const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(9, 26, 7), new THREE.MeshLambertMaterial({ color: 0x2f6b34 }), spots.length);
-  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.6, 2, 8, 6), new THREE.MeshLambertMaterial({ color: 0x6b4a2f }), spots.length);
+  // Two kinds, pines and broadleaf, each in a spread of greens so a wood is not one flat colour.
+  const pines = spots.filter((p) => p[3] < 0.55);
+  const broad = spots.filter((p) => p[3] >= 0.55);
+  const pineGeo = mergeGeometries([
+    new THREE.ConeGeometry(9, 14, 9).translate(0, 7, 0),
+    new THREE.ConeGeometry(7.5, 12, 9).translate(0, 13, 0),
+    new THREE.ConeGeometry(5.5, 10, 9).translate(0, 19, 0),
+  ])!;
+  pineGeo.translate(0, 8, 0);
+  const broadGeo = new THREE.IcosahedronGeometry(11, 1);
+  broadGeo.scale(1, 0.85, 1);
+  broadGeo.translate(0, 18, 0);
+  const leaf = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
+  const pine = new THREE.InstancedMesh(pineGeo, leaf, pines.length);
+  const round = new THREE.InstancedMesh(broadGeo, leaf.clone(), broad.length);
+  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.4, 2, 10, 6).translate(0, 5, 0), new THREE.MeshLambertMaterial({ color: 0x5b4030 }), spots.length);
+  // A soft shadow under each tree, as the cars have.
+  const shade = new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(30, 30).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ map: radialTexture('rgba(0,0,0,0.35)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }),
+    spots.length,
+  );
   const m = new THREE.Matrix4();
-  spots.forEach(([x, z, s], i) => {
-    m.makeScale(s, s, s).setPosition(x, 4 * s, z);
-    trunk.setMatrixAt(i, m);
-    m.makeScale(s, s, s).setPosition(x, 20 * s, z);
-    crown.setMatrixAt(i, m);
+  const q = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  const color = new THREE.Color();
+  const greens = [0x2f6b34, 0x3a7d3c, 0x2a5e30, 0x47843a, 0x356f2e, 0x4d8f46];
+  const place = (mesh: THREE.InstancedMesh, list: typeof spots) =>
+    list.forEach(([x, z, sc, r], k) => {
+      q.setFromAxisAngle(up, r * 40);
+      m.compose(new THREE.Vector3(x, 0, z), q, new THREE.Vector3(sc, sc * (0.9 + ((r * 7) % 0.3)), sc));
+      mesh.setMatrixAt(k, m);
+      mesh.setColorAt(k, color.setHex(greens[Math.floor(r * 997) % greens.length]).multiplyScalar(0.9 + ((r * 13) % 0.2)));
+    });
+  place(pine, pines);
+  place(round, broad);
+  spots.forEach(([x, z, sc], k) => {
+    m.makeScale(sc, sc, sc).setPosition(x, 0, z);
+    trunk.setMatrixAt(k, m);
+    m.makeScale(sc, 1, sc).setPosition(x, -1.3, z);
+    shade.setMatrixAt(k, m);
   });
-  group.add(trunk, crown);
+  group.add(shade, trunk, pine, round);
 }
 
 /** The centreline sample nearest a point. */
@@ -694,92 +868,19 @@ function fitBoth(pos: THREE.Vector3, look: THREE.Vector3, a: THREE.Vector3, b: T
 
 // ------------------------------------------------------------- the cars
 
-function buildCar(paint: CarPaint, shadowTex: THREE.Texture): THREE.Group {
-  const { color, look } = paint;
-  const secondary = look?.secondary ?? darker(color);
-  const wingColor = look?.wing ?? secondary;
-  const group = new THREE.Group();
-
-  const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(LEN * 1.25, WID * 1.6),
-    new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }),
-  );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.3;
-  group.add(shadow);
-
-  // The body: the same outline the 2D car has, extruded, with the 2D livery as its top.
-  const side = BODY_SHAPES[look?.shape ?? 'classic'] ?? BODY_SHAPES.classic;
-  const shape = new THREE.Shape();
-  side.forEach(([x, y], i) => (i ? shape.lineTo(x * LEN, -y * WID) : shape.moveTo(x * LEN, -y * WID)));
-  for (let i = side.length - 1; i >= 0; i--) shape.lineTo(side[i][0] * LEN, side[i][1] * WID);
-  const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: BODY_H, bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 2 });
-  // Shape space to world: x stays, the outline's y becomes z, the extrusion goes up.
-  bodyGeo.rotateX(Math.PI / 2);
-  bodyGeo.translate(0, BODY_H + WHEEL_R * 0.55, 0);
-
-  const livery = liveryTexture(color, look);
-  const bodyTop = new THREE.MeshLambertMaterial({ map: livery });
-  const bodySide = new THREE.MeshLambertMaterial({ color: new THREE.Color(color).multiplyScalar(0.85) });
-  group.add(new THREE.Mesh(bodyGeo, [bodyTop, bodySide]));
-
-  // Wheels, at the corners the 2D car draws its tyres. A rim only for a team that bought one.
-  const tyre = new THREE.MeshLambertMaterial({ color: 0x15171d });
-  const wheelGeo = new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, WID * 0.24, 14);
-  wheelGeo.rotateX(Math.PI / 2);
-  const rimMat = look?.rim ? new THREE.MeshLambertMaterial({ color: look.rim }) : null;
-  const rimGeo = rimMat ? new THREE.CylinderGeometry(WHEEL_R * 0.58, WHEEL_R * 0.58, WID * 0.25, 12).rotateX(Math.PI / 2) : null;
-  for (const x of [LEN * 0.28, -LEN * 0.3]) {
-    for (const z of [-WID * 0.39, WID * 0.39]) {
-      const w = new THREE.Mesh(wheelGeo, tyre);
-      w.position.set(x, WHEEL_R, z);
-      group.add(w);
-      if (rimGeo && rimMat) {
-        const r = new THREE.Mesh(rimGeo, rimMat);
-        r.position.set(x, WHEEL_R, z);
-        group.add(r);
-      }
-    }
-  }
-
-  const wingMat = new THREE.MeshLambertMaterial({ color: wingColor });
-  const front = new THREE.Mesh(new THREE.BoxGeometry(LEN * 0.1, 0.7, WID * 0.94), wingMat);
-  front.position.set(LEN * 0.45, WHEEL_R * 0.6, 0);
-  const rear = new THREE.Mesh(new THREE.BoxGeometry(LEN * 0.12, 0.8, WID * 0.82), wingMat);
-  rear.position.set(-LEN * 0.45, BODY_H + WHEEL_R * 1.6, 0);
-  const pylon = new THREE.Mesh(new THREE.BoxGeometry(LEN * 0.06, WHEEL_R * 1.4, WID * 0.08), wingMat);
-  pylon.position.set(-LEN * 0.43, BODY_H + WHEEL_R * 0.9, 0);
-  group.add(front, rear, pylon);
-
-  const helmet = new THREE.Mesh(
-    new THREE.SphereGeometry(WID * 0.13, 14, 10),
-    look?.visor
-      ? new THREE.MeshLambertMaterial({ map: helmetTexture(look.helmet ?? '#f4f6fb', look.visor, secondary) })
-      : new THREE.MeshLambertMaterial({ color: look?.helmet ?? '#f4f6fb' }),
-  );
-  helmet.position.set(-LEN * 0.08, BODY_H * 2 + WHEEL_R * 0.4, 0);
-  group.add(helmet);
-  return group;
-}
-
-/** A helmet's paint with its design, wrapped round the sphere. */
-function helmetTexture(base: string, visor: NonNullable<CarLook['visor']>, color: string): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 64;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, 128, 64);
-  // Four times round, so the design shows from whichever side the camera is on.
-  for (const x of [16, 48, 80, 112]) {
-    ctx.save();
-    ctx.translate(0, 32);
-    drawVisor(ctx, x, 16, visor, color);
-    ctx.restore();
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+/**
+ * Spin the wheels by the distance the car covered, and point the front pair by
+ * the eased steering (`TrailHistory.steer`), so they turn into a corner rather
+ * than flicking from lock to lock.
+ */
+function turnWheels(rig: CarRig, c: RacingSnapshot['cars'][number], step: number, steer: number): void {
+  const steps = step - rig.lastStep;
+  if (steps > 0 && steps < 30) rig.roll += c.speed * steps;
+  rig.lastStep = step;
+  rig.car.wheels.forEach((w, k) => {
+    w.rotation.y = k < 2 ? -steer * 0.4 : 0;
+    for (const part of w.children) part.rotation.z = -rig.roll / (w.userData.r as number);
+  });
 }
 
 /** Points a trail strip can hold: more than a trail's worth of frames at 60 a second. */
@@ -862,35 +963,10 @@ function flameMesh(flame: string): THREE.Group {
     geo.translate(-l / 2, 0, 0);
     group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })));
   }
-  group.position.set(-LEN * 0.5, BODY_H + WHEEL_R * 0.9, 0);
+  // Out of the gearbox, under the rear wing.
+  group.position.set(-LEN * 0.47, WID * 0.14, 0);
   group.visible = false;
   return group;
-}
-
-/** The livery canvas covers this much of the car's length, centred. */
-const LIVERY_SPAN = LEN * 1.1;
-
-function liveryTexture(color: string, look: CarLook | undefined): THREE.CanvasTexture {
-  const W = 256;
-  const H = 160;
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d')!;
-  const px = W / LIVERY_SPAN;
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, W, H);
-  ctx.translate(W / 2, H / 2);
-  drawCarLivery(ctx, LEN * px, WID * px, color, look);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  // Extrude caps take their UVs from the outline in world units: map those
-  // onto the canvas, its y running the same way as the outline's.
-  tex.flipY = false;
-  tex.repeat.set(1 / LIVERY_SPAN, 1 / ((LIVERY_SPAN * H) / W));
-  tex.offset.set(0.5, 0.5);
-  tex.anisotropy = 4;
-  return tex;
 }
 
 /** A car out of the race, see-through like the 2D view's; or back to solid after a rewind. */
@@ -931,42 +1007,145 @@ function radialTexture(inner: string, outer: string): THREE.CanvasTexture {
   return new THREE.CanvasTexture(c);
 }
 
-function noiseTexture(): THREE.CanvasTexture {
+/** Tarmac: fine aggregate, a few lighter stones, and broad patches where it was laid in a different batch. */
+function asphaltTexture(): THREE.CanvasTexture {
+  const S = 256;
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = S;
   const ctx = c.getContext('2d')!;
-  const img = ctx.createImageData(128, 128);
   const rng = mulberry32(42);
+  ctx.fillStyle = '#d4d4d4';
+  ctx.fillRect(0, 0, S, S);
+  for (let k = 0; k < 18; k++) {
+    const x = rng() * S;
+    const y = rng() * S;
+    const r = 30 + rng() * 70;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, rng() < 0.5 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.06)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
+  }
+  const img = ctx.getImageData(0, 0, S, S);
   for (let i = 0; i < img.data.length; i += 4) {
-    const v = 200 + Math.floor(rng() * 55);
-    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-    img.data[i + 3] = 255;
+    const n = (rng() - 0.5) * 60 + (rng() < 0.03 ? 45 : 0);
+    for (let k = 0; k < 3; k++) img.data[i + k] = Math.max(0, Math.min(255, img.data[i + k] + n));
   }
   ctx.putImageData(img, 0, 0);
+  return repeating(c, 8);
+}
+
+/** Mown grass: two greens in wide stripes, with a little noise. */
+function grassTexture(): THREE.CanvasTexture {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#4c8a3f';
+  ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = '#56964a';
+  ctx.fillRect(0, 0, S / 2, S);
+  const img = ctx.getImageData(0, 0, S, S);
+  const rng = mulberry32(5);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (rng() - 0.5) * 22;
+    for (let k = 0; k < 3; k++) img.data[i + k] = Math.max(0, Math.min(255, img.data[i + k] + n));
+  }
+  ctx.putImageData(img, 0, 0);
+  return repeating(c, 4);
+}
+
+/** Gravel: light and dark grains on white, tinted by the material. */
+function gravelTexture(): THREE.CanvasTexture {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, S, S);
+  const rng = mulberry32(11);
+  for (let k = 0; k < 900; k++) {
+    const v = 150 + Math.floor(rng() * 105);
+    ctx.fillStyle = `rgb(${v}, ${v}, ${v})`;
+    ctx.fillRect(rng() * S, rng() * S, 1 + rng() * 2, 1 + rng() * 2);
+  }
+  return repeating(c, 4);
+}
+
+function repeating(c: HTMLCanvasElement, anisotropy: number): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = anisotropy;
+  return tex;
+}
+
+/** Deeper blue overhead, hazy near the horizon. */
+function skyTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 4;
+  c.height = 256;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#4f8fd6');
+  g.addColorStop(0.42, '#8fbfee');
+  g.addColorStop(0.5, '#cfe3f5');
+  g.addColorStop(1, '#cfe3f5');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
 /** Rows of spectators: dots of colour on a dark stand. */
+/** People in a row of seats: a shirt, a head above it, some standing a little taller. */
 function crowdTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 128;
+  c.width = 256;
   c.height = 64;
   const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#2a2f3b';
-  ctx.fillRect(0, 0, 128, 64);
+  ctx.fillStyle = '#3a404c';
+  ctx.fillRect(0, 0, 256, 64);
+  // Seat backs.
+  ctx.fillStyle = '#2b5fa8';
+  for (let x = 1; x < 256; x += 8) ctx.fillRect(x, 40, 6, 10);
   const rng = mulberry32(9);
-  const shirts = ['#ff2e4d', '#f4f6fb', '#38bdf8', '#ffb020', '#14b8a6', '#ff5fa2', '#2346c8'];
-  for (let y = 3; y < 64; y += 6) {
-    for (let x = 2; x < 128; x += 4) {
-      if (rng() < 0.2) continue;
-      ctx.fillStyle = shirts[Math.floor(rng() * shirts.length)];
-      ctx.fillRect(x, y + (rng() < 0.5 ? 0 : 1), 3, 3);
-    }
+  const shirts = ['#ff2e4d', '#f4f6fb', '#38bdf8', '#ffb020', '#14b8a6', '#ff5fa2', '#2346c8', '#1f2937', '#84cc16'];
+  const skin = ['#f1c7a5', '#d9a47c', '#a86e4a', '#7a4b2e', '#e8b896'];
+  for (let x = 2; x < 252; x += 8) {
+    if (rng() < 0.12) continue;
+    const lift = rng() < 0.2 ? -6 : 0;
+    ctx.fillStyle = shirts[Math.floor(rng() * shirts.length)];
+    ctx.fillRect(x, 26 + lift, 6, 20);
+    ctx.fillStyle = skin[Math.floor(rng() * skin.length)];
+    ctx.beginPath();
+    ctx.arc(x + 3, 21 + lift, 3.2, 0, Math.PI * 2);
+    ctx.fill();
   }
   const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/** Trackside boards: plain coloured panels with a stripe, no names. */
+function boardsTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 16;
+  const ctx = c.getContext('2d')!;
+  const panels = ['#e11d48', '#1d4ed8', '#f59e0b', '#0f172a', '#16a34a', '#f4f6fb'];
+  for (let k = 0; k < 4; k++) {
+    const col = panels[k % panels.length];
+    ctx.fillStyle = col;
+    ctx.fillRect(k * 64, 0, 64, 16);
+    ctx.fillStyle = col === '#f4f6fb' || col === '#f59e0b' ? '#0f172a' : '#f4f6fb';
+    ctx.fillRect(k * 64 + 10, 6, 44, 4);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
