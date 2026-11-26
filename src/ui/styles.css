@@ -74,18 +74,18 @@
      through to the system, and a machine with no Hebrew font draws boxes. */
   --font-sans: 'Heebo', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Heebo', 'Cascadia Mono', ui-monospace, monospace;
-  --bg: #07080d;
-  --bg-2: #0a0c13;
-  --panel: #101320;
-  --panel-2: #161a2a;
-  --panel-3: #1d2234;
-  --line: #232a3d;
-  --line-2: #323a52;
-  --text: #e9edf7;
-  --muted: #8590a8;
-  --dim: #7a849c;
+  --bg: #0b0d16;
+  --bg-2: #0e1020;
+  --panel: #15162b;
+  --panel-2: #1b1c36;
+  --panel-3: #232442;
+  --line: #2a2b4a;
+  --line-2: #3b3c62;
+  --text: #f4f2ff;
+  --muted: #a29dcb;
+  --dim: #8e89b9;
 
-  --accent: #ff2e4d;
+  --accent: #ff3d6e;
   --accent-ink: #fff5f6;
   --accent-dim: #3d0f1a;
   --accent-2: #00e0ff;
@@ -159,9 +159,34 @@
 
   /* Cards (season 6 clean-up): a quiet, nearly solid surface with a hairline,
      not a frosted pane. Glass stays on the chrome (header, navigation, sheets). */
-  --card-bg: rgba(17, 20, 33, 0.9);
-  --card-line: rgba(255, 255, 255, 0.07);
-  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 28px -22px rgba(0, 0, 0, 0.9);
+  --card-bg: rgba(30, 28, 60, 0.6);
+  --card-line: rgba(255, 255, 255, 0.09);
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 16px 32px -24px rgba(0, 0, 0, 0.9);
+  --card-radius: 20px;
+
+  /* Season 6 look. The page: two pools of colour in opposite corners. */
+  --page-art:
+    radial-gradient(620px 420px at 100% 0%, rgba(92, 28, 124, 0.7), transparent 62%),
+    radial-gradient(640px 480px at 0% 100%, rgba(14, 74, 112, 0.6), transparent 62%);
+  /* The sunset: the headline card, the primary button, the current tab. */
+  --grad: linear-gradient(140deg, #ff3d6e 0%, #ff7a3d 55%, #ffb13d 100%);
+  --hero-bg:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 6px, transparent 6px 12px),
+    linear-gradient(140deg, #ff3d6e 0%, #ff7a3d 55%, #ffb13d 100%);
+  --hero-shadow: 0 22px 44px -22px rgba(255, 61, 110, 0.75);
+  --hero-muted: rgba(255, 255, 255, 0.86);
+  --hero-dim: rgba(255, 255, 255, 0.78);
+  --hero-tile: rgba(0, 0, 0, 0.16);
+  --hero-primary: #ffffff;
+  --hero-primary-ink: #e2335f;
+  --hero-second: rgba(0, 0, 0, 0.2);
+  --btn-radius: 14px;
+  --btn-primary: var(--grad);
+  --btn-primary-shadow: 0 4px 0 rgba(150, 22, 62, 0.75), 0 12px 24px -12px rgba(255, 61, 110, 0.8);
+  --nav-bg: rgba(20, 18, 40, 0.86);
+  --nav-on: var(--grad);
+  --nav-on-ink: #ffffff;
+  --eyebrow: #c3bcf6;
 
   color-scheme: dark;
 }
@@ -175,8 +200,8 @@
    Set on <html> by `ui/theme.ts`, from the device's setting unless somebody
    picked one. */
 :root[data-theme='light'] {
-  --bg: #eef1f7;
-  --bg-2: #e6eaf3;
+  --bg: #f4f5f8;
+  --bg-2: #eceef3;
   --panel: #ffffff;
   --panel-2: #f3f5fa;
   --panel-3: #e8ecf4;
@@ -230,8 +255,29 @@
   --elev-2: 0 26px 70px -20px rgba(22, 30, 58, 0.32);
 
   --card-bg: #ffffff;
-  --card-line: rgba(22, 30, 58, 0.08);
-  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 18px -10px rgba(16, 24, 40, 0.1);
+  --card-line: rgba(22, 30, 58, 0.06);
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -12px rgba(16, 24, 40, 0.12);
+  --card-radius: 24px;
+
+  --page-art: none;
+  --grad: linear-gradient(180deg, #ef2a4a, #e0193a);
+  --hero-bg:
+    radial-gradient(380px 320px at 6% -24%, rgba(224, 25, 58, 0.62), transparent 66%),
+    #111318;
+  --hero-shadow: 0 18px 40px -22px rgba(17, 19, 24, 0.55);
+  --hero-muted: #b4bac7;
+  --hero-dim: #a7adbb;
+  --hero-tile: rgba(255, 255, 255, 0.07);
+  --hero-primary: #e0193a;
+  --hero-primary-ink: #ffffff;
+  --hero-second: rgba(255, 255, 255, 0.12);
+  --btn-radius: 999px;
+  --btn-primary: #e0193a;
+  --btn-primary-shadow: 0 8px 18px -10px rgba(224, 25, 58, 0.7);
+  --nav-bg: rgba(255, 255, 255, 0.94);
+  --nav-on: #fde8ec;
+  --nav-on-ink: #e0193a;
+  --eyebrow: var(--muted);
 
   color-scheme: light;
 }
@@ -269,10 +315,7 @@ body {
      flat black field is just a grey panel, so a few soft pools of the livery
      colours sit under everything. The page itself never scrolls (`.content`
      does), so this layer stays put while the panels slide over it. */
-  background-image:
-    radial-gradient(900px 560px at 92% -8%, rgba(255, 46, 77, calc(0.2 * var(--pool))), transparent 62%),
-    radial-gradient(760px 520px at 2% 104%, rgba(0, 224, 255, calc(0.14 * var(--pool))), transparent 60%),
-    radial-gradient(680px 460px at 30% 38%, rgba(64, 92, 255, calc(0.1 * var(--pool))), transparent 65%);
+  background-image: var(--page-art);
   background-attachment: fixed;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
@@ -2862,3 +2905,105 @@ details.fold > summary::after {
 }
 details.fold[open] > summary::after { transform: rotate(-135deg); }
 details.fold[open] > summary { margin-bottom: 10px; }
+
+/* ------------------------------------------------ season 6: the new look
+   Two themes with their own character rather than one look in two shades.
+   Dark is a game menu: a violet night, cards of smoked glass, and a sunset
+   gradient on the few things that matter - the next race, the button to
+   press, the current tab. Light is clean sport: white cards on pale grey and a
+   dark headline card with a red glow. The tokens above carry the difference;
+   the rules here only use them. */
+
+.card { border-radius: var(--card-radius); }
+@media (max-width: 900px) { .card { border-radius: var(--card-radius); } }
+
+.eyebrow { color: var(--eyebrow); }
+.eyebrow::before { background: var(--grad); width: 4px; }
+
+/* Buttons: chunky rounded keys in the dark theme, pills in the light one. */
+button { border-radius: var(--btn-radius); }
+button.small { border-radius: calc(var(--btn-radius) - 3px); }
+button.primary,
+button.primary:hover:not(:disabled),
+button.primary:active:not(:disabled) {
+  background: var(--btn-primary);
+  border-color: transparent;
+  box-shadow: var(--btn-primary-shadow);
+}
+button.primary:hover:not(:disabled) { filter: brightness(1.06); }
+:root:not([data-theme='light']) button.primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(150, 22, 62, 0.75), 0 6px 14px -8px rgba(255, 61, 110, 0.8);
+}
+
+/* The wordmark takes the gradient. */
+.brand .mark {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.topbar::after { background: linear-gradient(to left, transparent, rgba(255, 122, 61, 0.5) 30%, transparent 70%); opacity: 0.6; }
+:root[data-theme='light'] .topbar::after { display: none; }
+
+/* Navigation: the current tab is a lit key. */
+.nav button.on,
+.nav button.on:hover:not(:disabled) { background: var(--nav-on); color: var(--nav-on-ink); box-shadow: none; }
+.nav[data-slide]::before { background: var(--nav-on); box-shadow: 0 6px 16px -8px rgba(255, 61, 110, 0.7); }
+:root[data-theme='light'] .nav[data-slide]::before { box-shadow: none; }
+.nav[data-slide] button.on,
+.nav[data-slide] button.on:hover:not(:disabled) { color: var(--nav-on-ink); }
+@media (max-width: 900px) {
+  .nav.bottom {
+    border-radius: 22px;
+    background: var(--nav-bg);
+    border-color: var(--card-line);
+    box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.6);
+  }
+  :root[data-theme='light'] .nav.bottom { box-shadow: 0 10px 30px -10px rgba(16, 24, 40, 0.25); border-radius: 26px; }
+  .nav button,
+  .nav[data-slide]::before { border-radius: 15px; }
+  :root[data-theme='light'] .nav button,
+  :root[data-theme='light'] .nav[data-slide]::before { border-radius: 18px; }
+}
+
+/* The headline card. Everything in it is light on a strong ground, in both
+   themes, so the colours it uses are re-pointed rather than restyled one by one. */
+.hero {
+  --text: #ffffff;
+  --muted: var(--hero-muted);
+  --dim: var(--hero-dim);
+  --eyebrow: var(--hero-muted);
+  --hi: 255, 255, 255;
+  --accent-2: #ffffff;
+  --glass-edge: rgba(255, 255, 255, 0.16);
+  --glass-edge-strong: rgba(255, 255, 255, 0.28);
+  --well: rgba(0, 0, 0, 0.14);
+  color: #ffffff;
+  border: none;
+  background: var(--hero-bg);
+  box-shadow: var(--hero-shadow);
+  border-radius: calc(var(--card-radius) + 2px);
+}
+.hero h1,
+.hero h2 { text-shadow: 0 2px 0 rgba(0, 0, 0, 0.12); }
+:root[data-theme='light'] .hero h1,
+:root[data-theme='light'] .hero h2 { text-shadow: none; }
+.hero .eyebrow::before { background: #ffffff; }
+.hero .stat { background: var(--hero-tile); border-radius: 12px; padding: 8px 10px; }
+.hero .timetable { background: var(--hero-tile); border-color: transparent; }
+.hero .tt-row.live { color: #ffffff; font-weight: 800; }
+.hero .pill { background: rgba(0, 0, 0, 0.2); border-color: transparent; color: #ffffff; }
+.hero button:not(.primary) { background: var(--hero-second); border-color: transparent; color: #ffffff; box-shadow: none; }
+.hero button.primary,
+.hero button.primary:hover:not(:disabled),
+.hero button.primary:active:not(:disabled) {
+  background: var(--hero-primary);
+  color: var(--hero-primary-ink);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
+}
+:root[data-theme='light'] .hero button.primary { box-shadow: 0 8px 18px -10px rgba(224, 25, 58, 0.8); }
+
+/* The winner's tile shines. */
+:root:not([data-theme='light']) .pos.p1 { background: linear-gradient(135deg, #ffe066, #ffb13d); color: #3a2400; border-inline-start-color: #ffe066; }
+@media (max-width: 900px) { .hero h1 { font-size: 26px; } }
