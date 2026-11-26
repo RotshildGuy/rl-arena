@@ -3084,3 +3084,46 @@ button .icon { margin-inline-end: 2px; }
   .hero-art-wrap { width: 96px; height: 96px; top: 2px; inset-inline-end: 2px; opacity: 0.55; }
 }
 .toolbar > .page-art + .title { flex: 1 1 0; min-width: 0; }
+
+/* ------------------------------------------------ season 6: the car viewer */
+.car-viewer { position: relative; }
+.car-viewer .shop-canvas { background: radial-gradient(120% 90% at 50% 40%, #2c3140, #1a1d27); }
+.car-viewer-3d { cursor: grab; }
+.car-viewer-3d:active { cursor: grabbing; }
+/* The view from above while three.js loads, over the 3D canvas it will give way to. */
+.car-viewer-cover { position: absolute; inset: 0 0 auto 0; }
+.car-viewer-bar {
+  position: absolute;
+  top: 8px;
+  inset-inline-start: 8px;
+  inset-inline-end: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.car-viewer-bar .segmented { pointer-events: auto; background: rgba(10, 12, 20, 0.55); border-color: rgba(255, 255, 255, 0.12); }
+.car-viewer-bar .segmented button { padding: 4px 11px; font-size: 12px; color: rgba(255, 255, 255, 0.75); }
+.car-viewer-bar .segmented button.on,
+.car-viewer-bar .segmented button.on:hover:not(:disabled) { color: #ffffff; background: rgba(255, 255, 255, 0.18); box-shadow: none; }
+.car-viewer-hint { margin-inline-start: auto; color: rgba(255, 255, 255, 0.6); }
+@media (pointer: coarse) { .car-viewer-hint { display: none; } }
+
+/* The celebration over the preview, and a way to see it again. */
+.shop-party { cursor: default; }
+.shop-party-again { position: absolute; bottom: 8px; inset-inline-end: 8px; z-index: 4; color: #ffffff; background: rgba(10, 12, 20, 0.5); }
+
+/* A celebration shrunk into a swatch stays inside it. Raised above its own tile
+   only (`isolation`), it used to paint over the pinned preview as the list of
+   swatches scrolled under it. */
+.swatch-dot.party,
+.prize-swatch.party { isolation: isolate; }
+.celebration.fit { z-index: 0; }
+/* Pinned over a list that scrolls under it, so solid: a see-through card let the swatches show through. */
+.shop-preview { background: var(--panel); }
+@media (max-width: 860px) { .design-preview { background: var(--card-bg); } }
+/* The bar sits on the dark preview in both themes: its own colours, not the theme's. */
+.car-viewer-bar .segmented[data-slide]::before { background: rgba(255, 255, 255, 0.2); box-shadow: none; }
+.car-viewer-bar .segmented[data-slide] button.on { color: #ffffff; }
+button.ghost.shop-party-again,
+button.ghost.shop-party-again:hover:not(:disabled) { color: #ffffff; background: rgba(10, 12, 20, 0.5); }

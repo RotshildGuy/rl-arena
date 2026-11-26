@@ -31,6 +31,7 @@ import { useT } from '../../i18n';
 import { Celebration } from '../components/Celebration';
 import { Icon } from '../components/Icon';
 import { PageArt } from '../components/PageArt';
+import { CarViewer, type CarView } from '../three/CarViewer';
 
 /** In the order they are shown; titles and hints are in the dictionary (`shop.sections`). */
 const SECTIONS: SlotKind[] = ['color', 'pattern', 'shape', 'secondary', 'wing', 'rim', 'helmet', 'smoke', 'celebration'];
@@ -52,6 +53,8 @@ export function Shop() {
   const { state } = useChampionship();
   const [doc, setDoc] = useState<ShopDoc | null>(null);
   const [trial, setTrial] = useState<Equipped>({});
+  // What was tried last: a trail, a flame or smoke only shows from above.
+  const [lastTried, setLastTried] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const uid = state?.uid ?? '';
@@ -152,6 +155,7 @@ export function Shop() {
     }
     if (item.retired) return;
     setTrial({ ...trial, [kind]: item.id });
+    setLastTried(kind);
   };
 
   const reset = (kind: SlotKind) => {
@@ -186,7 +190,7 @@ export function Shop() {
       <div className="shop-layout">
         {/* The car first, and pinned while scrolling: every tap below changes it. */}
         <div className="shop-preview card notched">
-          <Preview color={previewColor} look={previewLook} />
+          <Preview color={previewColor} look={previewLook} prefer={lastTried && MOVING.has(lastTried) ? 'top' : '3d'} />
 
           {toBuy.length > 0 ? (
             <div className="row wrap" style={{ marginTop: 10, gap: 8 }}>
@@ -458,30 +462,24 @@ function MiniCar({ color, look }: { color: string; look: CarLook }) {
  * The sample car. A celebration being tried or worn plays over it whenever it
  * changes, and again on a tap.
  */
-function Preview({ color, look }: { color: string; look: CarLook }) {
+function Preview({ color, look, prefer }: { color: string; look: CarLook; prefer: CarView }) {
+  const again = useT().shop.celebrateAgain;
   const [play, setPlay] = useState(0);
-  const car = <PreviewCar color={color} look={look} />;
+  const car = <CarViewer color={color} look={look} prefer={prefer} />;
   if (!look.celebration) return car;
   return (
-    <button className="shop-party" onClick={() => setPlay((n) => n + 1)}>
+    <div className="shop-party">
       {car}
       <Celebration key={look.celebration} kind={look.celebration} colors={[color, look.secondary ?? '']} play={play} />
-    </button>
+      <button className="ghost small shop-party-again" onClick={() => setPlay((n) => n + 1)}>
+        {again}
+      </button>
+    </div>
   );
 }
 
-function PreviewCar({ color, look }: { color: string; look: CarLook }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    c.width = Math.round(c.clientWidth * dpr);
-    c.height = Math.round(c.clientHeight * dpr);
-    drawCarPreview(c.getContext('2d')!, color, look);
-  }, [color, look]);
-  return <canvas ref={ref} className="shop-canvas" />;
-}
+/** What only shows while the car moves, and so only in the view from above. */
+const MOVING = new Set(['trail', 'flame', 'smoke']);
 
 function NumberPicker({
   owned,

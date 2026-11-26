@@ -12,4 +12,6 @@ reel-out/
 
 # Operator notes kept off the public repo
 OWNER_TODO.local.md
+# Reels and social posting: the owner's own tooling, with publishing tokens.
+scripts/reel/
 .claude/

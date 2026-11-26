@@ -21,7 +21,7 @@ interface Props {
 
 /** Whether this browser can draw WebGL at all; asked once. */
 let webgl: boolean | null = null;
-function hasWebGL(): boolean {
+export function hasWebGL(): boolean {
   if (webgl === null) {
     try {
       const c = document.createElement('canvas');

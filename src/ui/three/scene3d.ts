@@ -726,7 +726,7 @@ function buildStand(
     end.translate(sx * (len / 2) + (sx > 0 ? 0.8 : 0), 0, 0);
     solid.push(end);
   }
-  g.add(new THREE.Mesh(mergeGeometries(solid.map((x) => x.toNonIndexed()))!, m.concrete));
+  g.add(new THREE.Mesh(mergeGeometries(solid.map((x) => (x.index ? x.toNonIndexed() : x)))!, m.concrete));
 
   // Advertising boards along the front, coloured panels with no names on them.
   const board = new THREE.BoxGeometry(len, 2.4, 0.4).translate(0, 1.2, -0.6);

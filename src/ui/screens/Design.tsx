@@ -16,6 +16,7 @@ import { Celebration } from '../components/Celebration';
 import { CarNumbers } from './Shop';
 import { Icon } from '../components/Icon';
 import { PageArt } from '../components/PageArt';
+import { CarViewer } from '../three/CarViewer';
 
 /** Every part of the look, in the order the screen lists them: the car, then sound, then the podium. */
 const PARTS: SlotKind[] = [
@@ -162,7 +163,8 @@ export function Design() {
 
       <div className="shop-layout">
         <div className="shop-preview design-preview card notched">
-          <DesignCar color={color} look={look} />
+          {/* A trail, a flame and smoke only show on the move: from above while one of them is open. */}
+          <CarViewer color={color} look={look} prefer={open === 'trail' || open === 'flame' || open === 'smoke' ? 'top' : '3d'} />
           {look.finish && <FinishPreview kind={look.finish} color={color} second={look.secondary} />}
           {PODIUM_PARTS.some((k) => current(k)) && <Podium compact places={[{ position: 1, driver, team, color, look }]} />}
         </div>
@@ -259,20 +261,6 @@ export function Design() {
       </div>
     </>
   );
-}
-
-/** The car with what it wears, on asphalt: trail and flame included. */
-function DesignCar({ color, look }: { color: string; look: CarLook }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    c.width = Math.round(c.clientWidth * dpr);
-    c.height = Math.round(c.clientHeight * dpr);
-    drawCarPreview(c.getContext('2d')!, color, look);
-  }, [color, look]);
-  return <canvas ref={ref} className="shop-canvas" />;
 }
 
 /** A small car in a pattern or a shape, for its tile. */
