@@ -8,6 +8,10 @@
  */
 import type { ReactNode } from 'react';
 
+/** The spanner's outline, lying flat with the jaw to the right; shared with the garage illustration. */
+export const WRENCH =
+  'M4.9 10.35H12.8C13.3 10.35 13.5 10 13.64 9.6A4.8 4.8 0 0 1 21.58 9.05L20.2 10.6H17.6A1.4 1.4 0 0 0 17.6 13.4H20.2L21.58 14.95A4.8 4.8 0 0 1 13.64 14.4C13.5 14 13.3 13.65 12.8 13.65H4.9A1.65 1.65 0 0 1 4.9 10.35z';
+
 const ICONS = {
   flag: (
     <>
@@ -24,9 +28,9 @@ const ICONS = {
       <path className="f" d="M12 3l.9 1.8 2 .3-1.45 1.4.35 2-1.8-.95-1.8.95.35-2L9.1 5.1l2-.3z" />
     </>
   ),
-  wrench: (
-    <path d="M15.5 3.5a4.5 4.5 0 0 0-4.2 6.1L4.2 16.7a2.1 2.1 0 0 0 3 3l7.1-7.1a4.5 4.5 0 0 0 6.1-4.2l-2.7 2.7-2.6-.5-.5-2.6z" />
-  ),
+  // An open-end spanner: a straight handle of even width and a round head
+  // with the jaw cut into it, laid on the diagonal.
+  wrench: <path d={WRENCH} transform="rotate(-45 12 12)" />,
   gamepad: (
     <>
       <path d="M7 8h10a4 4 0 0 1 3.9 3.1l.9 4.3a2.4 2.4 0 0 1-4.2 2L15.5 15h-7l-2.1 2.4a2.4 2.4 0 0 1-4.2-2l.9-4.3A4 4 0 0 1 7 8z" />

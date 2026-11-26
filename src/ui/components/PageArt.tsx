@@ -9,6 +9,7 @@
  * `lh` a highlight line.
  */
 import type { ReactNode } from 'react';
+import { WRENCH } from './Icon';
 
 export type ArtKind =
   | 'championship'
@@ -82,11 +83,9 @@ const SCENES: Record<ArtKind, ReactNode> = {
       <path className="l s-line" d="M8 82h80" />
       <path className="s" d="M28 63l-4 19h14l-4-19zM62 63l-4 19h14l-4-19z" />
       <Car x={12} y={40} />
-      <path
-        className="l"
-        transform="translate(52 2) scale(1.45)"
-        d="M15.5 3.5a4.5 4.5 0 0 0-4.2 6.1L4.2 16.7a2.1 2.1 0 0 0 3 3l7.1-7.1a4.5 4.5 0 0 0 6.1-4.2l-2.7 2.7-2.6-.5-.5-2.6z"
-      />
+      <g transform="translate(50 -2) scale(1.7)">
+        <path className="w" d={WRENCH} transform="rotate(-45 12 12)" />
+      </g>
       <Sparkle x={20} y={20} r={5} c="h" />
     </>
   ),
