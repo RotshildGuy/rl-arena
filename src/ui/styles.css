@@ -3007,3 +3007,80 @@ button.primary:hover:not(:disabled) { filter: brightness(1.06); }
 /* The winner's tile shines. */
 :root:not([data-theme='light']) .pos.p1 { background: linear-gradient(135deg, #ffe066, #ffb13d); color: #3a2400; border-inline-start-color: #ffe066; }
 @media (max-width: 900px) { .hero h1 { font-size: 26px; } }
+
+/* ------------------------------------------------ season 6: icons and page art */
+
+/* Our own icons (components/Icon.tsx): one rounded stroke in the text colour. */
+.icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: -0.18em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon .f { fill: currentColor; stroke: none; }
+button .icon { margin-inline-end: 2px; }
+.nav button .glyph { display: grid; place-items: center; }
+.nav button .glyph .icon { width: 22px; height: 22px; }
+
+/* The page illustration (components/PageArt.tsx): a tile with the headline
+   card's ground, so every page opens with the same accent. */
+.page-art {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  padding: 6px;
+  border-radius: 18px;
+  background: var(--hero-bg);
+  box-shadow: var(--hero-shadow);
+  overflow: visible;
+}
+.page-art * { vector-effect: non-scaling-stroke; }
+.page-art .w { fill: #ffffff; }
+.page-art .s { fill: rgba(255, 255, 255, 0.4); }
+.page-art .k { fill: rgba(40, 10, 50, 0.38); }
+.page-art .h { fill: #ffe066; }
+.page-art .l { fill: none; stroke: #ffffff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.page-art .k.l { fill: rgba(40, 10, 50, 0.38); }
+.page-art .s-line { stroke: rgba(255, 255, 255, 0.45); stroke-width: 1.6; }
+.page-art .lh { fill: none; stroke: #ffe066; stroke-width: 2.4; stroke-linecap: round; }
+.page-art .lk { fill: none; stroke: rgba(120, 70, 0, 0.45); stroke-width: 1.8; }
+.page-art .track { fill: none; stroke: rgba(40, 10, 50, 0.35); stroke-width: 10; stroke-linecap: round; }
+.page-art .dash { stroke-dasharray: 4 5; stroke-width: 1.6; }
+.page-art .c1 { fill: #ff3d6e; }
+.page-art .c2 { fill: #2346c8; }
+.page-art .c3 { fill: #ffb13d; }
+.page-art .c4 { fill: #14b8a6; }
+:root[data-theme='light'] .page-art .k,
+:root[data-theme='light'] .page-art .k.l { fill: rgba(17, 19, 24, 0.72); }
+:root[data-theme='light'] .page-art .track { stroke: rgba(255, 255, 255, 0.14); }
+:root[data-theme='light'] .page-art .h { fill: #ff4d6a; }
+:root[data-theme='light'] .page-art .lh { stroke: #ff4d6a; }
+
+/* Bare: no tile, for inside the headline card itself. */
+.page-art.bare { background: none; box-shadow: none; padding: 0; border-radius: 0; width: 100%; height: 100%; }
+.pack-box-mark .icon { width: 1em; height: 1em; }
+
+/* Next to a page title. */
+.toolbar > .page-art { margin-inline-end: 4px; }
+.page-head.with-art { grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center; }
+.page-head.with-art > .page-art { grid-row: span 2; }
+
+/* The car in the headline card: large, at the far end, behind the text. */
+.hero-art-wrap {
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 6px;
+  width: 210px;
+  height: 210px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+@media (max-width: 900px) {
+  .page-art { width: 52px; height: 52px; border-radius: 15px; padding: 5px; }
+  .hero-art-wrap { width: 96px; height: 96px; top: 2px; inset-inline-end: 2px; opacity: 0.55; }
+}
+.toolbar > .page-art + .title { flex: 1 1 0; min-width: 0; }

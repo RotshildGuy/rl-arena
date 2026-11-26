@@ -40,6 +40,8 @@ import { Welcome, hasSeenWelcome, markWelcomeSeen } from '../components/Welcome'
 import { locale, useT } from '../../i18n';
 import { driverName, driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
 import { isolated, Name } from '../components/Name';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
 
 /**
  * The models in this browser's garage. Two panels below need to line the grid up
@@ -151,7 +153,8 @@ export function Championship() {
       {/* The pitch is for somebody new. Once a team has cars on the grid, the
           next race is the headline. */}
       {state && myEntries.length === 0 && (
-        <div className="page-head">
+        <div className="page-head with-art">
+          <PageArt kind="championship" />
           <div className="eyebrow">{c.eyebrow(season)}</div>
           <h1 className="display">
             {t.signin.headline1}
@@ -438,6 +441,9 @@ function NextRace({
 
   return (
     <div className="hero">
+      <span className="hero-art-wrap">
+        <PageArt kind="championship" bare />
+      </span>
       <div style={{ position: 'relative' }}>
         <div className="eyebrow">
           {c.round(round)}
@@ -554,7 +560,7 @@ function AddToCalendar({ round }: { round: number }) {
       onClick={() => window.open(googleCalendarUrl(round, site), '_blank', 'noopener')}
       title={c.calendarTitle(timeText(startsAtForRound(round)))}
     >
-      {c.addCalendar}
+      <Icon name="calendar" /> {c.addCalendar}
     </button>
   );
 }
@@ -850,7 +856,7 @@ function ChampionsBanner({ honours, onOpen }: { honours: SeasonHonours; onOpen()
     <div className="card notched" style={{ marginBottom: 14, borderColor: 'var(--p1)' }}>
       <div className="row wrap">
         <span className="pill" style={{ color: 'var(--p1)', borderColor: 'var(--p1)' }}>
-          {c.champions(honours.season)}
+          <Icon name="trophy" size={14} /> {c.champions(honours.season)}
         </span>
         <span style={{ minWidth: 0, flex: '1 1 260px' }}>
           <b>

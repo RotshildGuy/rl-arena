@@ -29,6 +29,7 @@ import { locale, useT } from '../../i18n';
 import { trackName } from '../../i18n/names';
 import { Name } from '../components/Name';
 import { SETUPS, setupOf } from '../../core/games/racing/setup';
+import { PageArt } from '../components/PageArt';
 
 export function TrainSetup() {
   const s = useT().trainSetup;
@@ -107,6 +108,7 @@ export function TrainSetup() {
   return (
     <>
       <div className="toolbar">
+        <PageArt kind="train" />
         <div className="title">
           <h1 className="display">{continuing ? s.continue : multi ? s.together : s.newModel}</h1>
         </div>

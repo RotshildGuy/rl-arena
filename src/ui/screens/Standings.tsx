@@ -17,6 +17,8 @@ import type { RaceCard, RaceResult } from '../../core/champ/types';
 import { useT } from '../../i18n';
 import { driverName, grandPrixTitle, teamName, trackName } from '../../i18n/names';
 import { isolated, Name } from '../components/Name';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
 
 type Tab = 'drivers' | 'teams' | 'results' | 'records' | 'fame';
 
@@ -86,6 +88,7 @@ export function Standings() {
   return (
     <>
       <div className="toolbar">
+        <PageArt kind="standings" />
         <div className="title">
           <div className="eyebrow">
             {s.season(season)}
@@ -456,7 +459,7 @@ function HallOfFame({ fame }: { fame: SeasonHonours[] }) {
           <div className="cols-2">
             <div>
               <div className="tiny dim" style={{ letterSpacing: '0.08em', marginBottom: 4 }}>
-                {s.driversChampion}
+                <Icon name="trophy" size={13} /> {s.driversChampion}
               </div>
               {h.driver ? (
                 <>

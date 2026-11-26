@@ -32,20 +32,21 @@ import { useIsNarrow } from './device';
 import { track } from '../storage/metrics';
 import { t as words, useT } from '../i18n';
 import { Name } from './components/Name';
+import { Icon, type IconName } from './components/Icon';
 
 interface Tab {
   id: 'championship' | 'standings' | 'library' | 'raceSetup' | 'shop';
-  glyph: string;
+  glyph: IconName;
   /** Other screens that should keep this tab lit. */
   also?: Screen[];
 }
 
 const TABS: Tab[] = [
-  { id: 'championship', glyph: '🏁', also: ['broadcast', 'report'] },
-  { id: 'standings', glyph: '📊' },
-  { id: 'library', glyph: '🔧', also: ['trainSetup', 'training', 'design'] },
-  { id: 'raceSetup', glyph: '🎮', also: ['race'] },
-  { id: 'shop', glyph: '🛒', also: ['bets', 'packs'] },
+  { id: 'championship', glyph: 'flag', also: ['broadcast', 'report'] },
+  { id: 'standings', glyph: 'podium' },
+  { id: 'library', glyph: 'wrench', also: ['trainSetup', 'training', 'design'] },
+  { id: 'raceSetup', glyph: 'gamepad', also: ['race'] },
+  { id: 'shop', glyph: 'bag', also: ['bets', 'packs'] },
 ];
 
 /**
@@ -199,7 +200,7 @@ function Arena() {
               aria-current={screen === tab.id || tab.also?.includes(screen) ? 'page' : undefined}
               onClick={() => go(tab.id)}
             >
-              <span className="glyph" aria-hidden="true">{tab.glyph}</span>
+              <span className="glyph" aria-hidden="true"><Icon name={tab.glyph} /></span>
               <span>{t.app.tabs[tab.id]}</span>
             </button>
           </CoachAnchor>
@@ -238,7 +239,7 @@ function Arena() {
             anonymous identity read as "signed in, my progress is safe". */}
         {auth.anonymous && cloud.state === 'ok' ? (
           <span className="pill small" title={t.app.guestTitle}>
-            👤 {t.app.guest}
+            <Icon name="user" size={14} /> {t.app.guest}
           </span>
         ) : (
           <CloudBadge state={cloud.state} message={cloud.message} />
@@ -353,7 +354,7 @@ function Footer({
   return (
     <footer className="site-foot">
       <button className="ghost small" onClick={onFeedback}>
-        🐞 {f.feedback}
+        <Icon name="chat" size={14} /> {f.feedback}
       </button>
       <span className="dim">·</span>
       <button className="ghost small" onClick={() => onOpen('how')}>
@@ -386,27 +387,27 @@ function CloudBadge({ state, message }: { state: string; message: string | null 
   if (state === 'local') {
     return (
       <span className="pill small" title={c.localTitle}>
-        💾 {c.local}
+        <Icon name="device" size={14} /> {c.local}
       </span>
     );
   }
   if (state === 'connecting') {
     return (
       <span className="pill small" title={c.connectingTitle}>
-        ☁ {c.connecting}
+        <Icon name="cloud" size={14} /> {c.connecting}
       </span>
     );
   }
   if (state === 'ok') {
     return (
       <span className="pill small good" title={c.okTitle}>
-        ☁ {c.ok}
+        <Icon name="cloud" size={14} /> {c.ok}
       </span>
     );
   }
   return (
     <span className="pill small warn" title={message ?? c.failed}>
-      ⚠ {c.unavailable}
+      <Icon name="warning" size={14} /> {c.unavailable}
     </span>
   );
 }

@@ -15,7 +15,7 @@ export const report = {
   toBroadcast: 'לשידור',
   tryTitle: 'רוצים לנסות בעצמכם?',
   tryBody: 'מאמנים נהג בדפדפן, בוחרים איך הוא ינהג, ורושמים אותו למרוץ של מחר. בלי תכנות.',
-  tryButton: '🔧 לבנות נהג משלי',
+  tryButton: 'לבנות נהג משלי',
   copyOf: (driver: string, team: string) => `עותק של ${driver} (${team})`,
   retired: 'פרש',
   podium: 'הפודיום',

@@ -29,6 +29,8 @@ import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
 import { myShop, saveShop } from '../../storage/shop';
 import { useT } from '../../i18n';
 import { Celebration } from '../components/Celebration';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
 
 /** In the order they are shown; titles and hints are in the dictionary (`shop.sections`). */
 const SECTIONS: SlotKind[] = ['color', 'pattern', 'shape', 'secondary', 'wing', 'rim', 'helmet', 'smoke', 'celebration'];
@@ -166,13 +168,14 @@ export function Shop() {
   return (
     <>
       <div className="toolbar">
+        <PageArt kind="shop" />
         <div className="title">
           <h1 className="display">{s.title}</h1>
           <div className="muted small">{s.intro}</div>
         </div>
         <div className="actions">
           <button className="small" onClick={() => go('packs')}>
-            🎁 {words.packShop.toPacks}
+            <Icon name="gift" /> {words.packShop.toPacks}
           </button>
           <span className="pill" style={{ fontSize: 15 }}>
             <Coin /> <span className="mono" style={{ fontWeight: 800 }}>{balance}</span> {s.coins}
@@ -362,7 +365,7 @@ export function Shop() {
               </div>
             )}
             <button className="small" style={{ marginTop: 8 }} onClick={() => go('bets')}>
-              🎲 {words.bets.open}
+              <Icon name="dice" /> {words.bets.open}
             </button>
           </details>
         </div>
@@ -427,7 +430,7 @@ function Swatch({
       )}
       <span className="swatch-price">
         {owned ? (
-          on ? '✓' : ''
+          on ? <Icon name="check" size={14} /> : ''
         ) : (
           <>
             <Coin /> {item.price}

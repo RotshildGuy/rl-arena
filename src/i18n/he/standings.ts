@@ -45,7 +45,7 @@ export const standings = {
   raceRecord: (laps: number) => `שיא מרוץ (${laps} הקפות)`,
   noChampions: 'עוד אין אלופים',
   championsWhen: 'אלוף הנהגים ואלוף הקבוצות של כל עונה נכנסים לכאן ברגע שהמרוץ האחרון שלה מסתיים.',
-  driversChampion: '🏆 אלוף הנהגים',
+  driversChampion: 'אלוף הנהגים',
   teamsChampion: 'אלופת הקבוצות',
   pointsWins: (wins: number) => ` נקודות · ${wins} ניצחונות`,
   ahead: (by: number, name: string) => ` · ${by} לפני ${name}`,

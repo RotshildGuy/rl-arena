@@ -36,6 +36,8 @@ import { CoachAnchor, modelsChanged, useCoachStep } from '../coach';
 import { locale, useT } from '../../i18n';
 import { grandPrixTitle, trackName } from '../../i18n/names';
 import { Name } from '../components/Name';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
 
 export function Garage() {
   const t = useT();
@@ -253,6 +255,7 @@ export function Garage() {
   return (
     <>
       <div className="toolbar">
+        <PageArt kind="garage" />
         <div className="title">
           <h1 className="display">{g.title}</h1>
         </div>
@@ -316,7 +319,7 @@ export function Garage() {
                   {g.team(team)}
                 </span>
                 <button className="small" onClick={() => go('design')}>
-                  🎨 {g.design}
+                  <Icon name="palette" /> {g.design}
                 </button>
                 <span className={gridFull ? 'pill warn' : 'muted'}>
                   {g.onTrack(myCars.length, MAX_ENTRIES_PER_TEAM)}

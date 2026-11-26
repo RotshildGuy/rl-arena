@@ -33,7 +33,7 @@ export const race = {
   loadingRivals: 'טוען את היריבים…',
   go: 'צאו!',
   margin: (s: string) => ` ב-${s} שנ׳`,
-  youWon: (margin: string) => `ניצחתם${margin}! 🏆`,
+  youWon: (margin: string) => `ניצחתם${margin}!`,
   won: (name: string, margin: string) => `${name} ניצח${margin}`,
   youLed: (noun: string) => `הובלתם כש${noun} נעצר`,
   led: (name: string, noun: string) => `${name} הוביל כש${noun} נעצר`,

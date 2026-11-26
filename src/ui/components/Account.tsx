@@ -13,6 +13,7 @@ import {
   switchAccount,
 } from '../auth';
 import { t, useT } from '../../i18n';
+import { Icon } from './Icon';
 
 const MIN_PASSWORD = 6;
 
@@ -42,7 +43,7 @@ export function AccountButton() {
         aria-label={linked ? a.mine : a.save}
         title={linked ? a.signedInAs(auth.email) : a.anonymousTitle}
       >
-        <span className="glyph" aria-hidden="true">{linked ? '👤' : '🔗'}</span>
+        <span className="glyph" aria-hidden="true"><Icon name={linked ? 'user' : 'link'} /></span>
         <span className="txt">{linked ? a.mine : a.save}</span>
       </button>
       {open && <AccountModal onClose={() => setOpen(false)} />}

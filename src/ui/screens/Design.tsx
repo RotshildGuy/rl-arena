@@ -14,6 +14,8 @@ import { Podium } from '../components/Podium';
 import { Trophy } from '../components/Trophy';
 import { Celebration } from '../components/Celebration';
 import { CarNumbers } from './Shop';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
 
 /** Every part of the look, in the order the screen lists them: the car, then sound, then the podium. */
 const PARTS: SlotKind[] = [
@@ -139,6 +141,7 @@ export function Design() {
   return (
     <>
       <div className="toolbar">
+        <PageArt kind="design" />
         <div className="title">
           <div className="eyebrow">{d.eyebrow}</div>
           <h1 className="display">{d.title}</h1>
@@ -149,10 +152,10 @@ export function Design() {
             {d.back}
           </button>
           <button className="small" onClick={() => go('shop')}>
-            🛒 {d.toShop}
+            <Icon name="bag" /> {d.toShop}
           </button>
           <button className="small" onClick={() => go('packs')}>
-            🎁 {words.packShop.toPacks}
+            <Icon name="gift" /> {words.packShop.toPacks}
           </button>
         </div>
       </div>
@@ -306,9 +309,9 @@ function DefaultArtOf({ kind, team, base, look, color }: { kind: SlotKind; team:
     case 'shape':
       return <TinyCar color={color} look={{ ...look, shape: 'classic', number: undefined, emblem: undefined }} />;
     case 'engine':
-      return <span>🔊</span>;
+      return <Icon name="sound" size={22} />;
     default:
-      return <span className="design-x">✕</span>;
+      return <span className="design-x"><Icon name="close" /></span>;
   }
 }
 
@@ -372,13 +375,13 @@ function PrizeArt({ item, color }: { item: ShopItem; color: string }) {
     case 'banner':
       return <span className={`prize-swatch banner banner-${item.value}`} />;
     case 'engine':
-      return <span>🔊</span>;
+      return <Icon name="sound" size={22} />;
     case 'finish':
-      return <span>✨</span>;
+      return <Icon name="sparkle" size={22} />;
     case 'title':
-      return <span>🏷️</span>;
+      return <Icon name="tag" size={22} />;
     case 'quote':
-      return <span>📻</span>;
+      return <Icon name="radio" size={22} />;
     default:
       return null;
   }

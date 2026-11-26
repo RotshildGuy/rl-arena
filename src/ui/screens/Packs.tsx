@@ -23,6 +23,8 @@ import { myShop, onShopChanged } from '../../storage/shop';
 import { useT } from '../../i18n';
 import { dateText, whenText } from '../format';
 import { ItemArt } from './Design';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
 
 /** Packs this browser has already watched being opened: the reveal is shown once, the prizes are the team's either way. */
 const SEEN_KEY = 'rl-arena-packs-seen';
@@ -100,6 +102,7 @@ export function Packs() {
   return (
     <div className="packs-screen">
       <div className="toolbar">
+        <PageArt kind="packs" />
         <div className="title">
           <h1 className="display">{p.title}</h1>
           <div className="muted small">{p.intro}</div>
@@ -111,7 +114,7 @@ export function Packs() {
 
       {!open ? (
         <div className="card notched small" style={{ marginBottom: 14 }}>
-          🔒 {p.locked(PACKS_SEASON, dateText(lockAtForRound(firstPackRound)))}
+          <Icon name="lock" /> {p.locked(PACKS_SEASON, dateText(lockAtForRound(firstPackRound)))}
         </div>
       ) : (
         <div className="card notched" style={{ marginBottom: 14 }}>
@@ -123,7 +126,7 @@ export function Packs() {
                 const last = i === STREAK_DAYS - 1;
                 return (
                   <span key={i} className={`pack-streak-dot ${filled ? 'on' : ''} ${last ? 'premium' : ''}`}>
-                    {last ? '★' : i + 1}
+                    {last ? <Icon name="star" size={14} /> : i + 1}
                   </span>
                 );
               })}
@@ -149,7 +152,7 @@ export function Packs() {
             <div className="eyebrow">{p.ready}</div>
             <div className="fill" />
             <button className="primary" onClick={() => setOpening(ready)}>
-              🎁 {ready.length > 1 ? `${p.openAll} (${ready.length})` : p.open}
+              <Icon name="gift" /> {ready.length > 1 ? `${p.openAll} (${ready.length})` : p.open}
             </button>
           </div>
           <div className="pack-row">
@@ -160,7 +163,7 @@ export function Packs() {
                 onClick={() => setOpening([o])}
                 aria-label={`${p.open} ${p.packOf(dayDate(o.gift))}`}
               >
-                <span className="pack-box-mark">{o.type === 'premium' ? '★' : '?'}</span>
+                <span className="pack-box-mark">{o.type === 'premium' ? <Icon name="star" /> : '?'}</span>
                 <span className="tiny">{dayDate(o.gift)}</span>
               </button>
             ))}
@@ -176,7 +179,7 @@ export function Packs() {
           <div className="pack-row">
             {box.waiting.map(({ gift, type }) => (
               <div key={gift.day} className={`pack-box pack-${type} small-box sealed`}>
-                <span className="pack-box-mark">🔒</span>
+                <span className="pack-box-mark"><Icon name="lock" /></span>
                 <span className="tiny">{dayDate(gift)}</span>
               </div>
             ))}
@@ -191,7 +194,7 @@ export function Packs() {
         {PACK_TYPES.map((type) => (
           <div key={type.id} className="card notched pack-type">
             <div className={`pack-box pack-${type.id}`} aria-hidden="true">
-              <span className="pack-box-mark">{type.id === 'premium' ? '★' : '?'}</span>
+              <span className="pack-box-mark">{type.id === 'premium' ? <Icon name="star" /> : '?'}</span>
             </div>
             <div className="pack-type-body">
               <h2 style={{ margin: 0 }}>{p.types[type.id].name}</h2>
@@ -227,7 +230,7 @@ export function Packs() {
         {history.map((o) => (
           <div key={o.gift.day} className="pack-history-row">
             <span className="small" style={{ minWidth: 110 }}>
-              {o.type === 'premium' ? '★ ' : ''}
+              {o.type === 'premium' ? <><Icon name="star" size={13} /> </> : ''}
               {p.packOf(dayDate(o.gift))}
             </span>
             <div className="prize-chips" style={{ flex: 1 }}>
@@ -339,7 +342,7 @@ function PackOpening({ packs, color, look, onDone }: { packs: OpenedPack[]; colo
         </div>
         {shown < 0 ? (
           <div className={`pack-box pack-${pack.type} big-box shake`}>
-            <span className="pack-box-mark">{pack.type === 'premium' ? '★' : '?'}</span>
+            <span className="pack-box-mark">{pack.type === 'premium' ? <Icon name="star" /> : '?'}</span>
           </div>
         ) : (
           <div className="pack-cards">

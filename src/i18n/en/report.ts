@@ -16,7 +16,7 @@ export const report: typeof He.report = {
   toBroadcast: 'To the broadcast',
   tryTitle: 'Want to try it yourself?',
   tryBody: "Train a driver in the browser, choose how it drives, and enter it in tomorrow's race. No coding.",
-  tryButton: '🔧 Build my own driver',
+  tryButton: 'Build my own driver',
   copyOf: (driver, team) => `Copy of ${driver} (${team})`,
   retired: 'Out',
   podium: 'Podium',

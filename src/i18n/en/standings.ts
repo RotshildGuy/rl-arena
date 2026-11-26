@@ -46,7 +46,7 @@ export const standings: typeof He.standings = {
   raceRecord: (laps) => `Race record (${laps} laps)`,
   noChampions: 'No champions yet',
   championsWhen: "Each season's drivers' and teams' champions come in here as soon as its last race finishes.",
-  driversChampion: "🏆 Drivers' champion",
+  driversChampion: "Drivers' champion",
   teamsChampion: "Teams' champion",
   pointsWins: (wins) => ` points · ${wins} wins`,
   ahead: (by, name) => ` · ${by} ahead of ${name}`,
