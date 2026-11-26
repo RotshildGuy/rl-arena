@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { earnedCoins } from '../core/champ/coins';
 import { normalizeShop, spent, validLook, type Paint } from '../core/champ/shop';
-import { teamPrizes } from '../core/champ/packs';
+import { teamLocker } from '../core/champ/packs';
 import { settledResults } from '../core/champ/timing';
 import type { RaceCard, RaceResult } from '../core/champ/types';
 import { getShop } from '../storage/shop';
@@ -68,16 +68,18 @@ export function useTeamPaint(uids: string[]): Map<string, TeamPaint> {
       // Coins won betting are coins too. The server's figure where there is
       // one; without the cloud this browser's own bets, settled here.
       const published = betNets.get(uid);
-      const earned = earnedFor(uid, state.cards, state.results);
+      const shop = normalizeShop(doc);
+      // Prizes count only as the team's packs gave them (the dev server's sample
+      // teams also wear a list), and duplicates in them pay coins.
+      const box = teamLocker(uid, shop.gifts, state.cards);
+      const earned = earnedFor(uid, state.cards, state.results) + box.coins;
       let betNet = published ?? 0;
       if (published === null && uid === state.uid) {
         const now = Date.now();
-        const budget = earned - spent(normalizeShop(doc).purchases);
+        const budget = earned - spent(shop.purchases);
         betNet = betBook(localBets(), budget, state.cards, settledResults(state.cards, state.results, now), now).settledNet;
       }
-      // Prizes count only as the team's packs gave them (the dev server's sample teams also wear a list).
-      const won = teamPrizes(uid, normalizeShop(doc), state.cards);
-      const paint = validLook(doc, earned + betNet, { packs: DEMO_PACKS, won });
+      const paint = validLook(doc, earned + betNet, { packs: DEMO_PACKS, won: box.owned });
       if (paint) out.set(uid, paint);
     }
     return out;

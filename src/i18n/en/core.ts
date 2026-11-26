@@ -167,6 +167,7 @@ export const coins: typeof He.coins = {
   firstWin: 'First win',
   clean: 'A whole race without touching the wall',
   tenRaces: 'Ten races',
+  dupes: (n) => `Duplicates in packs (${n})`,
 };
 
 export const diagnose: typeof He.diagnose = {

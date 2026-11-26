@@ -242,7 +242,7 @@ export interface ShopDoc {
   updatedAt: number;
   /**
    * A hand-written list of prizes, honoured only for the dev server's sample
-   * teams (`?demo`). Real teams own what their `gifts` and `crafted` give,
+   * teams (`?demo`). Real teams own what their `gifts` give,
    * worked out by every browser (`packs.ts`); a list like this proves nothing.
    */
   prizes?: string[];
@@ -251,8 +251,6 @@ export interface ShopDoc {
    * one's prizes are worked out from it and the race card, never stored.
    */
   gifts?: GiftRecord[];
-  /** Prizes bought with chips, in order. Each is taken only if the chips were there. */
-  crafted?: string[];
 }
 
 /** The kinds equipped by item id: one item of each on the car at a time. */
@@ -301,14 +299,12 @@ export function normalizeShop(raw: unknown): ShopDoc {
   if (emblem) equipped.emblem = emblem;
   const prizes = Array.isArray(d.prizes) ? d.prizes.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
   const gifts = normalizeGifts(d.gifts);
-  const crafted = Array.isArray(d.crafted) ? d.crafted.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
   return {
     purchases,
     equipped,
     updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0,
     ...(prizes.length ? { prizes } : {}),
     ...(gifts.length ? { gifts } : {}),
-    ...(crafted.length ? { crafted } : {}),
   };
 }
 
@@ -353,7 +349,7 @@ export interface PrizeOpts {
   /** Honour the hand-written `prizes` list: only the dev server's sample teams (`?demo`). */
   packs?: boolean;
   /**
-   * The prizes the team's packs and chips gave, worked out from its gift
+   * The prizes the team's packs gave, worked out from its gift
    * records and the race cards (`teamPrizes` in `packs.ts`). The only way a
    * real team owns a prize: a list the team writes itself proves nothing.
    */

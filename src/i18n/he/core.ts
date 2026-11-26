@@ -174,6 +174,7 @@ export const coins = {
   firstWin: 'ניצחון ראשון',
   clean: 'מרוץ שלם בלי לגעת בקיר',
   tenRaces: 'עשרה מרוצים',
+  dupes: (n: number) => `כפולים בחבילות (${n})`,
 };
 
 export const diagnose = {

@@ -272,8 +272,8 @@ service cloud.firestore {
     // a pack gave is never written: every browser works it out from the claim
     // and the card, and counts the streak (every third day in a row is a
     // premium pack) from the days. Packs are never bought; nothing here costs
-    // coins. `crafted` is the prizes picked with chips; browsers check them
-    // against the chips the packs gave. `prizes` is read only for the dev
+    // coins, and the coins a duplicate pays are worked out the same way, never
+    // written. `prizes` is read only for the dev
     // server's sample teams. `equipped` holds up to 23 fields with the prizes on.
     match /shop/{uid} {
       function giftsBefore() {
@@ -314,13 +314,12 @@ service cloud.firestore {
       allow get: if true;
       allow list: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt', 'prizes', 'gifts', 'crafted'])
+        && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt', 'prizes', 'gifts'])
         && request.resource.data.purchases is list
         && request.resource.data.purchases.size() <= 100
         && request.resource.data.equipped is map
         && request.resource.data.equipped.size() <= 24
         && (!('prizes' in request.resource.data) || (request.resource.data.prizes is list && request.resource.data.prizes.size() <= 100))
-        && (!('crafted' in request.resource.data) || (request.resource.data.crafted is list && request.resource.data.crafted.size() <= 300))
         && stamped(request.resource.data.updatedAt)
         && giftsOk();
     }

@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
-import { ITEM_BY_ID, PACKS_SEASON, RARITIES, normalizeShop, paintOf, type Rarity, type ShopDoc, type ShopItem } from '../../core/champ/shop';
+import { ITEM_BY_ID, PACKS_SEASON, RARITIES, normalizeShop, paintOf, type ShopDoc } from '../../core/champ/shop';
 import {
-  CRAFT_COST,
   DAY_MS,
-  DUPE_CHIPS,
+  DUPE_COINS,
   PACK_TYPES,
   STREAK_DAYS,
   currentStreak,
@@ -20,7 +19,7 @@ import {
 import { lockAtForRound, seasonRange } from '../../core/champ/schedule';
 import { teamColor, teamLook } from '../../core/champ/livery';
 import type { CarLook } from '../../core/games/racing/render';
-import { myShop, onShopChanged, saveShop } from '../../storage/shop';
+import { myShop, onShopChanged } from '../../storage/shop';
 import { useT } from '../../i18n';
 import { dateText, whenText } from '../format';
 import { ItemArt } from './Design';
@@ -55,11 +54,10 @@ export function Packs() {
   const words = useT();
   const p = words.packShop;
   const rarityWords = words.shop.packs.rarity;
-  const { competitor, showToast, go } = useApp();
+  const { competitor, go } = useApp();
   const { state } = useChampionship();
   const now = useNow(15_000);
   const [doc, setDoc] = useState<ShopDoc | null>(null);
-  const [busy, setBusy] = useState(false);
   const [seen, setSeen] = useState(readSeen);
   const [opening, setOpening] = useState<OpenedPack[] | null>(null);
   const [tick, setTick] = useState(0);
@@ -72,7 +70,7 @@ export function Packs() {
     void myShop(uid).then((d) => setDoc(normalizeShop(d)));
   }, [uid, tick]);
 
-  const box = useMemo(() => (doc && state ? locker(uid, doc.gifts ?? [], doc.crafted ?? [], state.cards) : null), [doc, state, uid]);
+  const box = useMemo(() => (doc && state ? locker(uid, doc.gifts ?? [], state.cards) : null), [doc, state, uid]);
 
   if (!state || !doc || !box) return <PageSkeleton variant="cards" />;
 
@@ -93,21 +91,6 @@ export function Packs() {
   const history = box.opened.filter((o) => seen.has(key(o.gift))).reverse();
   const prizes = packPrizes();
 
-  const craft = async (it: ShopItem) => {
-    if (busy || !it.rarity || CRAFT_COST[it.rarity] > box.chips) return;
-    const next: ShopDoc = { ...doc, crafted: [...(doc.crafted ?? []), it.id] };
-    setBusy(true);
-    try {
-      await saveShop(uid, next);
-      setDoc(next);
-      showToast(p.crafted(it.label));
-    } catch (e) {
-      showToast((e as { code?: string })?.code === 'permission-denied' ? p.denied : p.failed);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const finishOpening = (list: OpenedPack[]) => {
     markSeen(list.map((o) => key(o.gift)));
     setSeen(readSeen());
@@ -124,9 +107,7 @@ export function Packs() {
           <div className="muted small">{p.noMoney}</div>
         </div>
         <div className="actions">
-          <span className="pill" style={{ fontSize: 15 }}>
-            <span aria-hidden="true">◆</span> <span className="mono" style={{ fontWeight: 800 }}>{box.chips}</span> {p.chips}
-          </span>
+          <span className="pill">{p.collection(box.owned.size, prizes.length)}</span>
         </div>
       </div>
 
@@ -260,7 +241,7 @@ export function Packs() {
                       <ItemArt item={it} color={color} look={look} />
                     </span>
                     <span className="prize-label">{it.label}</span>
-                    <span className="prize-rarity">{x.dupe ? p.dupe(x.chips) : rarityWords[it.rarity!]}</span>
+                    <span className="prize-rarity">{x.dupe ? p.dupe(x.coins) : rarityWords[it.rarity!]}</span>
                   </span>
                 );
               })}
@@ -279,56 +260,32 @@ export function Packs() {
 
       <div className="card notched" style={{ marginBottom: 14 }}>
         <div className="head">
-          <div className="eyebrow">{p.workshop}</div>
+          <div className="eyebrow">{p.dupes}</div>
           <div className="fill" />
-          <span className="tiny muted">{p.collection(box.owned.size, prizes.length)}</span>
+          <span className="tiny muted">
+            {p.dupesTotal}{' '}
+            <span className="mono" dir="ltr" style={{ fontWeight: 800 }}>
+              +{box.coins}
+            </span>
+          </span>
         </div>
         <div className="small muted" style={{ margin: '6px 0 8px' }}>
-          {p.workshopIntro}
+          {p.dupesIntro}
         </div>
-        <div className="pack-odds" style={{ marginBottom: 10 }}>
+        <div className="pack-odds">
           {RARITIES.map((r) => (
             <div key={r} className={`pack-odd rarity-${r}`}>
-              <span>
-                {p.dupeValue} ({rarityWords[r]})
-              </span>
+              <span>{rarityWords[r]}</span>
               <span className="mono" dir="ltr">
-                +{DUPE_CHIPS[r]}
+                +{DUPE_COINS[r]}
               </span>
             </div>
           ))}
         </div>
-        {box.owned.size >= prizes.length ? (
-          <div className="small">{p.allOwned}</div>
-        ) : (
-          RARITIES.map((r: Rarity) => {
-            const missing = prizes.filter((it) => it.rarity === r && !box.owned.has(it.id));
-            if (!missing.length) return null;
-            return (
-              <details key={r} className="pack-workshop-group">
-                <summary className={`small pack-rarity-head rarity-${r}`}>
-                  {rarityWords[r]} · {p.craft(CRAFT_COST[r])} · {missing.length}
-                </summary>
-                <div className="prize-chips">
-                  {missing.map((it) => (
-                    <button
-                      key={it.id}
-                      className={`prize-chip rarity-${r}`}
-                      disabled={busy || CRAFT_COST[r] > box.chips}
-                      onClick={() => void craft(it)}
-                      title={it.label}
-                    >
-                      <span className="prize-art" aria-hidden="true">
-                        <ItemArt item={it} color={color} look={look} />
-                      </span>
-                      <span className="prize-label">{it.label}</span>
-                      <span className="prize-rarity">◆ {CRAFT_COST[r]}</span>
-                    </button>
-                  ))}
-                </div>
-              </details>
-            );
-          })
+        {box.owned.size >= prizes.length && (
+          <div className="small" style={{ marginTop: 8 }}>
+            {p.allOwned}
+          </div>
         )}
       </div>
 
@@ -401,7 +358,7 @@ function PackOpening({ packs, color, look, onDone }: { packs: OpenedPack[]; colo
                         <ItemArt item={it} color={color} look={look} />
                       </span>
                       <span className="pack-card-label">{it.label}</span>
-                      <span className={`pack-card-tag ${x.dupe ? 'dupe' : 'new'}`}>{x.dupe ? p.dupe(x.chips) : p.isNew}</span>
+                      <span className={`pack-card-tag ${x.dupe ? 'dupe' : 'new'}`}>{x.dupe ? p.dupe(x.coins) : p.isNew}</span>
                     </div>
                   </div>
                 </div>

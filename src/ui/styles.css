@@ -2834,5 +2834,3 @@ button.sliders-fab:not(.primary):active:not(:disabled) { background: var(--surfa
 .pack-streak-dot.on { border-style: solid; border-color: #38bdf8; background: rgba(56, 189, 248, 0.15); color: var(--text); }
 .pack-streak-dot.premium { border-color: #e6b422; color: #e6b422; }
 .pack-streak-dot.premium.on { background: linear-gradient(135deg, #7a5a08, #e6b422); color: #fff; }
-.pack-workshop-group { margin-bottom: 8px; }
-.pack-workshop-group > summary { cursor: pointer; padding: 6px 0; }

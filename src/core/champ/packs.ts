@@ -27,7 +27,8 @@ import type { RaceCard } from './types';
  *
  * The rules allow one claim per day, dated by the server's clock, and refuse
  * one whose round already has its card; `giftValid` refuses one stamped after
- * that round's lock. Duplicates turn into chips (see `locker`).
+ * that round's lock. A duplicate pays coins, by its rarity (see `locker`):
+ * worked out from the same public data, so every browser agrees on them.
  */
 
 export type PackTypeId = 'standard' | 'premium';
@@ -40,7 +41,6 @@ export interface PackType {
   odds: Record<Rarity, number>;
 }
 
-/** Proposed defaults, awaiting the owner's go-ahead on the odds. */
 export const PACK_TYPES: readonly PackType[] = [
   { id: 'standard', items: 3, odds: { common: 68, rare: 24, epic: 7, legendary: 1 } },
   { id: 'premium', items: 3, odds: { common: 35, rare: 40, epic: 20, legendary: 5 } },
@@ -50,10 +50,8 @@ export const PACK_BY_ID = new Map(PACK_TYPES.map((p) => [p.id, p]));
 /** Every this many days in a row, the day's pack is premium. */
 export const STREAK_DAYS = 3;
 
-/** What a duplicate is worth, by its rarity. */
-export const DUPE_CHIPS: Record<Rarity, number> = { common: 10, rare: 25, epic: 60, legendary: 150 };
-/** What a chosen prize costs in chips, by its rarity. */
-export const CRAFT_COST: Record<Rarity, number> = { common: 40, rare: 100, epic: 250, legendary: 600 };
+/** The coins a duplicate pays, by its rarity: spendable once its pack opens. */
+export const DUPE_COINS: Record<Rarity, number> = { common: 10, rare: 25, epic: 60, legendary: 150 };
 
 /** How many claims a team's document may hold (the rules cap the list too): years of days. */
 export const MAX_GIFTS = 2000;
@@ -214,29 +212,27 @@ export interface OpenedPack {
   gift: GiftRecord;
   type: PackTypeId;
   card: RaceCard;
-  items: Array<{ id: string; dupe: boolean; chips: number }>;
+  items: Array<{ id: string; dupe: boolean; coins: number }>;
 }
 
 export interface Locker {
-  /** Every prize the team owns: from a pack or bought with chips. */
+  /** Every prize the team's packs gave. */
   owned: Set<string>;
-  chips: number;
+  /** Coins from duplicates, in packs already opened. */
+  coins: number;
   opened: OpenedPack[];
   /** Claimed, waiting for their lock. */
   waiting: Array<{ gift: GiftRecord; type: PackTypeId }>;
-  /** The chip purchases that went through. */
-  crafted: string[];
 }
 
 /**
- * A team's prizes, worked out from scratch: every honest pack in day order
- * (a prize the team already has is a duplicate, worth chips), then every chip
- * purchase in order, each taken only if the chips are there. The same in
- * every browser, from public data.
+ * A team's packs, worked out from scratch: every honest pack in day order
+ * whose lock has come; a prize the team already has is a duplicate, worth
+ * coins. The same in every browser, from public data.
  */
-export function locker(uid: string, gifts: GiftRecord[], crafted: string[], cards: RaceCard[]): Locker {
+export function locker(uid: string, gifts: GiftRecord[], cards: RaceCard[]): Locker {
   const owned = new Set<string>();
-  let chips = 0;
+  let coins = 0;
   const opened: OpenedPack[] = [];
   const waiting: Locker['waiting'] = [];
   for (const { gift, type } of giftPacks(gifts)) {
@@ -247,24 +243,14 @@ export function locker(uid: string, gifts: GiftRecord[], crafted: string[], card
     }
     const items = packContents(uid, gift.day, type, card).map((id) => {
       const dupe = owned.has(id);
-      const worth = dupe ? DUPE_CHIPS[ITEM_BY_ID.get(id)!.rarity!] : 0;
-      chips += worth;
+      const worth = dupe ? DUPE_COINS[ITEM_BY_ID.get(id)!.rarity!] : 0;
+      coins += worth;
       owned.add(id);
-      return { id, dupe, chips: worth };
+      return { id, dupe, coins: worth };
     });
     opened.push({ gift, type, card, items });
   }
-  const took: string[] = [];
-  for (const id of crafted) {
-    const it = ITEM_BY_ID.get(id);
-    if (!it?.pack || !it.rarity || owned.has(id)) continue;
-    const cost = CRAFT_COST[it.rarity];
-    if (cost > chips) continue;
-    chips -= cost;
-    owned.add(id);
-    took.push(id);
-  }
-  return { owned, chips, opened, waiting, crafted: took };
+  return { owned, coins, opened, waiting };
 }
 
 /** The chance, in percent, that one prize of a pack is this particular item. */
@@ -274,8 +260,24 @@ export function itemChance(type: PackType, id: string): number {
   return type.odds[rarity] / packPrizes().filter((x) => x.rarity === rarity).length;
 }
 
+/**
+ * What a team's packs gave, from its gift claims: the prizes (`validLook`'s
+ * `opts.won`) and the coins from duplicates (`earnedCoins`' `gifts`).
+ * Worked out once per claim list and set of cards.
+ */
+const lockerCache = new WeakMap<object, WeakMap<object, Map<string, Locker>>>();
+export function teamLocker(uid: string, gifts: GiftRecord[] | undefined, cards: RaceCard[]): Locker {
+  if (!uid || !gifts?.length) return { owned: new Set(), coins: 0, opened: [], waiting: [] };
+  let byCards = lockerCache.get(gifts);
+  if (!byCards) lockerCache.set(gifts, (byCards = new WeakMap()));
+  let byUid = byCards.get(cards);
+  if (!byUid) byCards.set(cards, (byUid = new Map()));
+  let box = byUid.get(uid);
+  if (!box) byUid.set(uid, (box = locker(uid, gifts, cards)));
+  return box;
+}
+
 /** A team's prizes from its shop document, as `validLook` takes them (`opts.won`). */
-export function teamPrizes(uid: string, doc: { gifts?: GiftRecord[]; crafted?: string[] }, cards: RaceCard[]): Set<string> {
-  if (!doc.gifts?.length) return new Set();
-  return locker(uid, doc.gifts, doc.crafted ?? [], cards).owned;
+export function teamPrizes(uid: string, doc: { gifts?: GiftRecord[] }, cards: RaceCard[]): Set<string> {
+  return teamLocker(uid, doc.gifts, cards).owned;
 }

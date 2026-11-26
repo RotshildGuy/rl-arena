@@ -63,10 +63,10 @@ export function Shop() {
 
   const mine = useMyBets(doc);
   const wallet = useMemo(() => {
-    if (!state) return null;
+    if (!state || !doc) return null;
     const now = Date.now();
-    return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
-  }, [state, uid]);
+    return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now, doc.gifts);
+  }, [state, uid, doc]);
 
   if (!state || !wallet || !doc || !mine) return <PageSkeleton variant="cards" />;
 

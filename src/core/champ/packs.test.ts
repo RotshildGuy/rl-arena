@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CRAFT_COST,
   DAY_MS,
-  DUPE_CHIPS,
+  DUPE_COINS,
   PACK_TYPES,
   currentStreak,
   giftDay,
@@ -20,6 +19,7 @@ import {
 } from './packs';
 import { ITEM_BY_ID, PACKS_SEASON, RARITIES, SHOP_ITEMS, normalizeShop, spent, validLook } from './shop';
 import { TITLES, QUOTES } from './prizeSet';
+import { earnedCoins } from './coins';
 import { lockAtForRound, raceIdForRound, seasonForRound, seasonRange } from './schedule';
 import type { RaceCard } from './types';
 
@@ -103,10 +103,10 @@ describe('daily packs', () => {
 
   it('wait for the lock of their round, and count only when claimed before it, on their day', () => {
     const g = gift(R + 1);
-    expect(locker('u', [g], [], [card(R)]).waiting).toHaveLength(1);
-    expect(locker('u', [g], [], [card(R), card(R + 1)]).opened).toHaveLength(1);
+    expect(locker('u', [g], [card(R)]).waiting).toHaveLength(1);
+    expect(locker('u', [g], [card(R), card(R + 1)]).opened).toHaveLength(1);
     // A thin grid that day: the next card opens it.
-    expect(locker('u', [g], [], [card(R + 2)]).opened[0].card.round).toBe(R + 2);
+    expect(locker('u', [g], [card(R + 2)]).opened[0].card.round).toBe(R + 2);
     expect(giftValid(g)).toBe(true);
     expect(giftValid({ ...g, at: lockAtForRound(g.round) + 1, day: giftDay(lockAtForRound(g.round) + 1) })).toBe(false);
     expect(giftValid({ ...g, day: g.day - 3 })).toBe(false);
@@ -115,18 +115,23 @@ describe('daily packs', () => {
     expect(packRound(lockAtForRound(R) + 1)).toBe(R + 1);
   });
 
-  it('turn duplicates into chips, and chips into a chosen prize only when they are there', () => {
+  it('pay coins for duplicates, counted with the rest of the income once the pack opens', () => {
     const { gifts, cards } = days(40);
-    const box = locker('u', gifts, [], cards);
+    const box = locker('u', gifts, cards);
     const drawn = box.opened.flatMap((o) => o.items);
     const dupes = drawn.filter((x) => x.dupe);
-    expect(box.chips).toBe(dupes.reduce((s, x) => s + DUPE_CHIPS[ITEM_BY_ID.get(x.id)!.rarity!], 0));
+    expect(dupes.length).toBeGreaterThan(0);
+    expect(box.coins).toBe(dupes.reduce((s, x) => s + DUPE_COINS[ITEM_BY_ID.get(x.id)!.rarity!], 0));
     expect(box.owned.size).toBe(drawn.length - dupes.length);
-    const missing = packPrizes().filter((it) => !box.owned.has(it.id));
-    const after = locker('u', gifts, missing.map((m) => m.id), cards);
-    expect(after.chips).toBeGreaterThanOrEqual(0);
-    const legend = missing.find((m) => m.rarity === 'legendary');
-    if (legend && box.chips < CRAFT_COST.legendary) expect(locker('u', gifts, [legend.id], cards).owned.has(legend.id)).toBe(false);
+    // Every browser counts them in the wallet, from the claims and the cards alone.
+    const none = new Map();
+    expect(earnedCoins('u', cards, none, 0, gifts).total).toBe(box.coins);
+    expect(earnedCoins('u', cards, none, 0).total).toBe(0);
+    // A pack still waiting for its lock pays nothing yet.
+    const early = locker('u', gifts, cards.slice(0, 20));
+    expect(early.waiting).toHaveLength(20);
+    expect(earnedCoins('u', cards.slice(0, 20), none, 0, gifts).total).toBe(early.coins);
+    expect(early.coins).toBeLessThanOrEqual(box.coins);
   });
 
   it('cost nothing: no pack and no prize is ever bought with coins', () => {
