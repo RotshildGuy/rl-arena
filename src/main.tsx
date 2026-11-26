@@ -25,7 +25,9 @@ registerServiceWorker();
 void startFreshIfNewEpoch().then(async () => {
   // Sample teams and races for the dev server (`?demo`); stripped from production builds.
   if (import.meta.env.DEV && new URLSearchParams(location.search).has('demo')) {
-    await (await import('./dev/demo')).seedDemo();
+    const demo = await import('./dev/demo');
+    demo.shiftDemoClock();
+    await demo.seedDemo();
   }
 
   const [{ App }, { ErrorBoundary }, { useApp }, { startAuth }] = await Promise.all([

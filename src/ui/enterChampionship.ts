@@ -1,3 +1,4 @@
+import { DEFAULT_SETUP } from '../core/games/racing/setup';
 import { driverTag } from '../core/champ/livery';
 import { nameProblem, normalizeName, teamNameProblem } from '../core/champ/names';
 import type { ArenaEntry } from '../core/champ/types';
@@ -106,6 +107,9 @@ export async function enterChampionship(model: ModelMeta): Promise<ArenaEntry> {
     modelId: model.id,
     episodes: model.training.episodes,
     retired: false,
+    // Only a car that is not the balanced one carries a setup, so an entry of
+    // the balanced car is written exactly as entries always were.
+    ...(model.setup && model.setup !== DEFAULT_SETUP ? { setup: model.setup } : {}),
   };
 
   await arena.putEntry(entry, rec.weightsB64);

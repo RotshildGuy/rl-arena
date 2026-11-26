@@ -23,6 +23,10 @@ export interface SessionInit {
    * models training around them learn to race them.
    */
   rivals?: Array<{ act(obs: Float32Array): number }>;
+  /** Each learner's car setup, by slot (`racing/setup.ts`); balanced when absent. */
+  setups?: ReadonlyArray<string | undefined>;
+  /** Each rival's car setup, in the order of `rivals`. */
+  rivalSetups?: ReadonlyArray<string | undefined>;
 }
 
 const NO_STATS: SlotStats[] = [];
@@ -91,6 +95,15 @@ export class TrainingSession {
     for (let slot = 0; slot < nSlots; slot++) {
       for (const seat of this.seats[slot]) this.env.setAgentRewards?.(seat, init.rewards[slot]);
     }
+    // And on its own setup: a model learns the car it is going to race.
+    for (let slot = 0; slot < nSlots; slot++) {
+      const setup = init.setups?.[slot];
+      if (setup) for (const seat of this.seats[slot]) this.env.setAgentSetup?.(seat, setup);
+    }
+    this.rivals.forEach((_, r) => {
+      const setup = init.rivalSetups?.[r];
+      if (setup) this.env.setAgentSetup?.(learnSeats + r, setup);
+    });
 
     this.learners = this.seats.map((seats, slot) => init.makeLearner(slot, seats));
     this.episodeLimit = Math.max(...this.learners.map((l) => l.episodeLimit ?? Infinity));

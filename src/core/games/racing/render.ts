@@ -2,6 +2,7 @@ import { getTrack, type Track } from './tracks';
 import { CAR_RADIUS, type RacingSnapshot } from './env';
 import { SENSOR_COUNT, SENSOR_SPREAD } from './rewards';
 import { EMBLEM_SHAPES, EMBLEM_SYMBOLS, type Emblem } from '../../champ/emblem';
+import { trailStrip, type TrailHistory } from './trail';
 
 export const CAR_COLORS = ['#38bdf8', '#f472b6', '#4ade80', '#fbbf24', '#a78bfa', '#fb7185', '#2dd4bf', '#f97316'];
 
@@ -47,6 +48,11 @@ export interface RenderOpts {
    * a number. Indexed like `colors`; a car without one is solid with darker wings.
    */
   looks?: Array<CarLook | undefined>;
+  /**
+   * Where the cars have just been, for the trail prize. Kept by the caller
+   * across frames; without it no trail is drawn.
+   */
+  trails?: TrailHistory;
   /**
    * Draw the scenery by day: light grass, light gravel, light overlays. The
    * road itself is dark asphalt either way, so the cars read the same.
@@ -98,7 +104,30 @@ export interface CarLook {
   celebration?: CelebrationKind;
   /** The team emblem, on the nose once the car is big enough to show it. */
   emblem?: Emblem;
+
+  // Pack prizes (season 6, `shop.ts`).
+  /** A streak behind the car at speed: a colour, or 'rainbow'. */
+  trail?: string;
+  /** Exhaust flame on the throttle, "core|outer" colours. */
+  flame?: string;
+  /** A design on the helmet, in the second colour. */
+  visor?: 'stripe' | 'checker' | 'star' | 'flames' | 'crown';
+  /** A sticker on both sidepods. */
+  decal?: DecalKind;
+  /** How the engine sounds (`raceAudio.ts`). */
+  engine?: 'v8' | 'v10' | 'turbo' | 'electric';
+  /** Played where the winner crosses the line. */
+  finish?: 'shockwave' | 'sparks' | 'stars';
+  /** Off track: the trophy on the podium, the frame of the driver's place, the podium backdrop. */
+  trophy?: 'cup' | 'laurel' | 'star' | 'wheel' | 'crown' | 'diamond';
+  frame?: 'bronze' | 'silver' | 'gold' | 'week';
+  banner?: 'carbon' | 'checker' | 'sunset' | 'aurora';
+  /** Item ids: the line under the team's name and the radio call after a win. */
+  title?: string;
+  quote?: string;
 }
+
+export type DecalKind = 'star' | 'bolt' | 'checker' | 'flame' | 'sun' | 'crown';
 
 export type CarShape = 'classic' | 'wedge' | 'arrow' | 'bulldog';
 
@@ -528,6 +557,22 @@ function drawWorld(
     }
   }
 
+  // Pack prizes behind the cars: trails along the way the car came, flames on the throttle.
+  if (opts.trails) opts.trails.update(snap, CAR_RADIUS * 0.8);
+  for (let i = 0; i < snap.cars.length; i++) {
+    const c = snap.cars[i];
+    const look = opts.looks?.[i];
+    if (!look || c.done) continue;
+    if (look.trail && opts.trails) drawTrailPath(ctx, trailStrip(opts.trails.of(i), snap.raceMs, wid * 0.22), look.trail);
+    if (look.flame && c.onGas) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.angle);
+      drawFlame(ctx, len, wid, look.flame, jitter(i * 13, Math.floor(snap.raceMs / 40)));
+      ctx.restore();
+    }
+  }
+
   for (let i = 0; i < snap.cars.length; i++) {
     const c = snap.cars[i];
     ctx.save();
@@ -552,6 +597,18 @@ function drawWorld(
         ctx.moveTo(c.x + Math.cos(a) * r0, c.y + Math.sin(a) * r0);
         ctx.lineTo(c.x + Math.cos(a) * r1, c.y + Math.sin(a) * r1);
         ctx.stroke();
+      }
+    }
+
+    // The winner's finish-line prize, for two seconds from the flag.
+    const fx = opts.looks?.[i]?.finish;
+    if (fx && c.finished && c.totalMs !== null && snap.order[0] === i) {
+      const t = (snap.raceMs - c.totalMs) / FINISH_FX_MS;
+      if (t >= 0 && t < 1) {
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        drawFinishFx(ctx, fx, t, len, colorOf(opts, i), opts.looks?.[i]?.secondary);
+        ctx.restore();
       }
     }
 
@@ -673,6 +730,27 @@ function drawCar(
   ctx.beginPath();
   ctx.arc(-len * 0.08, 0, wid * 0.11, 0, Math.PI * 2);
   ctx.fill();
+  if (look?.visor) drawVisor(ctx, -len * 0.08, wid * 0.11, look.visor, secondary);
+
+  // Stickers on both sidepods, once the car is big enough to make them out.
+  if (look?.decal && wid * pxPerUnit >= 18) {
+    const d = emblemPath(EMBLEM_SYMBOLS[DECAL_SYMBOL[look.decal]] ?? '');
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(-len * 0.12, side * wid * 0.27);
+      ctx.rotate(Math.PI / 2);
+      const k = (wid * 0.2) / 24;
+      ctx.scale(k, k);
+      ctx.translate(-12, -12);
+      ctx.lineWidth = 2.4;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(5, 6, 10, 0.85)';
+      ctx.stroke(d);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill(d, 'evenodd');
+      ctx.restore();
+    }
+  }
 
   // The emblem, on the nose, once the car is big enough to make it out.
   if (look?.emblem && wid * pxPerUnit >= 22) {
@@ -830,11 +908,214 @@ export function drawCarPreview(
     ctx.fillStyle = background;
     ctx.fillRect(0, 0, w, h);
   }
-  const len = Math.min(h * 0.85, w * 1.3);
+  // The shop shows the trail and the flame too, as if the car were flat out:
+  // a smaller car, nose up, with room behind it for them.
+  const behind = !!background && !!(look?.trail || look?.flame);
+  const len = Math.min(h * (behind ? 0.5 : 0.85), w * 1.3);
   ctx.save();
-  ctx.translate(w / 2, h / 2);
+  ctx.translate(w / 2, behind ? h * 0.34 : h / 2);
   ctx.rotate(-Math.PI / 2);
+  if (behind && look?.trail) drawTrail(ctx, len, len * 0.59, look.trail, 1, 0.45);
+  if (behind && look?.flame) drawFlame(ctx, len, len * 0.59, look.flame, 0.6);
   drawCar(ctx, len, len * 0.59, color, look, 99, background ? 0.38 : 0.14);
+  ctx.restore();
+}
+
+/** How long the winner's finish-line prize plays. */
+export const FINISH_FX_MS = 2200;
+
+/** Which emblem symbol each sticker is: the same drawings, so they look like the emblem's. */
+const DECAL_SYMBOL: Record<DecalKind, string> = {
+  star: 'star',
+  bolt: 'bolt',
+  checker: 'chequer',
+  flame: 'flame',
+  sun: 'sun',
+  crown: 'crown',
+};
+
+export const RAINBOW = ['#ff2e4d', '#ff7a1a', '#ffd84d', '#38f08a', '#38bdf8', '#a855f7'];
+
+/**
+ * A trail behind the car, in its frame (nose along +x): a band that fades out
+ * behind the gearbox, longer the faster it goes. `amount` 0 draws nothing.
+ */
+function drawTrail(ctx: CanvasRenderingContext2D, len: number, wid: number, trail: string, amount: number, reach = 1): void {
+  if (amount <= 0.01) return;
+  const x0 = -len * 0.48;
+  const x1 = x0 - len * (0.8 + 2.4 * amount) * reach;
+  const half = wid * 0.2;
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, amount * 1.4);
+  if (trail === 'rainbow') {
+    // Six thin bands, one per colour, side by side.
+    const band = (half * 2) / RAINBOW.length;
+    RAINBOW.forEach((col, k) => {
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, col);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x1, -half + k * band, x0 - x1, band);
+    });
+  } else {
+    const g = ctx.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, trail);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x0, -half);
+    ctx.lineTo(x1, -half * 0.3);
+    ctx.lineTo(x1, half * 0.3);
+    ctx.lineTo(x0, half);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * A trail along the path a car drove, in world space: each piece of the strip
+ * fades with its age. A rainbow is six bands side by side.
+ */
+function drawTrailPath(ctx: CanvasRenderingContext2D, strip: ReturnType<typeof trailStrip>, trail: string): void {
+  if (strip.length < 2) return;
+  const bands = trail === 'rainbow' ? RAINBOW : [trail];
+  const base = ctx.globalAlpha;
+  for (let i = 0; i < strip.length - 1; i++) {
+    const a = strip[i];
+    const b = strip[i + 1];
+    ctx.globalAlpha = base * (1 - b.age) * 0.9;
+    bands.forEach((color, k) => {
+      const t0 = k / bands.length;
+      const t1 = (k + 1) / bands.length;
+      const lerp = (p: typeof a, t: number) => [p.lx + (p.rx - p.lx) * t, p.ly + (p.ry - p.ly) * t] as const;
+      const [a0x, a0y] = lerp(a, t0);
+      const [a1x, a1y] = lerp(a, t1);
+      const [b0x, b0y] = lerp(b, t0);
+      const [b1x, b1y] = lerp(b, t1);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(a0x, a0y);
+      ctx.lineTo(a1x, a1y);
+      ctx.lineTo(b1x, b1y);
+      ctx.lineTo(b0x, b0y);
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+  ctx.globalAlpha = base;
+}
+
+/** The exhaust flame, out of the back of the car; `flicker` 0..1 sets its length this frame. */
+function drawFlame(ctx: CanvasRenderingContext2D, len: number, wid: number, flame: string, flicker: number): void {
+  const [core, outer] = flame.split('|');
+  const x0 = -len * 0.5;
+  const reach = len * (0.22 + 0.16 * flicker);
+  for (const [color, scale] of [
+    [outer, 1],
+    [core, 0.55],
+  ] as const) {
+    ctx.fillStyle = color ?? '#ff7a1a';
+    ctx.beginPath();
+    ctx.moveTo(x0, -wid * 0.1 * scale);
+    ctx.quadraticCurveTo(x0 - reach * scale * 0.6, -wid * 0.12 * scale, x0 - reach * scale, 0);
+    ctx.quadraticCurveTo(x0 - reach * scale * 0.6, wid * 0.12 * scale, x0, wid * 0.1 * scale);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/** A design over the helmet (centre x, radius r), in the second colour. */
+export function drawVisor(ctx: CanvasRenderingContext2D, x: number, r: number, visor: NonNullable<CarLook['visor']>, color: string): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, 0, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = color;
+  if (visor === 'stripe') {
+    ctx.fillRect(x - r, -r * 0.28, r * 2, r * 0.56);
+  } else if (visor === 'checker') {
+    const s = r / 2;
+    for (let i = -2; i < 2; i++) for (let j = -2; j < 2; j++) if ((i + j) & 1) ctx.fillRect(x + i * s, j * s, s, s);
+  } else if (visor === 'flames') {
+    // Three tongues licking forward from the back of the helmet.
+    ctx.beginPath();
+    ctx.moveTo(x - r, -r);
+    for (const y of [-0.6, 0, 0.6]) {
+      ctx.quadraticCurveTo(x, (y - 0.3) * r, x + r * 0.7, y * r);
+      ctx.quadraticCurveTo(x - r * 0.1, (y + 0.15) * r, x - r * 0.3, (y + 0.3) * r);
+    }
+    ctx.lineTo(x - r, r);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    const d = emblemPath(EMBLEM_SYMBOLS[visor === 'crown' ? 'crown' : 'star']);
+    ctx.translate(x, 0);
+    ctx.rotate(Math.PI / 2);
+    const k = (r * 2.1) / 24;
+    ctx.scale(k, k);
+    ctx.translate(-12, -12);
+    ctx.fill(d, 'evenodd');
+  }
+  ctx.restore();
+}
+
+/**
+ * The winner's finish-line prize, centred on the car, `t` from 0 to 1 over its
+ * run. Drawn from the time alone, so a replay and a seek show the same frame.
+ */
+export function drawFinishFx(
+  ctx: CanvasRenderingContext2D,
+  fx: NonNullable<CarLook['finish']>,
+  t: number,
+  size: number,
+  color: string,
+  second?: string,
+): void {
+  const fade = 1 - t;
+  ctx.save();
+  ctx.lineCap = 'round';
+  if (fx === 'shockwave') {
+    for (let k = 0; k < 3; k++) {
+      const tt = t - k * 0.14;
+      if (tt <= 0) continue;
+      ctx.globalAlpha = Math.max(0, 1 - tt) * 0.9;
+      ctx.strokeStyle = k % 2 ? second ?? '#ffffff' : color;
+      ctx.lineWidth = size * 0.16 * (1 - tt);
+      ctx.beginPath();
+      ctx.arc(0, 0, size * (0.6 + tt * 4), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (fx === 'sparks') {
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2 + jitter(k, 3) * 0.3;
+      const r0 = size * (0.5 + t * 3.2 * (0.6 + jitter(k, 9) * 0.6));
+      const r1 = r0 + size * 0.5 * fade;
+      ctx.globalAlpha = fade;
+      ctx.strokeStyle = k % 3 === 0 ? '#ffffff' : k % 3 === 1 ? '#ffd84d' : color;
+      ctx.lineWidth = size * 0.07;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+      ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+      ctx.stroke();
+    }
+  } else {
+    const d = emblemPath(EMBLEM_SYMBOLS.star);
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2;
+      const r = size * (0.4 + t * 3.4 * (0.7 + jitter(k, 5) * 0.5));
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
+      ctx.rotate(t * 4 + k);
+      const s = (size * (0.5 + 0.3 * fade)) / 24;
+      ctx.scale(s, s);
+      ctx.translate(-12, -12);
+      ctx.fillStyle = k % 2 ? '#ffd84d' : second ?? '#ffffff';
+      ctx.fill(d);
+      ctx.restore();
+    }
+  }
   ctx.restore();
 }
 

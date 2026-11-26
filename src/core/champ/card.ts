@@ -10,7 +10,7 @@ import {
   trackForRound,
 } from './schedule';
 import { RACE_LAPS } from './format';
-import { runQualifying } from './sim';
+import { runQualifying, setupsFor } from './sim';
 import type { ArenaEntry, RaceCard } from './types';
 import { nameKey } from './names';
 import { weightsFingerprint } from './copies';
@@ -218,7 +218,7 @@ export function buildRaceCard(
     seed,
     startsAt: startsAtForRound(round),
     entries: field,
-    qualifying: runQualifying(field, weights, trackId, seed, physics),
+    qualifying: runQualifying(field, weights, trackId, seed, physics, setupsFor(round, field)),
     createdAt: Date.now(),
     // Left off the card while it is the default, so a card from before the
     // switch is stored exactly as cards always were.

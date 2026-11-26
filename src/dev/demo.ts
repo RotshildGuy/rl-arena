@@ -29,7 +29,7 @@ const SHOP_KEY = 'rl-arena-shop';
 interface DemoTeam {
   uid: string;
   team: string;
-  drivers: Array<[driver: string, tag: string, house: number]>;
+  drivers: Array<[driver: string, tag: string, house: number, setup?: string]>;
   /** In order of preference: bought while the coins last. */
   wishes: string[];
   equip: Partial<Equipped>;
@@ -37,55 +37,58 @@ interface DemoTeam {
   numbers?: number[];
 }
 
+// Every team also wears pack prizes (season 6), which only the dev server honours
+// (`teamLooks.ts`), so the broadcast, tower and podium can be seen with them.
 const TEAMS: DemoTeam[] = [
   {
     uid: 'local',
     team: 'Test Team',
-    drivers: [['Swift Falcon', 'SWF', 3], ['Calm Otter', 'CLM', 1]],
-    wishes: ['celebrate-fireworks', 'emblem', 'number', 'shape-wedge', 'rim-gold', 'color-navy', 'pattern-chevron', 'second-white'],
-    equip: { celebration: 'celebrate-fireworks', color: 'color-navy', shape: 'shape-wedge', rim: 'rim-gold', pattern: 'pattern-chevron', secondary: 'second-white' },
+    drivers: [['Swift Falcon', 'SWF', 3, 'downforce'], ['Calm Otter', 'CLM', 1, 'lowdrag']],
+    // Short of everything it could buy, so it has coins left to bet with (season 5).
+    wishes: ['celebrate-fireworks', 'emblem', 'number', 'color-navy', 'trail-gold', 'finish-stars', 'trophy-diamond', 'frame-week', 'title-legend', 'banner-aurora', 'quote-champagne', 'engine-v10', 'visor-crown'],
+    equip: { celebration: 'celebrate-fireworks', color: 'color-navy', trail: 'trail-gold', finish: 'finish-stars', trophy: 'trophy-diamond', frame: 'frame-week', title: 'title-legend', banner: 'banner-aurora', quote: 'quote-champagne', engine: 'engine-v10', visor: 'visor-crown' },
     emblem: { shape: 'shield', symbol: 'bolt', fg: '#f4f6fb', bg: '#ff2e4d' },
     numbers: [7, 44],
   },
   {
     uid: 'demo-a',
     team: 'הברקים הכחולים',
-    drivers: [['Bold Comet', 'BLD', 3], ['Quiet Harbor', 'QHR', 2]],
-    wishes: ['celebrate-confetti', 'shape-arrow', 'number', 'emblem', 'wing-navy', 'color-sky'],
-    equip: { celebration: 'celebrate-confetti', color: 'color-sky', wing: 'wing-navy', shape: 'shape-arrow' },
+    drivers: [['Bold Comet', 'BLD', 3, 'lowdrag'], ['Quiet Harbor', 'QHR', 2]],
+    wishes: ['celebrate-confetti', 'shape-arrow', 'number', 'emblem', 'wing-navy', 'color-sky', 'trail-rainbow', 'flame-blue', 'decal-bolt', 'engine-electric', 'trophy-laurel', 'frame-gold', 'title-rocket', 'banner-checker', 'quote-told'],
+    equip: { celebration: 'celebrate-confetti', color: 'color-sky', wing: 'wing-navy', shape: 'shape-arrow', trail: 'trail-rainbow', flame: 'flame-blue', decal: 'decal-bolt', engine: 'engine-electric', trophy: 'trophy-laurel', frame: 'frame-gold', title: 'title-rocket', banner: 'banner-checker', quote: 'quote-told' },
     emblem: { shape: 'hexagon', symbol: 'star', fg: '#2346c8', bg: '#f4f6fb' },
     numbers: [1, 12],
   },
   {
     uid: 'demo-b',
     team: 'Scarlet Works',
-    drivers: [['Rapid Ember', 'RPE', 2], ['Steady Pine', 'STP', 1]],
-    wishes: ['celebrate-champagne', 'shape-bulldog', 'pattern-fade', 'second-black', 'emblem', 'color-scarlet'],
-    equip: { celebration: 'celebrate-champagne', color: 'color-scarlet', pattern: 'pattern-fade', secondary: 'second-black', shape: 'shape-bulldog' },
+    drivers: [['Rapid Ember', 'RPE', 2, 'downforce'], ['Steady Pine', 'STP', 1, 'downforce']],
+    wishes: ['celebrate-champagne', 'shape-bulldog', 'pattern-fade', 'second-black', 'emblem', 'color-scarlet', 'flame-orange', 'visor-flames', 'decal-flame', 'engine-v8', 'finish-sparks', 'trophy-crown', 'frame-silver', 'title-corners', 'banner-sunset', 'quote-easy'],
+    equip: { celebration: 'celebrate-champagne', color: 'color-scarlet', pattern: 'pattern-fade', secondary: 'second-black', shape: 'shape-bulldog', flame: 'flame-orange', visor: 'visor-flames', decal: 'decal-flame', engine: 'engine-v8', finish: 'finish-sparks', trophy: 'trophy-crown', frame: 'frame-silver', title: 'title-corners', banner: 'banner-sunset', quote: 'quote-easy' },
     emblem: { shape: 'circle', symbol: 'flame', fg: '#ff7a1a', bg: '#14161d' },
   },
   {
     uid: 'demo-c',
     team: 'צוות החוף',
-    drivers: [['Gentle Tide', 'GTD', 1], ['Bright Reef', 'BRF', 0]],
-    wishes: ['celebrate-bubbles', 'number', 'color-teal', 'rim-silver', 'pattern-centerline', 'second-white'],
-    equip: { celebration: 'celebrate-bubbles', color: 'color-teal', rim: 'rim-silver', pattern: 'pattern-centerline', secondary: 'second-white' },
+    drivers: [['Gentle Tide', 'GTD', 1], ['Bright Reef', 'BRF', 0, 'lowdrag']],
+    wishes: ['celebrate-bubbles', 'number', 'color-teal', 'rim-silver', 'pattern-centerline', 'second-white', 'trail-sky', 'visor-stripe', 'decal-star', 'engine-turbo', 'finish-shockwave', 'trophy-wheel', 'frame-bronze', 'banner-carbon', 'quote-team'],
+    equip: { celebration: 'celebrate-bubbles', color: 'color-teal', rim: 'rim-silver', pattern: 'pattern-centerline', secondary: 'second-white', trail: 'trail-sky', visor: 'visor-stripe', decal: 'decal-star', engine: 'engine-turbo', finish: 'finish-shockwave', trophy: 'trophy-wheel', frame: 'frame-bronze', banner: 'banner-carbon', quote: 'quote-team' },
     numbers: [27, 72],
   },
   {
     uid: 'demo-d',
     team: 'Orange Line',
     drivers: [['Lucky Kite', 'LKT', 0]],
-    wishes: ['celebrate-balloons', 'color-orange', 'emblem'],
-    equip: { celebration: 'celebrate-balloons', color: 'color-orange' },
+    wishes: ['celebrate-balloons', 'color-orange', 'emblem', 'flame-pink', 'wing-gold', 'rim-chrome', 'decal-crown', 'trophy-star', 'title-iron'],
+    equip: { celebration: 'celebrate-balloons', color: 'color-orange', flame: 'flame-pink', wing: 'wing-gold', rim: 'rim-chrome', decal: 'decal-crown', trophy: 'trophy-star', title: 'title-iron' },
     emblem: { shape: 'diamond', symbol: 'chequer', fg: '#14161d', bg: '#f4f6fb' },
   },
   {
     uid: 'demo-e',
     team: 'Pink Garage',
     drivers: [['Merry Lark', 'MRL', 2]],
-    wishes: ['celebrate-sparkles', 'color-pink', 'helmet-black', 'smoke-white'],
-    equip: { celebration: 'celebrate-sparkles', color: 'color-pink', helmet: 'helmet-black', smoke: 'smoke-white' },
+    wishes: ['celebrate-sparkles', 'color-pink', 'helmet-black', 'smoke-white', 'trail-white', 'visor-checker', 'decal-sun', 'trophy-cup', 'title-night'],
+    equip: { celebration: 'celebrate-sparkles', color: 'color-pink', helmet: 'helmet-black', smoke: 'smoke-white', trail: 'trail-white', visor: 'visor-checker', decal: 'decal-sun', trophy: 'trophy-cup', title: 'title-night' },
   },
 ];
 
@@ -119,6 +122,34 @@ async function wipeLocalChampionship(): Promise<void> {
   db.close();
 }
 
+const DAYS_KEY = 'rl-arena-demo-days';
+
+/**
+ * `?demo&days=3`: the whole app lives three days ahead - for trying out a
+ * season that has not started yet (its setups, its bets) on races that have
+ * already happened. Remembered by this browser until `days=0`. A changed
+ * shift needs `?demo=reset` as well, so the season is raced again up to the
+ * new date.
+ */
+export function shiftDemoClock(): void {
+  const param = new URLSearchParams(location.search).get('days');
+  if (param !== null) localStorage.setItem(DAYS_KEY, String(Math.max(0, Math.min(60, Number(param) || 0))));
+  const days = Number(localStorage.getItem(DAYS_KEY) ?? 0);
+  if (!days) return;
+  const shift = days * DAY_MS;
+  const Real = Date;
+  class Shifted extends Real {
+    constructor(...args: unknown[]) {
+      if (args.length === 0) super(Real.now() + shift);
+      else super(...(args as [number]));
+    }
+    static now(): number {
+      return Real.now() + shift;
+    }
+  }
+  (globalThis as { Date: DateConstructor }).Date = Shifted as unknown as DateConstructor;
+}
+
 /** Seed once per browser (or again on `?demo=reset`); afterwards the app runs on what is there. */
 export async function seedDemo(): Promise<void> {
   const mode = new URLSearchParams(location.search).get('demo');
@@ -131,7 +162,7 @@ export async function seedDemo(): Promise<void> {
   const createdAt = startsAtForRound(1) - DAY_MS;
   let n = 0;
   for (const t of TEAMS) {
-    for (const [driver, tag, house] of t.drivers) {
+    for (const [driver, tag, house, setup] of t.drivers) {
       const base = HOUSE_DRIVERS[house];
       const entry: ArenaEntry = {
         ...base,
@@ -143,6 +174,7 @@ export async function seedDemo(): Promise<void> {
         createdAt: createdAt + n,
         updatedAt: createdAt + n,
         modelId: `demo-model-${n}`,
+        ...(setup ? { setup } : {}),
       };
       await arena.putEntry(entry, weights[house]);
     }
@@ -179,7 +211,9 @@ export async function seedDemo(): Promise<void> {
       const cars = state.entries.filter((e) => e.uid === t.uid).sort((a, b) => a.createdAt - b.createdAt);
       equipped.numbers = Object.fromEntries(cars.map((c, i) => [c.id, t.numbers![i]]).filter(([, v]) => v));
     }
-    shops[t.uid] = { purchases, equipped, updatedAt: now };
+    // Pack prizes are won, not bought: into the locker, not the purchases.
+    const prizes = t.wishes.filter((id) => ITEM_BY_ID.get(id)?.pack);
+    shops[t.uid] = { purchases: purchases.filter((id) => !ITEM_BY_ID.get(id)?.pack), equipped, updatedAt: now, ...(prizes.length ? { prizes } : {}) };
   }
   localStorage.setItem(SHOP_KEY, JSON.stringify(shops.local));
   localStorage.setItem(DEMO_SHOP_KEY, JSON.stringify(shops));

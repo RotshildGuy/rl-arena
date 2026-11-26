@@ -1,4 +1,5 @@
 import { getGame } from '../core/games/registry';
+import { DEFAULT_SETUP } from '../core/games/racing/setup';
 import { modelsChanged } from './coach';
 import type { RewardConfig } from '../core/games/types';
 import type { DqnHyper } from '../core/rl/dqn';
@@ -22,6 +23,8 @@ export interface SaveArgs {
   gameId: string;
   config: Record<string, unknown>;
   rewards: RewardConfig;
+  /** The car setup the model trained on. */
+  setup?: string;
   algorithm: AlgorithmId;
   hyper: DqnHyper | GaHyper;
   /** The full history, including anything resumed from an earlier run. */
@@ -98,6 +101,8 @@ export async function saveModel(args: SaveArgs): Promise<ModelRecord> {
     hyper: args.hyper,
     rewards: args.rewards,
     config: args.config,
+    // Left off for the balanced car, the way models were saved before setups.
+    ...(args.setup && args.setup !== DEFAULT_SETUP ? { setup: args.setup } : {}),
     training: {
       episodes: args.episodes,
       envSteps: args.envSteps,

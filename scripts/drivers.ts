@@ -20,7 +20,8 @@
 import { RacingEnv, DEFAULT_RACING_CONFIG } from '../src/core/games/racing/env';
 import { RACING_SPEC } from '../src/core/games/racing/rewards';
 import { defaultRewards } from '../src/core/games/types';
-import { getTrack, type Track } from '../src/core/games/racing/tracks';
+import { getTrack, TRACK_DEFS, type Track } from '../src/core/games/racing/tracks';
+import { SETUPS } from '../src/core/games/racing/setup';
 
 export const LAPS = 3;
 const rewards = defaultRewards(RACING_SPEC);
@@ -71,13 +72,13 @@ interface Braking {
   decel: number;
 }
 
-export function drive(trackId: string, physics: number, braking: Braking | null): Outcome {
+export function drive(trackId: string, physics: number, braking: Braking | null, setup?: string): Outcome {
   const t = getTrack(trackId);
   const kappa = curvatures(t);
   const n = t.def.samples;
   const spacing = t.length / n;
   const env = new RacingEnv(
-    { ...DEFAULT_RACING_CONFIG, trackId, nCars: 1, laps: LAPS, maxSteps: LAPS * 1500, stuckLimit: 600, physics },
+    { ...DEFAULT_RACING_CONFIG, trackId, nCars: 1, laps: LAPS, maxSteps: LAPS * 1500, stuckLimit: 600, physics, setups: [setup] },
     rewards,
   );
   env.reset(1);
@@ -121,16 +122,16 @@ export function drive(trackId: string, physics: number, braking: Braking | null)
  * in for a model that has learned where to brake - a fixed guess would only
  * measure how good the guess was.
  */
-export function bestBraking(trackId: string, physics: number): Outcome {
+export function bestBraking(trackId: string, physics: number, setup?: string): Outcome {
   let best: Outcome | null = null;
   for (const grip of [0.05, 0.07, 0.09, 0.11, 0.13, 0.16, 0.2, 0.3]) {
     for (const decel of [0.1, 0.2, 0.3]) {
-      const o = drive(trackId, physics, { grip, decel });
+      const o = drive(trackId, physics, { grip, decel }, setup);
       if (!o.finished) continue;
       if (!best || o.totalMs! < best.totalMs!) best = o;
     }
   }
-  return best ?? drive(trackId, physics, { grip: 0.05, decel: 0.1 });
+  return best ?? drive(trackId, physics, { grip: 0.05, decel: 0.1 }, setup);
 }
 
 /** Flat out loses when it does not finish, or finishes more than 5% behind. */
@@ -138,4 +139,39 @@ export function flatOutLoses(flat: Outcome, brake: Outcome): boolean {
   if (!brake.finished) return false;
   if (!flat.finished) return true;
   return flat.totalMs! > brake.totalMs! * 1.05;
+}
+
+/** The braking driver's best race time per circuit and setup; null for no finish. */
+export function setupTable(physics: number): Map<string, Map<string, number | null>> {
+  const out = new Map<string, Map<string, number | null>>();
+  for (const def of TRACK_DEFS) {
+    const row = new Map<string, number | null>();
+    for (const s of SETUPS) {
+      const o = bestBraking(def.id, physics, s.id);
+      row.set(s.id, o.finished ? o.totalMs : null);
+    }
+    out.set(def.id, row);
+  }
+  return out;
+}
+
+/**
+ * null when every setup is fastest on at least one circuit and slowest on at
+ * least one other; otherwise what is wrong.
+ */
+export function setupsAreTradeOffs(table: Map<string, Map<string, number | null>>): string | null {
+  const wins = new Map<string, number>();
+  const losses = new Map<string, number>();
+  for (const row of table.values()) {
+    const times = SETUPS.map((s) => [s.id, row.get(s.id) ?? Infinity] as const);
+    const best = times.reduce((a, b) => (b[1] < a[1] ? b : a));
+    const worst = times.reduce((a, b) => (b[1] > a[1] ? b : a));
+    wins.set(best[0], (wins.get(best[0]) ?? 0) + 1);
+    losses.set(worst[0], (losses.get(worst[0]) ?? 0) + 1);
+  }
+  for (const s of SETUPS) {
+    if (!wins.get(s.id)) return `setup ${s.id} is never the fastest`;
+    if (!losses.get(s.id)) return `setup ${s.id} is never the slowest - it is an upgrade`;
+  }
+  return null;
 }

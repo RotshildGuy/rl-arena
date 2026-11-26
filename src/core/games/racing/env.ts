@@ -2,6 +2,7 @@ import { mulberry32, type Rng } from '../../rng';
 import type { Env, RewardConfig, StepResult } from '../types';
 import { getTrack, segmentsIntersect, type Track } from './tracks';
 import { OBS_SIZE, RACING_SPEC, SENSOR_COUNT, SENSOR_MAX, SENSOR_SPREAD } from './rewards';
+import { setupOf, type CarSetup } from './setup';
 
 export const CAR_RADIUS = 11;
 const MAX_SPEED = 7;
@@ -94,6 +95,11 @@ export interface RacingConfig {
    * recorded on its card.
    */
   physics?: number;
+  /**
+   * Each car's setup (`setup.ts`), by seat. A missing one is the balanced car,
+   * which is the car as it was before setups existed. Ignored on physics 1.
+   */
+  setups?: ReadonlyArray<string | undefined>;
 }
 
 export const DEFAULT_RACING_CONFIG: RacingConfig = {
@@ -120,6 +126,8 @@ export interface CarSnapshot {
   reverse: boolean;
   /** True while the tyres have let go and the car is sliding. */
   sliding: boolean;
+  /** On the throttle this step: for the exhaust flame only, never read by the physics. */
+  onGas?: boolean;
   /** Sideways speed in the car's frame, signed; how far out of line it is. */
   slip: number;
   /** Continuous distance covered, in laps. Monotone, so it survives the start line. */
@@ -224,11 +232,15 @@ export class RacingEnv implements Env<RacingSnapshot> {
   private prevTouchingCar: Uint8Array;
   private reverseFlag: Uint8Array;
   private slidingFlag: Uint8Array;
+  /** Drawing only: the last step's throttle, for the exhaust flame. */
+  private onGas: Uint8Array;
   private slipLat: Float32Array;
   /** Steps left in which this car's throttle is dead after a crash. */
   private stall: Int32Array;
   private rank: Int32Array;
   private readonly physics: number;
+  /** Each seat's setup. */
+  private carSetup: CarSetup[];
 
   // --- timing ---
   /** Continuous progress in centreline-index units. Monotone, unlike `ci`, which wraps. */
@@ -279,9 +291,11 @@ export class RacingEnv implements Env<RacingSnapshot> {
     this.track = getTrack(config.trackId);
     this.rng = mulberry32(1);
     this.physics = config.physics ?? PHYSICS_VERSION;
+    this.carSetup = Array.from({ length: config.nCars }, (_, i) => setupOf(config.setups?.[i]));
 
     const n = this.nAgents;
     this.slidingFlag = new Uint8Array(n);
+    this.onGas = new Uint8Array(n);
     this.slipLat = new Float32Array(n);
     this.stall = new Int32Array(n);
     this.px = new Float32Array(n);
@@ -340,6 +354,10 @@ export class RacingEnv implements Env<RacingSnapshot> {
     return this.track;
   }
 
+  setAgentSetup(agent: number, setup: string): void {
+    if (agent >= 0 && agent < this.nAgents) this.carSetup[agent] = setupOf(setup);
+  }
+
   setAgentRewards(agent: number, rewards: RewardConfig): void {
     if (agent < 0 || agent >= this.nAgents) return;
     this.agentRewards[agent] = { ...rewards };
@@ -375,6 +393,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
       this.vx[i] = 0;
       this.vy[i] = 0;
       this.slidingFlag[i] = 0;
+      this.onGas[i] = 0;
       this.slipLat[i] = 0;
       this.stall[i] = 0;
       this.angle[i] = Math.atan2(ty, tx) + (this.rng() - 0.5) * 0.2;
@@ -648,6 +667,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
       const a = actions[i];
       const throttle = (a / 3) | 0; // 0 gas, 1 coast, 2 brake
       const steer = (a % 3) - 1; // -1 left, 0 straight, +1 right
+      this.onGas[i] = throttle === 0 && this.stall[i] <= 0 ? 1 : 0;
 
       let cos = Math.cos(this.angle[i]);
       let sin = Math.sin(this.angle[i]);
@@ -665,12 +685,16 @@ export class RacingEnv implements Env<RacingSnapshot> {
       // and the velocity has to be dragged round after it by the tyres, so it is
       // re-read in the new frame - which is what turns a steering input into
       // sideways speed the tyres must deal with.
+      // The balanced setup multiplies everything by exactly 1, so a car without
+      // a setup computes the very same numbers it always did.
+      const su = this.carSetup[i];
+      const top = this.physics >= 2 ? MAX_SPEED * su.topSpeed : MAX_SPEED;
       if (this.physics >= 2) {
         fwd = this.vx[i] * cos + this.vy[i] * sin;
         lat = -this.vx[i] * sin + this.vy[i] * cos;
         if (this.stall[i] > 0) this.stall[i]--;
-        else if (throttle === 0) fwd += ACCEL * (1 - ACCEL_FADE * Math.max(0, fwd) / MAX_SPEED);
-        if (throttle === 2) fwd -= BRAKE;
+        else if (throttle === 0) fwd += ACCEL * su.accel * (1 - ACCEL_FADE * Math.max(0, fwd) / top);
+        if (throttle === 2) fwd -= BRAKE * su.brake;
       } else if (throttle === 0) fwd += ACCEL;
       else if (throttle === 2) fwd -= BRAKE;
 
@@ -680,7 +704,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
         // speed as they can hold, and no more: turn in too fast and the rest
         // stays, and the car slides towards the outside of the corner.
         const sliding = this.slidingFlag[i] === 1;
-        let grip = sliding ? SLIDE_GRIP : LAT_GRIP;
+        let grip = (sliding ? SLIDE_GRIP : LAT_GRIP) * su.grip;
         if (throttle === 0) grip *= sliding ? GRIP_SLIDE_ON_GAS : GRIP_ON_GAS;
         else if (throttle === 2) grip *= GRIP_ON_BRAKE;
         const held = Math.min(Math.abs(lat) * GRIP, grip);
@@ -694,7 +718,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
       } else {
         lat *= 1 - GRIP;
       }
-      fwd = Math.max(-MAX_SPEED * 0.3, Math.min(MAX_SPEED, fwd));
+      fwd = Math.max(-MAX_SPEED * 0.3, Math.min(top, fwd));
       this.slipLat[i] = lat;
 
       this.vx[i] = fwd * cos - lat * sin;
@@ -998,6 +1022,7 @@ export class RacingEnv implements Env<RacingSnapshot> {
         touchingCar: this.touchingCar[i] === 1,
         reverse: this.reverseFlag[i] === 1,
         sliding: this.slidingFlag[i] === 1,
+        onGas: this.onGas[i] === 1,
         slip: this.slipLat[i],
         trackPos: this.arc[i] / this.track.def.samples,
         sector: this.sectorIdx[i],

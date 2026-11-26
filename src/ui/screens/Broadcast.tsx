@@ -7,7 +7,7 @@ import { TimingTower, type TowerCar } from '../components/TimingTower';
 import { StartLights } from '../components/StartLights';
 import { drawPlaceholder, renderGame } from '../gameRenderers';
 import { getArena } from '../../storage/arena';
-import { SessionSim, policiesFor, replayDriversFor, type SimCar } from '../../core/champ/sim';
+import { SessionSim, policiesFor, replayDriversFor, setupsFor, type SimCar } from '../../core/champ/sim';
 import { ReplayDriver, type DayReplay } from '../../core/champ/replay';
 import { lapsFor } from '../../core/champ/format';
 import { dayState, dayStatus, liveSession, sessionWindows } from '../../core/champ/timing';
@@ -26,7 +26,12 @@ import { Stage3D } from '../three/Stage3D';
 import { Director, type CameraSpec, type DirectorState } from '../three/director';
 import { DirectorPanel } from '../components/DirectorPanel';
 import { TeamRadio } from '../../core/champ/radio';
-import { RadioCard } from '../components/RadioCard';
+import { TrailHistory } from '../../core/games/racing/trail';
+import { RadioCard, radioLines } from '../components/RadioCard';
+import { useRaceSound } from '../useRaceSound';
+import { RADIO_VOICE_SEASON } from '../raceAudio';
+import { displaySeason } from '../../core/champ/schedule';
+import { getLang } from '../../i18n';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -162,6 +167,8 @@ function BroadcastStage({
   /** Turns what happens on track into radio calls; rebuilt with the simulation. */
   const radioRef = useRef<TeamRadio | null>(null);
   const [radioOn, setRadioOn] = useState(readRadio);
+  /** Engines, tyres and the radio's voice (`raceAudio.ts`). */
+  const { audioRef, soundOn, toggleSound } = useRaceSound();
   const toggleRadio = () => {
     const next = !radioOn;
     setRadioOn(next);
@@ -294,8 +301,9 @@ function BroadcastStage({
   const buildSim = useCallback((): SessionSim | null => {
     if (!source || !window_ || grid.length === 0) return null;
     let cars: SimCar[] = [];
-    if (source.kind === 'replay') cars = replayDriversFor(grid, source.replay.get(window_.session.id) ?? {});
-    else if (source.kind === 'weights') cars = policiesFor(grid, entryById, source.weights);
+    const setups = setupsFor(card.round, card.entries);
+    if (source.kind === 'replay') cars = replayDriversFor(grid, source.replay.get(window_.session.id) ?? {}, setups);
+    else if (source.kind === 'weights') cars = policiesFor(grid, entryById, source.weights, setups);
     else if (source.kind === 'grid') cars = grid.map((entryId) => ({ entryId, policy: new ReplayDriver('') }));
     if (cars.length === 0) return null;
     const devTrack = source.kind === 'weights' && DEV_TRACK && hasTrack(DEV_TRACK) ? DEV_TRACK : null;
@@ -446,6 +454,16 @@ function BroadcastStage({
 
   /** The camera for this moment: the director's call, the whole circuit, or the chosen car. */
   const cameraFor = (snap: RacingSnapshot): CameraSpec => {
+    const spec = pickCamera(snap);
+    const audio = audioRef.current;
+    if (audio) {
+      if (playingRef.current && !simRef.current?.done && source?.kind !== 'grid') audio.update(snap, spec, looks);
+      else audio.hush();
+    }
+    return spec;
+  };
+
+  const pickCamera = (snap: RacingSnapshot): CameraSpec => {
     if (camera === 'director' && directorRef.current) {
       const shot = directorRef.current.update(snap);
       shotRef.current = shot;
@@ -457,6 +475,9 @@ function BroadcastStage({
     const focus = snap.cars[followIdx]?.done ? (snap.order[0] ?? followIdx) : followIdx;
     return { shot: 'chase', car: focus, cut: false };
   };
+
+  /** Where the cars have just been, for the 2D picture's trails. */
+  const trailsRef = useRef(new TrailHistory());
 
   /** The 2D picture, where 3D cannot be drawn. */
   const drawFrame = (ctx: CanvasRenderingContext2D) => {
@@ -472,6 +493,7 @@ function BroadcastStage({
       labels,
       colors,
       looks,
+      trails: trailsRef.current,
       dimDone: true,
       // Bottom: the lap counter and race clock own the top-left of a broadcast.
       minimap: chase ? 'bottom' : undefined,
@@ -533,6 +555,17 @@ function BroadcastStage({
   const behind = sim && !sim.done ? targetStep - sim.env.step_ : 0;
   const rewinding = behind > SEEK_SLACK_STEPS;
   const onAir = radioOn && snap && !preStart ? (radioRef.current?.onAir(snap.raceMs) ?? null) : null;
+  // The radio out loud, once per call, while the sound is on and the race plays.
+  const spokenRef = useRef<string | null>(null);
+  const onAirKey = onAir ? `${onAir.at}:${onAir.car}:${onAir.kind}` : null;
+  useEffect(() => {
+    if (!onAir || !onAirKey || spokenRef.current === onAirKey) return;
+    spokenRef.current = onAirKey;
+    if (!soundOn || !playingRef.current || displaySeason() < RADIO_VOICE_SEASON) return;
+    const entry = entryById.get(grid[onAir.car]);
+    void audioRef.current?.radio(radioLines(onAir, towerCars[onAir.car]?.look), getLang(), { driverId: entry?.id, teamId: entry?.uid });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onAirKey, soundOn]);
   const rewindPct = targetStep > 0 ? Math.min(99, Math.floor(((targetStep - behind) / targetStep) * 100)) : 0;
 
   return (
@@ -592,6 +625,14 @@ function BroadcastStage({
             ))}
           </select>
         )}
+        <button
+          className={`small ${soundOn ? 'on' : ''}`}
+          aria-pressed={soundOn}
+          title={b.soundTitle}
+          onClick={toggleSound}
+        >
+          {soundOn ? '🔊' : '🔈'} {b.soundOn}
+        </button>
         <button
           className={`small ${radioOn ? 'on' : ''}`}
           aria-pressed={radioOn}

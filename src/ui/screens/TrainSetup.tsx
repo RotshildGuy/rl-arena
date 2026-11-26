@@ -28,6 +28,7 @@ import { TeamNameForm } from '../components/TeamNameForm';
 import { locale, useT } from '../../i18n';
 import { trackName } from '../../i18n/names';
 import { Name } from '../components/Name';
+import { SETUPS, setupOf } from '../../core/games/racing/setup';
 
 export function TrainSetup() {
   const s = useT().trainSetup;
@@ -323,6 +324,7 @@ function SlotCard({
   // being continued cannot switch either without throwing the training away.
   const locked = slot.modelId !== null && !slot.restart;
   const s = useT().trainSetup;
+  const savedSetup = setupOf(saved.find((m) => m.id === slot.modelId)?.setup).id;
   const nameId = useId();
 
   return (
@@ -381,6 +383,26 @@ function SlotCard({
         </div>
       </div>
       )}
+
+      {/* The setup is free and a trade-off, so it is out in the open. A model
+          being continued can change it; its weights then meet a new car. */}
+      <div className="field">
+        <label>{s.setupLabel}</label>
+        <div className="segmented" style={{ width: '100%' }}>
+          {SETUPS.map((su) => (
+            <button
+              key={su.id}
+              style={{ flex: 1 }}
+              className={slot.setup === su.id ? 'on' : ''}
+              onClick={() => onPatch({ setup: su.id })}
+            >
+              {s.setupNames[su.id]}
+            </button>
+          ))}
+        </div>
+        <div className="small muted">{s.setupBlurbs[slot.setup]} {s.setupNote}</div>
+        {locked && savedSetup !== slot.setup && <div className="small" style={{ color: 'var(--warn)' }}>{s.setupChanged}</div>}
+      </div>
 
       {/* Folded: the default suits the device, and two method names were
           the first words a newcomer did not understand. */}

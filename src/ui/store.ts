@@ -4,6 +4,7 @@ import { defaultRewards, levelValue, type RewardConfig } from '../core/games/typ
 import { DEFAULT_HYPER, type DqnHyper } from '../core/rl/dqn';
 import { DEFAULT_GA_HYPER, gaHyperForSaved, type GaHyper } from '../core/rl/ga';
 import type { AlgorithmId } from '../core/rl/algorithms';
+import { DEFAULT_SETUP, setupOf, type SetupId } from '../core/games/racing/setup';
 import type { ModelMeta } from '../storage';
 import { isMobileClass } from './device';
 import { lockAtForRound, nextRound, trackForRound } from '../core/champ/schedule';
@@ -27,7 +28,9 @@ export type Screen =
   | 'race'
   | 'info'
   | 'feedback'
-  | 'shop';
+  | 'shop'
+  | 'bets'
+  | 'design';
 
 export type InfoTab = 'how' | 'terms' | 'privacy' | 'notices';
 
@@ -41,6 +44,8 @@ export interface TrainSlot {
   rewards: RewardConfig;
   /** Wipe the weights and start over, keeping the name and settings. */
   restart: boolean;
+  /** The car setup it trains on (`racing/setup.ts`). */
+  setup: SetupId;
 }
 
 /**
@@ -72,6 +77,8 @@ export interface RivalPick {
   driver: string;
   team: string;
   arch: { obsSize: number; hidden: number[]; nActions: number };
+  /** The rival's own setup, so it drives the car it races. */
+  setup?: string;
 }
 
 export const TIME_LIMITS = [0, 5, 15, 30];
@@ -187,6 +194,7 @@ function freshSlot(gameId: GameId, index = 0): TrainSlot {
     // so every one after the first starts braver than the house defaults.
     rewards: index > 0 ? braverRewards(gameId) : defaultRewards(getGame(gameId).spec),
     restart: false,
+    setup: DEFAULT_SETUP,
   };
 }
 
@@ -346,7 +354,7 @@ export const useApp = create<AppState>((set, get) => ({
         owner: m.owner || getCompetitor(),
         config: withTrainingDefaults(get().gameId, { ...m.config }),
         slots: [
-          { modelId: m.id, name: m.name, algorithm: m.algorithm, rewards: { ...m.rewards }, restart },
+          { modelId: m.id, name: m.name, algorithm: m.algorithm, rewards: { ...m.rewards }, restart, setup: setupOf(m.setup).id },
         ],
         ...(m.algorithm === 'ga'
           ? // Only the network shape carries over: a model saved on the old GA
@@ -380,7 +388,7 @@ export const useApp = create<AppState>((set, get) => ({
   slotFromModel: (index, m) => {
     const draft = get().draft;
     const slot: TrainSlot = m
-      ? { modelId: m.id, name: m.name, algorithm: m.algorithm, rewards: { ...m.rewards }, restart: false }
+      ? { modelId: m.id, name: m.name, algorithm: m.algorithm, rewards: { ...m.rewards }, restart: false, setup: setupOf(m.setup).id }
       : freshSlot(get().gameId, index);
     set({ draft: { ...draft, slots: draft.slots.map((s, i) => (i === index ? slot : s)) } });
   },

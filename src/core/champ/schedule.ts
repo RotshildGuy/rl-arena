@@ -182,6 +182,14 @@ export function physicsForRound(round: number): number {
 }
 
 /**
+ * The first round where a car races on its own setup (`racing/setup.ts`):
+ * the opening of season 5. Every round before it raced the balanced car, and
+ * its replay has to as well. The server has to run code that knows setups
+ * before this round's entry list locks.
+ */
+export const SETUP_ROUND = 33;
+
+/**
  * Circuits rotate through the calendar, the way a real season does: the
  * original four in turn through season 1, then each season's own draw from the
  * pool (see `rotation.ts`). Rounds already raced keep their track forever -

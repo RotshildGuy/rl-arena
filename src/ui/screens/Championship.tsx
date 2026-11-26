@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageSkeleton } from '../components/PageSkeleton';
 import { useApp } from '../store';
 import { useChampionship, useNow } from '../useChampionship';
-import { buildStandings } from '../../core/champ/points';
 import { teamColor } from '../../core/champ/livery';
 import { GRID_SIZE, MIN_ENTRIES, SESSION_GAP_MS, lapsFor, planSessions } from '../../core/champ/format';
 import {
@@ -27,13 +26,15 @@ import { HOUSE_FROM_ROUND, HOUSE_GRID, HOUSE_TEAM, isHouse } from '../../core/ch
 import { dayState, dayStatus, resultsVisible, settledResults } from '../../core/champ/timing';
 import { qualifyingOrder } from '../../core/champ/sim';
 import type { ArenaEntry, RaceCard, RaceResult } from '../../core/champ/types';
-import { DriverCell, LiveryBar } from '../components/Livery';
+import { DriverCell } from '../components/Livery';
 import { TeamNameForm } from '../components/TeamNameForm';
 import { CoachAnchor, useCoachStep } from '../coach';
 import { getStore, type ModelMeta } from '../../storage';
 import { removeEntry, entryDrift } from '../enterChampionship';
 import { dateText, dateTimeText, lapTime, posClass, timeText, untilText, untilWords } from '../format';
 import { googleCalendarUrl } from '../calendar';
+import { SeasonPreview } from '../components/SeasonPreview';
+import { BetsCard } from './Bets';
 import { SeasonTracks } from '../components/SeasonTracks';
 import { Welcome, hasSeenWelcome, markWelcomeSeen } from '../components/Welcome';
 import { locale, useT } from '../../i18n';
@@ -89,22 +90,9 @@ export function Championship() {
   // once as a countdown to enter and once as a broadcast to watch.
   const upcoming = airingRound(now) + 1;
 
-  // The table of the season on screen only: a new season starts from zero.
+  // The season on screen; results count once a minute, as their broadcasts end.
   const season = displaySeason(now);
-  // A result counts once its broadcast is over, minutes after it was fetched,
-  // so the tables recompute once a minute rather than only on the next fetch.
   const minute = Math.floor(now / 60_000);
-  const standings = useMemo(
-    () =>
-      state
-        ? buildStandings({
-            cards: seasonCards(state.cards, season),
-            results: settledResults(state.cards, state.results, now),
-          })
-        : null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, season, minute],
-  );
 
   // The champions of the season that just ended, for a few days after it.
   const lastHonours = useMemo(() => {
@@ -284,69 +272,9 @@ export function Championship() {
       </div>
       )}
 
-      {standings && standings.drivers.length > 0 && (
-        <div className="split">
-          <div className="card notched">
-            <div className="head">
-              <div className="eyebrow">{c.drivers}</div>
-              <div className="fill" />
-              <button className="ghost small" onClick={() => go('standings')}>
-                {c.fullTable}
-              </button>
-            </div>
-            <table className="timing">
-              <tbody>
-                {standings.drivers.slice(0, 6).map((d) => (
-                  <tr key={d.entryId} className={d.entryIds.some((id) => myEntries.some((e) => e.id === id)) ? 'me' : ''}>
-                    <td style={{ width: 40 }}>
-                      <span className={posClass(d.position)}>{d.position}</span>
-                    </td>
-                    <td>
-                      <DriverCell driver={driverName({ id: d.entryId, driver: d.driver })} team={teamName(d.team)} tag={d.tag} uid={d.uid} />
-                    </td>
-                    <td className="mono num" style={{ width: 60, fontWeight: 700 }}>
-                      {d.points}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {state && <BetsCard />}
 
-          <div className="card notched">
-            <div className="head">
-              <div className="eyebrow">{c.teams}</div>
-            </div>
-            <table className="timing">
-              <tbody>
-                {standings.teams.slice(0, 6).map((team) => (
-                  <tr key={team.uid || team.team}>
-                    <td style={{ width: 40 }}>
-                      <span className={posClass(team.position)}>{team.position}</span>
-                    </td>
-                    <td>
-                      <div className="driver">
-                        <LiveryBar team={team.team} uid={team.uid} />
-                        <div className="names">
-                          <span className="who">
-                            <Name>{teamName(team.team)}</Name>
-                          </span>
-                          <span className="team">
-                            {c.models(team.entries.length)}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="mono num" style={{ width: 60, fontWeight: 700 }}>
-                      {team.points}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {state && <SeasonPreview season={seasonNumber(upcoming)} cards={state.cards} results={state.results} now={now} />}
 
       {state && state.cards.length === 0 && (
         <div className="empty">

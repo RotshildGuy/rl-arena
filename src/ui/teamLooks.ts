@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { earnedCoins } from '../core/champ/coins';
-import { validLook, type Paint } from '../core/champ/shop';
+import { normalizeShop, spent, validLook, type Paint } from '../core/champ/shop';
 import { settledResults } from '../core/champ/timing';
 import type { RaceCard, RaceResult } from '../core/champ/types';
 import { getShop } from '../storage/shop';
+import { localBets, publishedBetNet } from '../storage/bets';
+import { betBook } from '../core/champ/bets';
 import { useChampionship } from './useChampionship';
+
+/** The dev server's `?demo`: never true in a production build. */
+const DEMO_PACKS = import.meta.env.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo');
 
 export type TeamPaint = Paint;
 
@@ -36,6 +41,8 @@ function earnedFor(uid: string, cards: RaceCard[], results: Map<string, RaceResu
 export function useTeamPaint(uids: string[]): Map<string, TeamPaint> {
   const { state } = useChampionship();
   const [docs, setDocs] = useState<Map<string, Awaited<ReturnType<typeof getShop>>>>(new Map());
+  /** What each team won or lost betting, as the server published it (null: settled here). */
+  const [betNets, setBetNets] = useState<Map<string, number | null>>(new Map());
   const key = [...new Set(uids)].sort().join(',');
 
   useEffect(() => {
@@ -43,6 +50,9 @@ export function useTeamPaint(uids: string[]): Map<string, TeamPaint> {
     const list = key ? key.split(',') : [];
     void Promise.all(list.map(async (uid) => [uid, await getShop(uid)] as const)).then((pairs) => {
       if (!cancelled) setDocs(new Map(pairs));
+    });
+    void Promise.all(list.map(async (uid) => [uid, await publishedBetNet(uid)] as const)).then((pairs) => {
+      if (!cancelled) setBetNets(new Map(pairs));
     });
     return () => {
       cancelled = true;
@@ -54,11 +64,22 @@ export function useTeamPaint(uids: string[]): Map<string, TeamPaint> {
     if (!state) return out;
     for (const [uid, doc] of docs) {
       if (!doc) continue;
-      const paint = validLook(doc, earnedFor(uid, state.cards, state.results));
+      // Coins won betting are coins too. The server's figure where there is
+      // one; without the cloud this browser's own bets, settled here.
+      const published = betNets.get(uid);
+      const earned = earnedFor(uid, state.cards, state.results);
+      let betNet = published ?? 0;
+      if (published === null && uid === state.uid) {
+        const now = Date.now();
+        const budget = earned - spent(normalizeShop(doc).purchases);
+        betNet = betBook(localBets(), budget, state.cards, settledResults(state.cards, state.results, now), now).settledNet;
+      }
+      // Only the dev server's sample teams may wear pack prizes before packs open.
+      const paint = validLook(doc, earned + betNet, { packs: DEMO_PACKS });
       if (paint) out.set(uid, paint);
     }
     return out;
-  }, [docs, state]);
+  }, [docs, state, betNets]);
 }
 
 /** One team's checked paint, for a table row: its colour and emblem. */

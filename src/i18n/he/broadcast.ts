@@ -60,6 +60,9 @@ export const broadcast = {
   forward10: 'קדימה 10 שניות',
   /** The radio toggle in the top bar. */
   radioOn: 'רדיו',
+  /** The sound toggle: engines, tyres, and the radio out loud. */
+  soundOn: 'קול',
+  soundTitle: 'קול: מנועים, צמיגים, פגיעות, והרדיו של הקבוצות בקול',
   radioTitle: 'רדיו קבוצתי: הנהגים והקבוצות מדברים',
   radioFrom: (driver: string) => `רדיו · ${driver}`,
   radioTeam: 'קבוצה',

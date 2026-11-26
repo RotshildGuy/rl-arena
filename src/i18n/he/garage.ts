@@ -61,6 +61,7 @@ export const garage = {
   enter: 'רשום לאליפות',
   continue: 'המשך אימון',
   race: 'התחרה מולו',
+  design: 'עיצוב',
   close: 'סגור',
   rename: 'שנה שם',
   duplicate: 'שכפל',

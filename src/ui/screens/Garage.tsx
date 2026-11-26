@@ -5,6 +5,7 @@ import { useApp } from '../store';
 import { LineChart } from '../components/LineChart';
 import { DriverCell, LiveryBar } from '../components/Livery';
 import { getStore, newModelId, type ModelMeta } from '../../storage';
+import { setupOf } from '../../core/games/racing/setup';
 import { ALGORITHMS } from '../../core/rl/algorithms';
 import { useChampionship } from '../useChampionship';
 import {
@@ -39,7 +40,7 @@ import { Name } from '../components/Name';
 export function Garage() {
   const t = useT();
   const g = t.garage;
-  const { gameId, go, newDraft, draftFromModel, patchRace, showToast, competitor: team } = useApp();
+  const { gameId, go, newDraft, draftFromModel, showToast, competitor: team } = useApp();
   const game = getGame(gameId);
   const champ = useChampionship();
   const [models, setModels] = useState<ModelMeta[] | null>(null);
@@ -164,11 +165,6 @@ export function Garage() {
     showToast(entry ? g.deletedBoth : g.deleted);
     if (entry) champ.reload();
     void refresh();
-  };
-
-  const race = (m: ModelMeta) => {
-    patchRace({ config: { ...m.config, laps: 3 }, opponents: [m.id] });
-    go('raceSetup');
   };
 
   const enter = async (m: ModelMeta) => {
@@ -321,6 +317,9 @@ export function Garage() {
                   <LiveryBar team={team} uid={champ.state?.uid} small />
                   {g.team(team)}
                 </span>
+                <button className="small" onClick={() => go('design')}>
+                  🎨 {g.design}
+                </button>
                 <span className={gridFull ? 'pill warn' : 'muted'}>
                   {g.onTrack(myCars.length, MAX_ENTRIES_PER_TEAM)}
                 </span>
@@ -390,7 +389,7 @@ export function Garage() {
                     <DriverCell
                       driver={m.name}
                       team={team || t.misc.unnamed}
-                      note={ALGORITHMS[m.algorithm]?.name ?? m.algorithm}
+                      note={`${ALGORITHMS[m.algorithm]?.name ?? m.algorithm} · ${t.trainSetup.setupNames[setupOf(m.setup).id]}`}
                     />
                     <div style={{ flex: 1 }} />
                     {gameId === 'racing' &&
@@ -477,15 +476,6 @@ export function Garage() {
                       }}
                     >
                       {g.continue}
-                    </button>
-                    <button
-                      className="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        race(m);
-                      }}
-                    >
-                      {g.race}
                     </button>
                   </div>
                 </div>
@@ -587,6 +577,7 @@ export function Garage() {
           })}
         </div>
       )}
+
     </>
   );
 }

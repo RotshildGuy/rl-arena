@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { getTrack, type Track } from '../../core/games/racing/tracks';
 import { CAR_RADIUS, type RacingSnapshot } from '../../core/games/racing/env';
-import { BODY_SHAPES, darker, drawCarLivery, hasKerb, type CarLook } from '../../core/games/racing/render';
+import { BODY_SHAPES, FINISH_FX_MS, RAINBOW, darker, drawCarLivery, drawFinishFx, drawVisor, hasKerb, type CarLook } from '../../core/games/racing/render';
 import { mulberry32 } from '../../core/rng';
+import { TrailHistory, trailStrip } from '../../core/games/racing/trail';
 import type { CameraSpec } from './director';
 
 /**
@@ -46,6 +47,9 @@ interface CarRig {
   sparks: THREE.Sprite;
   key: string;
   ghost: boolean;
+  /** Pack prizes on the car, when it has them. The trail lives in world space, not on the car. */
+  trail: THREE.Mesh | null;
+  flame: THREE.Group | null;
 }
 
 export class RaceScene {
@@ -71,6 +75,12 @@ export class RaceScene {
   private readonly smokeTex: THREE.Texture;
   private readonly sparkTex: THREE.Texture;
   private readonly shadowTex: THREE.Texture;
+  /** The winner's finish-line prize: the 2D drawing, redrawn on a sprite while it plays. */
+  private readonly fxCanvas = document.createElement('canvas');
+  private readonly fxTex: THREE.CanvasTexture;
+  private readonly fx: THREE.Sprite;
+  /** Where every car has just been, for trails. */
+  private readonly trails = new TrailHistory();
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance' });
@@ -87,7 +97,13 @@ export class RaceScene {
     this.smokeTex = radialTexture('rgba(235,238,245,0.9)', 'rgba(235,238,245,0)');
     this.sparkTex = radialTexture('rgba(255,220,120,1)', 'rgba(255,120,40,0)');
     this.shadowTex = radialTexture('rgba(0,0,0,0.55)', 'rgba(0,0,0,0)');
-    this.disposables.push(this.smokeTex, this.sparkTex, this.shadowTex);
+    this.fxCanvas.width = this.fxCanvas.height = 256;
+    this.fxTex = new THREE.CanvasTexture(this.fxCanvas);
+    this.fxTex.colorSpace = THREE.SRGBColorSpace;
+    this.fx = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.fxTex, transparent: true, depthWrite: false, depthTest: false }));
+    this.fx.visible = false;
+    this.scene.add(this.fx);
+    this.disposables.push(this.smokeTex, this.sparkTex, this.shadowTex, this.fxTex, this.fx.material);
   }
 
   setSize(w: number, h: number): void {
@@ -115,6 +131,10 @@ export class RaceScene {
   private dropCar(rig: CarRig): void {
     this.scene.remove(rig.group, rig.sparks, ...rig.smoke);
     disposeTree(rig.group);
+    if (rig.trail) {
+      this.scene.remove(rig.trail);
+      disposeTree(rig.trail);
+    }
     for (const s of [...rig.smoke, rig.sparks]) s.material.dispose();
   }
 
@@ -128,6 +148,10 @@ export class RaceScene {
       if (rig) this.dropCar(rig);
       const group = buildCar(p, this.shadowTex);
       this.scene.add(group);
+      const trail = p.look?.trail ? trailMesh(p.look.trail) : null;
+      if (trail) this.scene.add(trail);
+      const flame = p.look?.flame ? flameMesh(p.look.flame) : null;
+      if (flame) group.add(flame);
       const smoke = [0, 1, 2, 3].map(() => {
         const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.smokeTex, color: smokeColor(p.look), transparent: true, depthWrite: false }));
         s.visible = false;
@@ -137,7 +161,7 @@ export class RaceScene {
       const sparks = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sparkTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
       sparks.visible = false;
       this.scene.add(sparks);
-      this.cars[i] = { group, smoke, sparks, key, ghost: false };
+      this.cars[i] = { group, smoke, sparks, key, ghost: false, trail, flame };
     }
   }
 
@@ -149,6 +173,7 @@ export class RaceScene {
     this.ensureTrack(snap.trackId);
     this.ensureCars(paints);
     const scale = 1;
+    this.trails.update(snap, LEN * 0.45);
 
     for (let i = 0; i < this.cars.length; i++) {
       const rig = this.cars[i];
@@ -180,6 +205,14 @@ export class RaceScene {
         (s.material as THREE.SpriteMaterial).opacity = Math.min(0.55, slip * 0.18);
       });
 
+      // Pack prizes: the trail grows with the speed, the flame flickers on the throttle.
+      if (rig.trail) fillTrail(rig.trail, c.done ? [] : trailStrip(this.trails.of(i), snap.raceMs, WID * 0.24));
+      if (rig.flame) {
+        rig.flame.visible = !c.done && !!c.onGas;
+        const flick = 0.75 + 0.5 * (((Math.floor(snap.raceMs / 40) * 2654435761 + i * 97) >>> 0) % 1000) / 1000;
+        rig.flame.scale.set(flick, 1, 1);
+      }
+
       // Sparks off the wall, flickering with the race clock so a replay throws the same ones.
       rig.sparks.visible = c.touchingWall && !c.done && Math.floor(snap.raceMs / 50) % 3 !== 0;
       if (rig.sparks.visible) {
@@ -189,8 +222,28 @@ export class RaceScene {
       }
     }
 
+    this.finishFx(snap, paints);
     this.aim(snap, spec, dt);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** The winner's finish-line prize, over the car, for its run after the flag. */
+  private finishFx(snap: RacingSnapshot, paints: CarPaint[]): void {
+    const win = snap.order[0];
+    const c = snap.cars[win];
+    const look = paints[win]?.look;
+    const t = c && c.finished && c.totalMs !== null ? (snap.raceMs - c.totalMs) / FINISH_FX_MS : -1;
+    this.fx.visible = !!look?.finish && t >= 0 && t < 1;
+    if (!this.fx.visible || !look?.finish) return;
+    const ctx = this.fxCanvas.getContext('2d')!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.translate(128, 128);
+    drawFinishFx(ctx, look.finish, t, 26, paints[win].color, look.secondary);
+    this.fxTex.needsUpdate = true;
+    this.fx.position.set(c.x, 6, c.y);
+    const size = LEN * 9;
+    this.fx.scale.set(size, size, 1);
   }
 
   /** Screen position of a point a little above a car, in CSS pixels; null when behind the camera or off screen. */
@@ -700,10 +753,117 @@ function buildCar(paint: CarPaint, shadowTex: THREE.Texture): THREE.Group {
 
   const helmet = new THREE.Mesh(
     new THREE.SphereGeometry(WID * 0.13, 14, 10),
-    new THREE.MeshLambertMaterial({ color: look?.helmet ?? '#f4f6fb' }),
+    look?.visor
+      ? new THREE.MeshLambertMaterial({ map: helmetTexture(look.helmet ?? '#f4f6fb', look.visor, secondary) })
+      : new THREE.MeshLambertMaterial({ color: look?.helmet ?? '#f4f6fb' }),
   );
   helmet.position.set(-LEN * 0.08, BODY_H * 2 + WHEEL_R * 0.4, 0);
   group.add(helmet);
+  return group;
+}
+
+/** A helmet's paint with its design, wrapped round the sphere. */
+function helmetTexture(base: string, visor: NonNullable<CarLook['visor']>, color: string): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, 128, 64);
+  // Four times round, so the design shows from whichever side the camera is on.
+  for (const x of [16, 48, 80, 112]) {
+    ctx.save();
+    ctx.translate(0, 32);
+    drawVisor(ctx, x, 16, visor, color);
+    ctx.restore();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Points a trail strip can hold: more than a trail's worth of frames at 60 a second. */
+const TRAIL_POINTS = 96;
+
+/**
+ * A trail: a flat strip along the path the car drove, rebuilt every frame
+ * from the history (`fillTrail`). The texture fades out along u (age) and
+ * holds the colour, or the rainbow's bands, across v.
+ */
+function trailMesh(trail: string): THREE.Mesh {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d')!;
+  const fade = ctx.createLinearGradient(0, 0, 128, 0);
+  fade.addColorStop(0, 'rgba(255,255,255,1)');
+  fade.addColorStop(1, 'rgba(255,255,255,0)');
+  if (trail === 'rainbow') {
+    RAINBOW.forEach((col, k) => {
+      ctx.fillStyle = col;
+      ctx.fillRect(0, (k * 32) / RAINBOW.length, 128, 32 / RAINBOW.length + 1);
+    });
+  } else {
+    ctx.fillStyle = trail.replace(/,\s*[\d.]+\)$/, ', 1)');
+    ctx.fillRect(0, 0, 128, 32);
+  }
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, 128, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_POINTS * 2 * 3), 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(TRAIL_POINTS * 2 * 2), 2));
+  const index: number[] = [];
+  for (let i = 0; i < TRAIL_POINTS - 1; i++) {
+    const a = i * 2;
+    index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  geo.setIndex(index);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  return mesh;
+}
+
+/** Lay a trail strip into its mesh, newest end first so the texture fades towards the old end. */
+function fillTrail(mesh: THREE.Mesh, strip: ReturnType<typeof trailStrip>): void {
+  const n = Math.min(TRAIL_POINTS, strip.length);
+  mesh.visible = n >= 2;
+  if (!mesh.visible) return;
+  const geo = mesh.geometry;
+  const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+  const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+  const y = WHEEL_R * 1.1;
+  for (let k = 0; k < n; k++) {
+    const p = strip[strip.length - 1 - k];
+    pos.setXYZ(k * 2, p.lx, y, p.ly);
+    pos.setXYZ(k * 2 + 1, p.rx, y, p.ry);
+    uv.setXY(k * 2, p.age, 0);
+    uv.setXY(k * 2 + 1, p.age, 1);
+  }
+  pos.needsUpdate = true;
+  uv.needsUpdate = true;
+  geo.setDrawRange(0, (n - 1) * 6);
+}
+
+/** The exhaust flame: two cones out of the back of the car, the core inside the outer. */
+function flameMesh(flame: string): THREE.Group {
+  const [core, outer] = flame.split('|');
+  const group = new THREE.Group();
+  for (const [color, r, l] of [
+    [outer ?? '#ff7a1a', WID * 0.1, LEN * 0.32],
+    [core ?? '#ffe08a', WID * 0.055, LEN * 0.2],
+  ] as const) {
+    const geo = new THREE.ConeGeometry(r, l, 10);
+    // Point it backwards along -x, its base at the gearbox.
+    geo.rotateZ(Math.PI / 2);
+    geo.translate(-l / 2, 0, 0);
+    group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })));
+  }
+  group.position.set(-LEN * 0.5, BODY_H + WHEEL_R * 0.9, 0);
+  group.visible = false;
   return group;
 }
 

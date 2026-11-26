@@ -1,5 +1,8 @@
 import type { Radio } from '../../core/champ/radio';
-import { useT } from '../../i18n';
+import { ITEM_BY_ID } from '../../core/champ/shop';
+import type { CarLook } from '../../core/games/racing/render';
+import type { RadioLine } from '../raceAudio';
+import { t as words, useT } from '../../i18n';
 import { isolated } from './Name';
 import type { TowerCar } from './TimingTower';
 
@@ -10,8 +13,7 @@ import type { TowerCar } from './TimingTower';
 export function RadioCard({ radio, cars, teams }: { radio: Radio; cars: TowerCar[]; teams: string[] }) {
   const b = useT().broadcast;
   const car = cars[radio.car];
-  const takes = b.radio[radio.kind];
-  const lines = takes[radio.variant % takes.length];
+  const lines = radioLines(radio, car?.look);
   const driver = car?.name ?? '-';
   return (
     <div className="radio-card" style={{ ['--team' as string]: car?.color ?? '#888' }} key={`${radio.at}:${radio.car}`}>
@@ -31,4 +33,18 @@ export function RadioCard({ radio, cars, teams }: { radio: Radio; cars: TowerCar
       ))}
     </div>
   );
+}
+
+/**
+ * The words of a radio call. A winner whose team has a radio quote (a pack
+ * prize) says that instead of the usual first line; the pit wall still answers.
+ */
+export function radioLines(radio: Radio, look: CarLook | undefined): RadioLine[] {
+  const takes = words().broadcast.radio[radio.kind];
+  const lines = takes[radio.variant % takes.length] as RadioLine[];
+  const quote = radio.kind === 'win' && look?.quote ? ITEM_BY_ID.get(look.quote) : undefined;
+  if (!quote || quote.kind !== 'quote') return lines;
+  const at = lines.findIndex(([who]) => who === 'driver');
+  if (at < 0) return [['driver', quote.label], ...lines];
+  return lines.map((l, i) => (i === at ? (['driver', quote.label] as RadioLine) : l));
 }

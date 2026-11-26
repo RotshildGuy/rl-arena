@@ -91,6 +91,8 @@ export interface Env<Snap = unknown> {
    * Optional, because a game with a single global scoring rule need not offer it.
    */
   setAgentRewards?(agent: number, rewards: RewardConfig): void;
+  /** Put one agent on a car setup (racing only). */
+  setAgentSetup?(agent: number, setup: string): void;
   reset(seed: number): void;
   /** Writes the observation for `agent` into `out` and returns it. */
   observe(agent: number, out: Float32Array): Float32Array;

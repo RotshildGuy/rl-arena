@@ -13,6 +13,8 @@ export interface TrainSlotInit {
   algorithm: AlgorithmId;
   /** This model's own reward table - models on the same grid may differ. */
   rewards: RewardConfig;
+  /** The car setup this model's cars drive on (`racing/setup.ts`). */
+  setup?: string;
   hyper: Partial<DqnHyper>;
   gaHyper: Partial<GaHyper>;
   /** Present when continuing an existing model. */
@@ -30,7 +32,7 @@ export interface TrainInit {
   slots: TrainSlotInit[];
   speed: SpeedMode;
   /** Frozen cars to train against, taking the last seats. */
-  rivals?: Array<{ obsSize: number; hidden: number[]; nActions: number; weightsB64: string }>;
+  rivals?: Array<{ obsSize: number; hidden: number[]; nActions: number; weightsB64: string; setup?: string }>;
 }
 
 export interface SlotLive {

@@ -61,6 +61,11 @@ export interface ModelMeta {
   rewards: RewardConfig;
   /** Environment config used during training (track, car count, collisions). */
   config: Record<string, unknown>;
+  /**
+   * The car setup it trains and races on (`racing/setup.ts`). Absent on models
+   * from before setups, which drove the balanced car.
+   */
+  setup?: string;
   training: {
     episodes: number;
     envSteps: number;

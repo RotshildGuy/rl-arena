@@ -16,7 +16,7 @@ import { TrainingSession } from '../src/core/rl/session';
 import { getGame } from '../src/core/games/registry';
 import { RacingEnv, DEFAULT_RACING_CONFIG, STEP_MS, PHYSICS_VERSION } from '../src/core/games/racing/env';
 import { bestBraking, drive, flatOutLoses } from './drivers';
-import { physicsForRound, PHYSICS_V2_ROUND } from '../src/core/champ/schedule';
+import { physicsForRound, PHYSICS_V2_ROUND, SETUP_ROUND } from '../src/core/champ/schedule';
 import { RACING_SPEC, OBS_SIZE, RACING_PRESETS } from '../src/core/games/racing/rewards';
 import { lapsFor, planSessions, GRID_SIZE, KNOCKOUT_FORMAT_ROUND, MIN_ENTRIES, RACE_LAPS, SESSION_GAP_MS } from '../src/core/champ/format';
 import { awardPoints, buildStandings, POINTS } from '../src/core/champ/points';
@@ -75,7 +75,10 @@ import { buildFunctions } from './buildFunctions';
 import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { Policy } from '../src/core/rl/policy';
-import { SessionSim, QUALI_LAPS, qualifyingOrder, replayDriversFor } from '../src/core/champ/sim';
+import { SETUPS, setupOf, DEFAULT_SETUP, TRACK_CHARACTER } from '../src/core/games/racing/setup';
+import { ratingsBefore, BASE_RATING } from '../src/core/champ/ratings';
+import { raceOdds, seasonOdds, settleBet, betBook, bettableRound, type Bet } from '../src/core/champ/bets';
+import { SessionSim, QUALI_LAPS, qualifyingOrder, replayDriversFor, setupsFor } from '../src/core/champ/sim';
 
 let failures = 0;
 const CHAPTER = String.fromCharCode(10);
@@ -966,6 +969,105 @@ function fakePlace(entryId: string, position: number): DayPlace {
 
 function fakeResult(raceId: string, places: DayPlace[]): RaceResult {
   return { raceId, seasonId: 'S1', computedAt: 0, sessions: [], places, pole: null, fastestLap: null };
+}
+
+// ------------------------------------------------------------- season 5
+/**
+ * Season 5: car setups, hidden ratings and bets.
+ *
+ * The balanced setup has to be the car as it always was, bit for bit, or
+ * every replay of an older race would drift. A setup only reaches a race from
+ * SETUP_ROUND. The ratings and the odds are pure functions of published
+ * results, and a bet settles the same way wherever it is worked out.
+ */
+function season5Test(): void {
+  console.log(CHAPTER + 'Season 5: setups, ratings, bets');
+
+  const drive = (setups?: (string | undefined)[]) => {
+    const env = new RacingEnv({ ...DEFAULT_RACING_CONFIG, nCars: 2, laps: 1, maxSteps: 500, setups }, defaultRewards(RACING_SPEC));
+    env.reset(3);
+    const rng = mulberry32(5);
+    const act = new Int32Array(2);
+    for (let i = 0; i < 400; i++) {
+      act[0] = (rng() * 9) | 0;
+      act[1] = (rng() * 9) | 0;
+      if (env.step(act).allDone) break;
+    }
+    return JSON.stringify(env.snapshot().cars.map((c) => [c.x, c.y, c.speed]));
+  };
+  const plain = drive();
+  check('the balanced setup drives exactly the car without one', drive(['balanced', 'balanced']) === plain);
+  check('an unknown setup is the balanced car', drive(['nonsense', undefined]) === plain);
+  check('a real setup changes how the car drives', drive(['downforce', 'lowdrag']) !== plain);
+  const e = (id: string, setup?: string): ArenaEntry => ({ ...HOUSE_DRIVERS[0], id, ...(setup ? { setup } : {}) });
+  check('setups reach no race before SETUP_ROUND', setupsFor(SETUP_ROUND - 1, [e('x', 'downforce')]).size === 0);
+  check('and every race from it', setupsFor(SETUP_ROUND, [e('x', 'downforce'), e('y')]).get('x') === 'downforce');
+  check('every setup is a known one', SETUPS.every((su) => setupOf(su.id) === su) && setupOf('x').id === DEFAULT_SETUP);
+  check('every circuit has a character', TRACK_DEFS.every((d) => d.id in TRACK_CHARACTER));
+
+  // Ratings and odds, over a season where "a" always wins.
+  const first = seasonRange(5).first;
+  const card = (round: number): RaceCard => ({ ...fakeCard(round, ['a', 'b0', 'b1']), id: raceIdForRound(round), seasonId: seasonForRound(round) });
+  const cards = [0, 1, 2, 3].map((i) => card(first + i));
+  const results = new Map(cards.map((c) => [c.id, fakeResult(c.id, [fakePlace('a', 1), fakePlace('b0', 2), fakePlace('b1', 3)])]));
+  const ratings = ratingsBefore(cards, results);
+  const ra = ratings.drivers.get('a')!;
+  const rb = ratings.drivers.get('b1')!;
+  check('a winner climbs the ratings and the last car drops', ra > BASE_RATING && rb < BASE_RATING, `${ra.toFixed(0)} / ${rb.toFixed(0)}`);
+  check('ratings only count races before the round asked about', ratingsBefore(cards, results, first).races === 0 && ratings.races === 4);
+  const odds = raceOdds('driver', cards[0].entries, ratings);
+  check('the favourite pays least', odds[0].id === 'a' && odds[0].odds < odds[2].odds, odds.map((o) => `${o.id} ${o.odds}`).join(', '));
+  check('every price is at least the minimum', odds.every((o) => o.odds >= 1.01));
+  check('a team market has one runner per team', raceOdds('team', cards[0].entries, ratings).length === 2);
+
+  const early = seasonOdds('driver', first, cards.slice(0, 1), new Map(), cards[0].entries);
+  const late = seasonOdds('driver', first + 4, cards, results, cards[0].entries);
+  const price = (rs: typeof early, id: string) => rs.find((r) => r.id === id)!.odds;
+  check('the leader pays less as the season goes on', price(late, 'a') < price(early, 'a'), `${price(early, 'a')} -> ${price(late, 'a')}`);
+  const second = seasonOdds('driver', first + 1, cards, results);
+  const raceThen = raceOdds('driver', cards[1].entries, ratingsBefore(cards, results, first + 1));
+  check(
+    'early in a season the title pays at least what the race does',
+    raceThen.every((r) => price(second, r.id) >= r.odds * 0.99 - 0.15),
+    raceThen.map((r) => `${r.id} race ${r.odds} title ${price(second, r.id)}`).join(', '),
+  );
+  check(
+    'season odds are the same every time they are asked',
+    JSON.stringify(seasonOdds('team', first + 4, cards, results, cards[0].entries)) === JSON.stringify(seasonOdds('team', first + 4, cards, results, cards[0].entries)),
+  );
+
+  // Settling.
+  const r = first + 3;
+  const bet = (over: Partial<Bet>): Bet => ({
+    id: 'x',
+    kind: 'race',
+    market: 'driver',
+    pick: 'a',
+    stake: 20,
+    round: r,
+    raceId: raceIdForRound(r),
+    seasonId: seasonForRound(r),
+    placedAt: startsAtForRound(r) - 60_000,
+    ...over,
+  });
+  const after = startsAtForRound(first + 6);
+  const winOdds = raceOdds('driver', cards[3].entries, ratingsBefore(cards, results, r)).find((o) => o.id === 'a')!.odds;
+  const won = settleBet(bet({}), cards, results, after);
+  check('a bet on the winner pays the stake times the odds', won.status === 'won' && won.payout === Math.floor(20 * winOdds), `${won.payout}`);
+  check('a bet on another car loses', settleBet(bet({ pick: 'b0' }), cards, results, after).status === 'lost');
+  check('a team bet pays on a car of the team', settleBet(bet({ market: 'team', pick: 'u' }), cards, results, after).status === 'won');
+  check('a bet on a car that never lined up is returned', settleBet(bet({ pick: 'zzz' }), cards, results, after).payout === 20);
+  check('a bet placed after the lights is void', settleBet(bet({ placedAt: startsAtForRound(r) + 1 }), cards, results, after).status === 'void');
+  check('a bet naming another race than its round is void', settleBet(bet({ raceId: raceIdForRound(r + 1) }), cards, results, after).status === 'void');
+  check('a race without a result yet is open', settleBet(bet({ round: first + 5, raceId: raceIdForRound(first + 5) }), cards, results, startsAtForRound(first + 5) - 1).status === 'open');
+  const book = betBook([bet({ id: '1', stake: 50 }), bet({ id: '2', stake: 60, pick: 'b0' })], 80, cards, results, after);
+  check('a bet the team could not afford is void', book.rows.find((x) => x.bet.id === '2')?.s.reason === 'funds');
+  check('the book adds up', book.net === Math.floor(50 * winOdds) - 50 && book.settledNet === book.net);
+  const seasonBet = bet({ kind: 'season', round: first + 2, raceId: raceIdForRound(first + 2), placedAt: startsAtForRound(first + 2) - 1 });
+  check('a season bet stays open until the season is over', settleBet(seasonBet, cards, results, after).status === 'open');
+  check('and is settled once it is', settleBet(seasonBet, cards, results, startsAtForRound(seasonRange(5).last) + 4 * 60 * 60 * 1000).status === 'won');
+  check('the next race to bet on has not started', startsAtForRound(bettableRound(after)) > after && startsAtForRound(bettableRound(after) - 1) <= after);
+
 }
 
 // ------------------------------------------------------- split drivers
@@ -1880,7 +1982,7 @@ async function serverRaceDayTest(): Promise<void> {
   let same = !!replay && replay.size === source.results.get(raceId)!.sessions.length;
   for (const s of source.results.get(raceId)!.sessions) {
     const plan = plans.find((p) => p.id === s.sessionId)!;
-    const sim = new SessionSim(card.trackId, lapsFor(plan), replayDriversFor(s.grid, replay?.get(s.sessionId) ?? {}), card.seed + plan.offsetMs, card.physics);
+    const sim = new SessionSim(card.trackId, lapsFor(plan), replayDriversFor(s.grid, replay?.get(s.sessionId) ?? {}, setupsFor(card.round, card.entries)), card.seed + plan.offsetMs, card.physics);
     sim.runToEnd();
     if (JSON.stringify(sim.result(s.sessionId, s.grid)) !== JSON.stringify(s)) same = false;
   }
@@ -2173,5 +2275,6 @@ rivalTest();
 functionsCalendarTest();
 await serverRaceDayTest();
 dashTest();
+season5Test();
 console.log(failures === 0 ? '\nAll sanity checks passed.' : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);
