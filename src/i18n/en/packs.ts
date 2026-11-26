@@ -3,7 +3,7 @@ import type * as He from '../he/packs';
 export const packShop: typeof He.packShop = {
   title: 'Packs',
   eyebrow: 'The shop',
-  intro: "Every day you open the game you get a pack as a gift, and it opens after the next race's lock. What is inside comes from the seed the server draws at the lock, so nobody - you included - knows in advance.",
+  intro: "A free pack every day you open the game. It opens after the next race's lock, and nobody knows in advance what is inside.",
   noMoney: 'Packs are not sold, and neither are the prizes in them. No real money and no trading between teams.',
   locked: (season, date) => `Packs start in season ${season} (${date}). You can already see what is in them and the odds.`,
   giftToday: '🎁 You got your daily pack! It is in the shop and opens after the lock.',

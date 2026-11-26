@@ -96,6 +96,7 @@ export const championship: typeof He.championship = {
   cancel: 'Cancel',
   removeTitle: 'Remove from the championship',
   remove: 'Remove',
+  yourCars: 'Your cars',
   lastResult: 'Latest result',
   afterBroadcast: 'Results are published when the broadcast ends.',
   pole: (driver) => `Pole position: ${driver}`,

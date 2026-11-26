@@ -66,8 +66,7 @@ export function Bets() {
   return (
     <>
       <div className="card notched" style={{ marginBottom: 14 }}>
-        <div className="eyebrow">{b.eyebrow}</div>
-        <h1 className="display" style={{ margin: '6px 0' }}>
+        <h1 className="display" style={{ margin: '0 0 6px' }}>
           {b.title}
         </h1>
         <div className="small muted" style={{ marginBottom: 10 }}>

@@ -10,7 +10,6 @@ import { DriverCell, LiveryBar } from '../components/Livery';
 import { dateText, lapTime, posClass, raceTime } from '../format';
 import { trackRecords, nextRoundOnTrack, type RecordHolder } from '../../core/champ/records';
 import { RACE_LAPS } from '../../core/champ/format';
-import { SeasonTracks } from '../components/SeasonTracks';
 import { currentRound, displaySeason, seasonNumber, seasonRange, startsAtForRound } from '../../core/champ/schedule';
 import { hallOfFame, rookieUids, seasonCards, type SeasonHonours } from '../../core/champ/seasons';
 import { leagueView } from '../../core/champ/league';
@@ -93,9 +92,6 @@ export function Standings() {
             {season === current ? s.currentTag : ''} · {s.rounds(seasonRange(season).first, seasonRange(season).last)}
           </div>
           <h1 className="display">{rookies ? s.rookies : s.title}</h1>
-          <div style={{ marginTop: 6 }}>
-            <SeasonTracks season={season} />
-          </div>
         </div>
         <div className="actions">
           {tab !== 'fame' && tab !== 'records' && (
@@ -309,8 +305,9 @@ export function Standings() {
       {tab === 'fame' && <HallOfFame fame={fame} />}
 
       {tab !== 'records' && tab !== 'fame' && (
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="eyebrow" style={{ marginBottom: 8 }}>{s.scoring}</div>
+      // Folded away: the table is the point, the rules behind it are a tap away.
+      <details className="card fold" style={{ marginTop: 14 }}>
+        <summary className="eyebrow">{s.scoring}</summary>
         <div className="row wrap small">
           {POINTS.map((p, i) => (
             <span className="pill" key={i}>
@@ -325,7 +322,7 @@ export function Standings() {
         <div className="small muted" style={{ marginTop: 8 }}>
           {s.scoringBody}
         </div>
-      </div>
+      </details>
       )}
     </>
   );

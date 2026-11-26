@@ -254,17 +254,15 @@ export function Garage() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">{g.eyebrow}</div>
           <h1 className="display">{g.title}</h1>
-          <div className="muted small">{g.intro}</div>
         </div>
         <div className="actions">
           {/* Distinct from the footer's "how it works", which opens the rules of
               the championship. This one is about training specifically. */}
-          <button className="ghost" onClick={() => setPrimer(true)} title={g.primerTitle}>
+          <button className="ghost small" onClick={() => setPrimer(true)} title={g.primerTitle}>
             {g.primer}
           </button>
-          <button onClick={() => fileInput.current?.click()}>{g.importFile}</button>
+          <button className="ghost small" onClick={() => fileInput.current?.click()}>{g.importFile}</button>
           <CoachAnchor
             step={coach === 'create' ? coach : null}
             text={g.coachCreate}

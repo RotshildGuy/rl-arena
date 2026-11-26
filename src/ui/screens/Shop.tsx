@@ -167,10 +167,8 @@ export function Shop() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">{s.eyebrow}</div>
           <h1 className="display">{s.title}</h1>
           <div className="muted small">{s.intro}</div>
-          <div className="muted small">{s.noMoney}</div>
         </div>
         <div className="actions">
           <button className="small" onClick={() => go('packs')}>
@@ -331,10 +329,9 @@ export function Shop() {
             </div>
           </div>
 
-          <div className="card notched">
-            <div className="eyebrow" style={{ marginBottom: 8 }}>
-              {s.earned}
-            </div>
+          {/* Folded: the balance is in the header; the sums behind it are a tap away. */}
+          <details className="card notched fold">
+            <summary className="eyebrow">{s.earned}</summary>
             {wallet.breakdown.length === 0 && (
               <div className="muted small">
                 {s.noCoins}
@@ -367,10 +364,7 @@ export function Shop() {
             <button className="small" style={{ marginTop: 8 }} onClick={() => go('bets')}>
               🎲 {words.bets.open}
             </button>
-            <div className="dim tiny" style={{ marginTop: 8 }}>
-              {s.honest}
-            </div>
-          </div>
+          </details>
         </div>
       </div>
     </>

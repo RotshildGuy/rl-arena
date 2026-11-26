@@ -96,6 +96,7 @@ export const championship = {
   cancel: 'ביטול',
   removeTitle: 'הסרה מהאליפות',
   remove: 'הסר',
+  yourCars: 'הרכבים שלך',
   lastResult: 'התוצאה האחרונה',
   afterBroadcast: 'התוצאות יפורסמו בתום השידור.',
   pole: (driver: string) => `עמדת זינוק ראשונה: ${driver}`,

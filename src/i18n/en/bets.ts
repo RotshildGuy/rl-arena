@@ -3,7 +3,7 @@ import type * as He from '../he/bets';
 export const bets: typeof He.bets = {
   title: 'Bets',
   eyebrow: 'Coins on the table',
-  intro: 'Bet the coins your team earned on who wins the next race or the championship. Nobody but you sees what you backed.',
+  intro: 'Who wins the next race, or the title? Only you see what you backed.',
   balance: 'You have',
   coins: (n) => `${n} coins`,
   nextRace: (round, track) => `Round ${round} · ${track}`,
@@ -42,7 +42,7 @@ export const bets: typeof He.bets = {
   onRace: (round) => `Race, round ${round}`,
   onSeason: (season, round) => `Season ${season} title (from round ${round})`,
   won: (n) => `+${n}`,
-  privacy: 'The rating behind the odds is hidden, and your bets are private. Others only see the team’s coin total.',
+  privacy: 'Others only see the team’s coin total.',
   open: 'Bets',
   cardTitle: 'Bet on the next race',
   cardBody: (favourite, odds) => `Favourite: ${favourite} at ${odds}. What do you think?`,

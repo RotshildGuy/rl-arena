@@ -46,8 +46,8 @@ import { isolated, Name } from '../components/Name';
  * against them - one to spot a car running old weights, one to spot a car whose
  * model is gone entirely - and they should not each read the database.
  */
-function useMyModels(): ModelMeta[] {
-  const [models, setModels] = useState<ModelMeta[]>([]);
+function useMyModels(): ModelMeta[] | null {
+  const [models, setModels] = useState<ModelMeta[] | null>(null);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -148,14 +148,18 @@ export function Championship() {
           }}
         />
       )}
-      <div className="page-head">
-        <div className="eyebrow">{c.eyebrow(season)}</div>
-        <h1 className="display">
-          {t.signin.headline1}
-          <br />
-          {t.signin.headline2}
-        </h1>
-      </div>
+      {/* The pitch is for somebody new. Once a team has cars on the grid, the
+          next race is the headline. */}
+      {state && myEntries.length === 0 && (
+        <div className="page-head">
+          <div className="eyebrow">{c.eyebrow(season)}</div>
+          <h1 className="display">
+            {t.signin.headline1}
+            <br />
+            {t.signin.headline2}
+          </h1>
+        </div>
+      )}
 
       {/* Not while on the way to the broadcast: the name form flashing past
           for a moment, unexplained, was the first thing a watcher saw. */}
@@ -213,31 +217,11 @@ export function Championship() {
         />
       )}
 
-      {/* The way to see what this is about without building anything first.
-          It used to be a second door on the sign-in screen; one door is
-          enough, and the race is one tap from here. Not while one is on air -
-          the live banner above already offers that. */}
-      {!liveCard && lastFinished && (
-        <button className="wide last-race-link" onClick={() => openRace(lastFinished.id, 'broadcast')}>
-          <span aria-hidden="true">🎬</span> {c.watchLast(grandPrixTitle(lastFinished.trackId))}
-        </button>
-      )}
-
       {lastHonours && now < startsAtForRound(lastHonours.last) + 3 * DAY_MS && (
         <ChampionsBanner honours={lastHonours} onOpen={() => go('standings')} />
       )}
 
-
-      {lastFinished && recaps.length > 0 && (
-        <MyRaceCard
-          card={lastFinished}
-          result={state?.results.get(lastFinished.id) ?? null}
-          recaps={recaps}
-          onOpen={() => openRace(lastFinished.id, 'report')}
-        />
-      )}
-
-      <StaleCarNotice entries={myEntries} models={myModels} now={now} round={upcoming} onFix={() => go('library')} />
+      <StaleCarNotice entries={myEntries} models={myModels ?? []} now={now} round={upcoming} onFix={() => go('library')} />
 
       {/* Until the season has loaded there is nothing true to say about the next
           race - its field, its format - so the shape of it stands in. */}
@@ -253,6 +237,17 @@ export function Championship() {
           onEnter={() => go('library')}
         />
         <div className="grid">
+          {lastFinished && state && (
+            <LastRace
+              card={lastFinished}
+              now={now}
+              recaps={recaps}
+              onOpen={() => openRace(lastFinished.id, 'report')}
+              onRewatch={() => openRace(lastFinished.id, 'broadcast')}
+            />
+          )}
+          {/* Only when something about the team's entries needs a hand: the
+              cars themselves are managed in the garage. */}
           <MyTeam
             entries={myEntries}
             models={myModels}
@@ -260,14 +255,6 @@ export function Championship() {
             onRename={() => setEditingName(true)}
             onChanged={reload}
           />
-          {lastFinished && state && (
-            <LastRace
-              card={lastFinished}
-              now={now}
-              onOpen={() => openRace(lastFinished.id, 'report')}
-              onRewatch={() => openRace(lastFinished.id, 'broadcast')}
-            />
-          )}
         </div>
       </div>
       )}
@@ -460,17 +447,14 @@ function NextRace({
         <h1 className="display" style={{ margin: '8px 0 4px' }}>
           {grandPrixTitle(trackId)}
         </h1>
-        <div className="muted small" style={{ marginBottom: 8 }}>
+        <div className="muted small" style={{ marginBottom: 16 }}>
           {dateTimeText(startsAt)} · {c.track(trackName(trackId))}
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <SeasonTracks season={seasonNumber(round)} round={round} />
-          {round === seasonRange(seasonNumber(round)).last && (
-            <div style={{ marginTop: 6 }}>
-              <SeasonTracks season={seasonNumber(round) + 1} label={c.nextSeasonTracks} />
-            </div>
-          )}
-        </div>
+        {round === seasonRange(seasonNumber(round)).last && (
+          <div style={{ margin: '-8px 0 16px' }}>
+            <SeasonTracks season={seasonNumber(round) + 1} label={c.nextSeasonTracks} />
+          </div>
+        )}
 
         <div className="dim small" style={{ marginBottom: 2 }}>
           {c.lightsOut}
@@ -505,18 +489,22 @@ function NextRace({
           </div>
         </div>
 
-        <div className="small muted" style={{ marginBottom: 14 }}>
-          {field.length === 0 && round >= HOUSE_FROM_ROUND
-            ? c.oneEnough(teamName(HOUSE_TEAM), HOUSE_GRID)
-            : field.length < MIN_ENTRIES
-            ? c.needForRace(MIN_ENTRIES)
-            : field.length <= GRID_SIZE
-              ? c.allTogether(field.length)
-              : c.splitHeats(GRID_SIZE, heats)}
-          {locked && c.lockedNote}
-        </div>
+        {/* Said only when it changes what happens: a short field, heats, a locked list. */}
+        {(field.length < MIN_ENTRIES || field.length > GRID_SIZE || locked) && (
+          <div className="small muted" style={{ marginBottom: 14 }}>
+            {field.length === 0 && round >= HOUSE_FROM_ROUND
+              ? c.oneEnough(teamName(HOUSE_TEAM), HOUSE_GRID)
+              : field.length < MIN_ENTRIES
+              ? c.needForRace(MIN_ENTRIES)
+              : field.length > GRID_SIZE
+                ? c.splitHeats(GRID_SIZE, heats)
+                : ''}
+            {locked && c.lockedNote}
+          </div>
+        )}
 
-        {field.length >= MIN_ENTRIES && (
+        {/* A timetable is worth a box only when the day has more than one session. */}
+        {field.length >= MIN_ENTRIES && sessions.length > 1 && (
           <div className="timetable">
             <div className="eyebrow" style={{ marginBottom: 6 }}>{c.timetable}</div>
             {sessions.map((s) => {
@@ -536,9 +524,6 @@ function NextRace({
                 </div>
               );
             })}
-            <div className="small muted" style={{ marginTop: 6 }}>
-              {c.slots(SESSION_GAP_MS / 60000)}
-            </div>
           </div>
         )}
 
@@ -588,7 +573,8 @@ function MyTeam({
   onChanged,
 }: {
   entries: ArenaEntry[];
-  models: ModelMeta[];
+  /** Null until the garage has been read. */
+  models: ModelMeta[] | null;
   onManage(): void;
   onRename(): void;
   onChanged(): void;
@@ -597,7 +583,7 @@ function MyTeam({
   const showToast = useApp((s) => s.showToast);
   const [confirming, setConfirming] = useState<string | null>(null);
   const c = useT().championship;
-  const known = useMemo(() => new Set(models.map((m) => m.id)), [models]);
+  const known = useMemo(() => new Set((models ?? []).map((m) => m.id)), [models]);
 
   /**
    * Entries that are the same driver twice.
@@ -620,6 +606,8 @@ function MyTeam({
     return new Set(entries.filter((e) => newest.get(`${e.uid}\u0000${e.driver}`)?.id !== e.id).map((e) => e.id));
   }, [entries]);
 
+  const needsHand = entries.some((e) => !known.has(e.modelId) || duplicates.has(e.id));
+
   const drop = async (entry: ArenaEntry) => {
     setConfirming(null);
     try {
@@ -630,6 +618,10 @@ function MyTeam({
       showToast(c.removeFailed);
     }
   };
+
+  // The garage lists the cars; this card is for a car the garage cannot reach.
+  // `models` arrives a moment after the entries, so wait for it before judging.
+  if (!team || models === null || !needsHand) return null;
 
   return (
     <div className="card notched">
@@ -699,11 +691,14 @@ function MyTeam({
 function LastRace({
   card,
   now,
+  recaps,
   onOpen,
   onRewatch,
 }: {
   card: RaceCard;
   now: number;
+  /** This team's cars in it, when it had any. */
+  recaps: CarRecap[];
   onOpen(): void;
   onRewatch(): void;
 }) {
@@ -751,12 +746,14 @@ function LastRace({
         </div>
       )}
 
-      <div className="row" style={{ marginTop: 12 }}>
+      {visible && recaps.length > 0 && <MyCars card={card} result={result} recaps={recaps} />}
+
+      <div className="row" style={{ marginTop: 14 }}>
+        <button className="primary small" onClick={onRewatch}>
+          {c.replay}
+        </button>
         <button className="small" onClick={onOpen} disabled={!visible}>
           {c.fullReport}
-        </button>
-        <button className="small cyan" onClick={onRewatch}>
-          {c.replay}
         </button>
       </div>
     </div>
@@ -770,27 +767,19 @@ function LastRace({
  * team cares about it - seventh is not on any podium. Shown only when one of
  * their cars was in the latest race, so it never repeats old news.
  */
-function MyRaceCard({
+function MyCars({
   card,
   result,
   recaps,
-  onOpen,
 }: {
   card: RaceCard;
   result: RaceResult | null;
   recaps: CarRecap[];
-  onOpen(): void;
 }) {
   const c = useT().championship;
   return (
-    <div className="card notched" style={{ marginBottom: 14 }}>
-      <div className="head">
-        <div className="eyebrow">{c.whatHappened(grandPrixTitle(card.trackId))}</div>
-        <div className="fill" />
-        <button className="ghost small" onClick={onOpen}>
-          {c.reportArrow}
-        </button>
-      </div>
+    <div className="my-cars">
+      <div className="eyebrow" style={{ marginBottom: 4 }}>{c.yourCars}</div>
       {recaps.map((r) => (
         <div className="row wrap" key={r.entryId} style={{ padding: '6px 0' }}>
           <span className={posClass(r.position, r.status === 'dnf')}>{r.position}</span>

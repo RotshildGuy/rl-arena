@@ -101,10 +101,8 @@ export function Packs() {
     <div className="packs-screen">
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">{p.eyebrow}</div>
           <h1 className="display">{p.title}</h1>
           <div className="muted small">{p.intro}</div>
-          <div className="muted small">{p.noMoney}</div>
         </div>
         <div className="actions">
           <span className="pill">{p.collection(box.owned.size, prizes.length)}</span>

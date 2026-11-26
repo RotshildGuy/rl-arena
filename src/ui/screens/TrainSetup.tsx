@@ -108,7 +108,6 @@ export function TrainSetup() {
     <>
       <div className="toolbar">
         <div className="title">
-          <div className="eyebrow">{s.eyebrow}</div>
           <h1 className="display">{continuing ? s.continue : multi ? s.together : s.newModel}</h1>
         </div>
       </div>
@@ -492,9 +491,6 @@ function Estimate() {
         </>
       )}
       {!measuring && !result && <span className="muted small">{s.measureFailed}</span>}
-      {isMobileClass && (
-        <span className="pill warn small">{s.mobile}</span>
-      )}
     </div>
   );
 }
