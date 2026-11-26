@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { earnedCoins } from '../core/champ/coins';
-import { normalizeShop, spent, validLook, type Paint } from '../core/champ/shop';
+import { normalizeShop, spentAll, validLook, type Paint } from '../core/champ/shop';
+import { teamPrizes } from '../core/champ/packs';
 import { settledResults } from '../core/champ/timing';
 import type { RaceCard, RaceResult } from '../core/champ/types';
 import { getShop } from '../storage/shop';
@@ -71,11 +72,12 @@ export function useTeamPaint(uids: string[]): Map<string, TeamPaint> {
       let betNet = published ?? 0;
       if (published === null && uid === state.uid) {
         const now = Date.now();
-        const budget = earned - spent(normalizeShop(doc).purchases);
+        const budget = earned - spentAll(normalizeShop(doc));
         betNet = betBook(localBets(), budget, state.cards, settledResults(state.cards, state.results, now), now).settledNet;
       }
-      // Only the dev server's sample teams may wear pack prizes before packs open.
-      const paint = validLook(doc, earned + betNet, { packs: DEMO_PACKS });
+      // Prizes count only as the team's packs gave them (the dev server's sample teams also wear a list).
+      const won = teamPrizes(uid, normalizeShop(doc), state.cards);
+      const paint = validLook(doc, earned + betNet, { packs: DEMO_PACKS, won });
       if (paint) out.set(uid, paint);
     }
     return out;

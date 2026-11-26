@@ -155,6 +155,8 @@ export async function seedDemo(): Promise<void> {
   const mode = new URLSearchParams(location.search).get('demo');
   if (mode !== 'reset' && localStorage.getItem(SEEDED_KEY)) return;
   await wipeLocalChampionship();
+  // Pack reveals already watched belong to the shop documents written below.
+  localStorage.removeItem('rl-arena-packs-seen');
 
   const weights = await houseWeights();
   const arena = await getArena();

@@ -30,6 +30,7 @@ export type Screen =
   | 'feedback'
   | 'shop'
   | 'bets'
+  | 'packs'
   | 'design';
 
 export type InfoTab = 'how' | 'terms' | 'privacy' | 'notices';

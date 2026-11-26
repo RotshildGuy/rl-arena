@@ -2,6 +2,7 @@ import type { CarLook, CelebrationKind } from '../games/racing/render';
 import { DEFAULT_EMBLEM, normalizeEmblem, type Emblem } from './emblem';
 import { t, translated } from '../../i18n/dict';
 import { teamColor, teamLook } from './livery';
+import { normalizePacks, packSpent, type PackRecord } from './packs';
 
 /**
  * The catalogue. Everything here is paint: it changes how a car is drawn and
@@ -237,11 +238,15 @@ export interface ShopDoc {
   equipped: Equipped;
   updatedAt: number;
   /**
-   * Pack prizes the team has won, kept in its locker (the garage). Until packs
-   * open (`PACKS_SEASON`) only the dev server's sample teams have any; then
-   * each one will be checked against the packs the team opened.
+   * A hand-written list of prizes, honoured only for the dev server's sample
+   * teams (`?demo`). Real teams own what their `packs` and `crafted` give,
+   * worked out by every browser (`packs.ts`); a list like this proves nothing.
    */
   prizes?: string[];
+  /** Packs bought, in order (`packs.ts`). Each one's prizes are worked out from it, not stored. */
+  packs?: PackRecord[];
+  /** Prizes bought with chips, in order. Each is taken only if the chips were there. */
+  crafted?: string[];
 }
 
 /** The kinds equipped by item id: one item of each on the car at a time. */
@@ -289,11 +294,25 @@ export function normalizeShop(raw: unknown): ShopDoc {
   const emblem = normalizeEmblem(src.emblem);
   if (emblem) equipped.emblem = emblem;
   const prizes = Array.isArray(d.prizes) ? d.prizes.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
-  return { purchases, equipped, updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0, ...(prizes.length ? { prizes } : {}) };
+  const packs = normalizePacks(d.packs);
+  const crafted = Array.isArray(d.crafted) ? d.crafted.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
+  return {
+    purchases,
+    equipped,
+    updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0,
+    ...(prizes.length ? { prizes } : {}),
+    ...(packs.length ? { packs } : {}),
+    ...(crafted.length ? { crafted } : {}),
+  };
 }
 
 export function spent(purchases: string[]): number {
   return [...new Set(purchases)].reduce((s, id) => s + (ITEM_BY_ID.get(id)?.price ?? 0), 0);
+}
+
+/** Every coin a team has spent: paint in the shop and packs (`packs.ts`). What other browsers count too. */
+export function spentAll(doc: ShopDoc): number {
+  return spent(doc.purchases) + packSpent(doc.packs ?? []);
 }
 
 /**
@@ -307,14 +326,13 @@ export function spent(purchases: string[]): number {
 export function validLook(
   raw: unknown,
   earned: number,
-  /** Honour pack prizes in `prizes`: only the dev server's sample teams, until packs open (`PACKS_SEASON`). */
-  opts: { packs?: boolean } = {},
+  opts: PrizeOpts = {},
 ): Paint | null {
   if (!raw) return null;
   const doc = normalizeShop(raw);
   const owned = new Set(doc.purchases);
   const won = new Set(ownedPrizes(doc, opts));
-  if (spent(doc.purchases) > earned) return null;
+  if (spentAll(doc) > earned) return null;
   const e = doc.equipped;
   for (const kind of KINDS) {
     const id = e[kind];
@@ -329,12 +347,22 @@ export function validLook(
   return paintOf(e);
 }
 
-/**
- * The prizes in a team's locker. Nobody has any until packs open; the dev
- * server's sample teams (`opts.packs`) wear theirs so they can be seen.
- */
-export function ownedPrizes(doc: ShopDoc, opts: { packs?: boolean } = {}): string[] {
-  return opts.packs ? (doc.prizes ?? []) : [];
+export interface PrizeOpts {
+  /** Honour the hand-written `prizes` list: only the dev server's sample teams (`?demo`). */
+  packs?: boolean;
+  /**
+   * The prizes the team's packs and chips gave, worked out from its pack
+   * records and the race cards (`teamPrizes` in `packs.ts`). The only way a
+   * real team owns a prize: a list the team writes itself proves nothing.
+   */
+  won?: Iterable<string>;
+}
+
+/** The prizes in a team's locker: what its packs gave, and on the dev server the sample teams' own list. */
+export function ownedPrizes(doc: ShopDoc, opts: PrizeOpts = {}): string[] {
+  const out = new Set(opts.won ?? []);
+  if (opts.packs) for (const id of doc.prizes ?? []) out.add(id);
+  return [...out];
 }
 
 /**

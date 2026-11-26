@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { betBook, type Bet, type BetBook } from '../core/champ/bets';
 import { earnedCoins } from '../core/champ/coins';
-import { normalizeShop, spent, type ShopDoc } from '../core/champ/shop';
+import { normalizeShop, spentAll, type ShopDoc } from '../core/champ/shop';
 import { settledResults } from '../core/champ/timing';
 import { listMyBets, onBetsChanged } from '../storage/bets';
 import { myShop } from '../storage/shop';
@@ -52,7 +52,7 @@ export function useMyBets(shopDoc?: ShopDoc | null): MyBets | null {
     const now = Date.now();
     const settled = settledResults(state.cards, state.results, now);
     const earned = earnedCoins(uid, state.cards, settled, now).total;
-    const budget = earned - spent(doc.purchases);
+    const budget = earned - spentAll(doc);
     const book = betBook(bets, budget, state.cards, settled, now);
     return { bets, book, earned, budget, balance: budget + book.net };
     // `minute`: odds and settlements move with the clock as race days finish.

@@ -18,6 +18,7 @@ import { Info } from './screens/Info';
 import { Feedback } from './screens/Feedback';
 import { Shop } from './screens/Shop';
 import { Bets } from './screens/Bets';
+import { Packs } from './screens/Packs';
 import { Design } from './screens/Design';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
@@ -41,7 +42,7 @@ const TABS: Tab[] = [
   { id: 'standings', glyph: '📊' },
   { id: 'library', glyph: '🔧', also: ['trainSetup', 'training', 'design'] },
   { id: 'raceSetup', glyph: '🎮', also: ['race'] },
-  { id: 'shop', glyph: '🛒', also: ['bets'] },
+  { id: 'shop', glyph: '🛒', also: ['bets', 'packs'] },
 ];
 
 /**
@@ -242,6 +243,7 @@ function Arena() {
             {screen === 'feedback' && <Feedback />}
             {screen === 'shop' && <Shop />}
             {screen === 'bets' && <Bets />}
+            {screen === 'packs' && <Packs />}
             {screen === 'design' && <Design />}
           </ErrorBoundary>
           {!bare && screen !== 'info' && <Footer onOpen={openInfo} onFeedback={openFeedback} />}

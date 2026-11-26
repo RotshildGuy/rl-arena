@@ -1,6 +1,6 @@
 import { betBook, type Bet } from '../core/champ/bets';
 import { earnedCoins } from '../core/champ/coins';
-import { normalizeShop, spent } from '../core/champ/shop';
+import { normalizeShop, spentAll } from '../core/champ/shop';
 import { settledResults } from '../core/champ/timing';
 import type { RaceCard, RaceResult } from '../core/champ/types';
 
@@ -40,7 +40,7 @@ export async function settleWallets(store: WalletStore, now: number = Date.now()
   let written = 0;
   for (const [uid, bets] of byUid) {
     const earned = earnedCoins(uid, cards, settled, now).total;
-    const budget = earned - spent(normalizeShop(await store.shop(uid)).purchases);
+    const budget = earned - spentAll(normalizeShop(await store.shop(uid)));
     const book = betBook(bets, budget, cards, settled, now);
     await store.putWallet(uid, book.settledNet, now);
     written++;
