@@ -261,16 +261,67 @@ service cloud.firestore {
     }
 
     // Shop: looks, never speed.
+    //
+    // Season 6 (src/core/champ/packs.ts): `gifts` is the list of daily gift
+    // packs claimed, only ever added to, one at a time and at most one per
+    // day. A day is the UTC day of the server's clock (it turns at 02:00 or
+    // 03:00 Israel time, never during a race evening). A new claim names the
+    // round whose lock opens it, and that round's card must not exist yet -
+    // the card is written at the lock, with the seed nobody knows before it -
+    // so a pack cannot be claimed once its contents could be worked out. What
+    // a pack gave is never written: every browser works it out from the claim
+    // and the card, and counts the streak (every third day in a row is a
+    // premium pack) from the days. Packs are never bought; nothing here costs
+    // coins, and the coins a duplicate pays are worked out the same way, never
+    // written. `prizes` is read only for the dev
+    // server's sample teams. `equipped` holds up to 23 fields with the prizes on.
     match /shop/{uid} {
+      function giftsBefore() {
+        return resource != null && 'gifts' in resource.data ? resource.data.gifts : [];
+      }
+      function giftsAfter() {
+        return 'gifts' in request.resource.data ? request.resource.data.gifts : [];
+      }
+      function today() {
+        return math.floor(nowMs() / 86400000);
+      }
+      function newGift(g, before) {
+        return g is map
+          && g.keys().hasOnly(['day', 'at', 'round', 'raceId', 'seasonId'])
+          && g.day == today()
+          && (before.size() == 0 || before[before.size() - 1].day < g.day)
+          && g.round is int
+          && g.round >= 41
+          && text(g.raceId, 20)
+          && text(g.seasonId, 10)
+          && g.raceId.matches('S[0-9]+-R[0-9]+')
+          && g.raceId.split('-')[0] == g.seasonId
+          && stamped(g.at)
+          && g.at >= nowMs() - 5 * 60 * 1000
+          && !exists(/databases/$(database)/documents/seasons/$(g.seasonId)/races/$(g.raceId));
+      }
+      function giftsOk() {
+        let before = giftsBefore();
+        let after = giftsAfter();
+        return after == before
+          || (after is list
+            && after.size() == before.size() + 1
+            && after.size() <= 2000
+            && after[0:before.size()] == before
+            && newGift(after[before.size()], before));
+      }
+
       allow get: if true;
       allow list: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['purchases', 'equipped', 'updatedAt', 'prizes', 'gifts'])
         && request.resource.data.purchases is list
         && request.resource.data.purchases.size() <= 100
         && request.resource.data.equipped is map
-        && request.resource.data.equipped.size() <= 16
-        && stamped(request.resource.data.updatedAt);
+        && request.resource.data.equipped.size() <= 24
+        && (!('prizes' in request.resource.data) || (request.resource.data.prizes is list && request.resource.data.prizes.size() <= 100))
+        && stamped(request.resource.data.updatedAt)
+        && giftsOk();
     }
   }
 }

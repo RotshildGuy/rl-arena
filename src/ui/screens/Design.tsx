@@ -4,6 +4,7 @@ import { EMBLEM_SYMBOLS } from '../../core/champ/emblem';
 import { teamColor, teamLook } from '../../core/champ/livery';
 import { FINISH_FX_MS, drawCarPreview, drawFinishFx, type CarLook } from '../../core/games/racing/render';
 import { myShop, saveShop } from '../../storage/shop';
+import { teamPrizes } from '../../core/champ/packs';
 import { previewEngine } from '../raceAudio';
 import { useApp } from '../store';
 import { useChampionship } from '../useChampionship';
@@ -77,7 +78,7 @@ export function Design() {
   const myCars = state.entries.filter((e) => e.uid === uid && !e.retired).sort((a, b) => a.createdAt - b.createdAt);
   const driver = myCars[0]?.driver ?? team;
   const bought = new Set(doc.purchases);
-  const prizes = new Set(ownedPrizes(doc, { packs: DEMO_PACKS }));
+  const prizes = new Set(ownedPrizes(doc, { packs: DEMO_PACKS, won: teamPrizes(uid, doc, state.cards) }));
   /** Shop items that are the team's look anyway: they are the default tile, not items of their own. */
   const defaults = defaultItems(team);
   const isDefault = (it: ShopItem) => defaults[it.kind as SlotKind] === it.id;
@@ -149,6 +150,9 @@ export function Design() {
           </button>
           <button className="small" onClick={() => go('shop')}>
             🛒 {d.toShop}
+          </button>
+          <button className="small" onClick={() => go('packs')}>
+            🎁 {words.packShop.toPacks}
           </button>
         </div>
       </div>
@@ -309,7 +313,7 @@ function DefaultArtOf({ kind, team, base, look, color }: { kind: SlotKind; team:
 }
 
 /** What an item is, shown small: a swatch, a little car, an icon. */
-function ItemArt({ item, color, look }: { item: ShopItem; color: string; look: CarLook }) {
+export function ItemArt({ item, color, look }: { item: ShopItem; color: string; look: CarLook }) {
   switch (item.kind) {
     case 'color':
     case 'secondary':

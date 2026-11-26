@@ -39,8 +39,10 @@ export async function settleWallets(store: WalletStore, now: number = Date.now()
   }
   let written = 0;
   for (const [uid, bets] of byUid) {
-    const earned = earnedCoins(uid, cards, settled, now).total;
-    const budget = earned - spent(normalizeShop(await store.shop(uid)).purchases);
+    const shop = normalizeShop(await store.shop(uid));
+    // Duplicates in opened daily packs pay coins too (`packs.ts`).
+    const earned = earnedCoins(uid, cards, settled, now, shop.gifts).total;
+    const budget = earned - spent(shop.purchases);
     const book = betBook(bets, budget, cards, settled, now);
     await store.putWallet(uid, book.settledNet, now);
     written++;

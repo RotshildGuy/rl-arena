@@ -63,10 +63,10 @@ export function Shop() {
 
   const mine = useMyBets(doc);
   const wallet = useMemo(() => {
-    if (!state) return null;
+    if (!state || !doc) return null;
     const now = Date.now();
-    return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
-  }, [state, uid]);
+    return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now, doc.gifts);
+  }, [state, uid, doc]);
 
   if (!state || !wallet || !doc || !mine) return <PageSkeleton variant="cards" />;
 
@@ -173,6 +173,9 @@ export function Shop() {
           <div className="muted small">{s.noMoney}</div>
         </div>
         <div className="actions">
+          <button className="small" onClick={() => go('packs')}>
+            🎁 {words.packShop.toPacks}
+          </button>
           <span className="pill" style={{ fontSize: 15 }}>
             <Coin /> <span className="mono" style={{ fontWeight: 800 }}>{balance}</span> {s.coins}
           </span>

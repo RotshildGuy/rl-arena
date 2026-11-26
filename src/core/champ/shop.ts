@@ -2,6 +2,8 @@ import type { CarLook, CelebrationKind } from '../games/racing/render';
 import { DEFAULT_EMBLEM, normalizeEmblem, type Emblem } from './emblem';
 import { t, translated } from '../../i18n/dict';
 import { teamColor, teamLook } from './livery';
+import { prizeRows } from './prizeSet';
+import { normalizeGifts, type GiftRecord } from './packs';
 
 /**
  * The catalogue. Everything here is paint: it changes how a car is drawn and
@@ -198,6 +200,8 @@ export const SHOP_ITEMS: ShopItem[] = [
   prize('quote-easy', 'quote', '', 'rare'),
   prize('quote-champagne', 'quote', '', 'rare'),
   prize('quote-team', 'quote', '', 'epic'),
+  // Season 6: the many more that packs need so a daily pack keeps finding something new (`prizeSet.ts`).
+  ...prizeRows().map((r) => prize(r.id, r.kind, r.value, r.rarity)),
 ];
 
 export const ITEM_BY_ID = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
@@ -237,11 +241,16 @@ export interface ShopDoc {
   equipped: Equipped;
   updatedAt: number;
   /**
-   * Pack prizes the team has won, kept in its locker (the garage). Until packs
-   * open (`PACKS_SEASON`) only the dev server's sample teams have any; then
-   * each one will be checked against the packs the team opened.
+   * A hand-written list of prizes, honoured only for the dev server's sample
+   * teams (`?demo`). Real teams own what their `gifts` give,
+   * worked out by every browser (`packs.ts`); a list like this proves nothing.
    */
   prizes?: string[];
+  /**
+   * The daily gift packs claimed, one per day, in order (`packs.ts`). Each
+   * one's prizes are worked out from it and the race card, never stored.
+   */
+  gifts?: GiftRecord[];
 }
 
 /** The kinds equipped by item id: one item of each on the car at a time. */
@@ -289,12 +298,20 @@ export function normalizeShop(raw: unknown): ShopDoc {
   const emblem = normalizeEmblem(src.emblem);
   if (emblem) equipped.emblem = emblem;
   const prizes = Array.isArray(d.prizes) ? d.prizes.filter((p): p is string => typeof p === 'string' && !!ITEM_BY_ID.get(p)?.pack) : [];
-  return { purchases, equipped, updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0, ...(prizes.length ? { prizes } : {}) };
+  const gifts = normalizeGifts(d.gifts);
+  return {
+    purchases,
+    equipped,
+    updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : 0,
+    ...(prizes.length ? { prizes } : {}),
+    ...(gifts.length ? { gifts } : {}),
+  };
 }
 
 export function spent(purchases: string[]): number {
   return [...new Set(purchases)].reduce((s, id) => s + (ITEM_BY_ID.get(id)?.price ?? 0), 0);
 }
+
 
 /**
  * The look a team's car may actually wear, or null for "draw the default".
@@ -307,8 +324,7 @@ export function spent(purchases: string[]): number {
 export function validLook(
   raw: unknown,
   earned: number,
-  /** Honour pack prizes in `prizes`: only the dev server's sample teams, until packs open (`PACKS_SEASON`). */
-  opts: { packs?: boolean } = {},
+  opts: PrizeOpts = {},
 ): Paint | null {
   if (!raw) return null;
   const doc = normalizeShop(raw);
@@ -329,12 +345,22 @@ export function validLook(
   return paintOf(e);
 }
 
-/**
- * The prizes in a team's locker. Nobody has any until packs open; the dev
- * server's sample teams (`opts.packs`) wear theirs so they can be seen.
- */
-export function ownedPrizes(doc: ShopDoc, opts: { packs?: boolean } = {}): string[] {
-  return opts.packs ? (doc.prizes ?? []) : [];
+export interface PrizeOpts {
+  /** Honour the hand-written `prizes` list: only the dev server's sample teams (`?demo`). */
+  packs?: boolean;
+  /**
+   * The prizes the team's packs gave, worked out from its gift
+   * records and the race cards (`teamPrizes` in `packs.ts`). The only way a
+   * real team owns a prize: a list the team writes itself proves nothing.
+   */
+  won?: Iterable<string>;
+}
+
+/** The prizes in a team's locker: what its packs gave, and on the dev server the sample teams' own list. */
+export function ownedPrizes(doc: ShopDoc, opts: PrizeOpts = {}): string[] {
+  const out = new Set(opts.won ?? []);
+  if (opts.packs) for (const id of doc.prizes ?? []) out.add(id);
+  return [...out];
 }
 
 /**

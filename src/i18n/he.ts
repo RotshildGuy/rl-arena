@@ -10,6 +10,7 @@ import * as feedback from './he/feedback';
 import * as garage from './he/garage';
 import * as info from './he/info';
 import * as misc from './he/misc';
+import * as packs from './he/packs';
 import * as play from './he/play';
 import * as report from './he/report';
 import * as shop from './he/shop';
@@ -31,6 +32,7 @@ export const he = {
   ...garage,
   ...info,
   ...misc,
+  ...packs,
   ...play,
   ...report,
   ...shop,

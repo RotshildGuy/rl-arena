@@ -1,3 +1,6 @@
+import { claimDailyGift } from '../storage/shop';
+import { HOUSE_UID } from '../core/champ/house';
+import { useChampionship } from './useChampionship';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { useApp, type Screen } from './store';
 import { getCloudStatus, subscribeCloudStatus } from '../storage';
@@ -18,6 +21,7 @@ import { Info } from './screens/Info';
 import { Feedback } from './screens/Feedback';
 import { Shop } from './screens/Shop';
 import { Bets } from './screens/Bets';
+import { Packs } from './screens/Packs';
 import { Design } from './screens/Design';
 import { SignIn } from './screens/SignIn';
 import { AccountButton } from './components/Account';
@@ -41,7 +45,7 @@ const TABS: Tab[] = [
   { id: 'standings', glyph: '📊' },
   { id: 'library', glyph: '🔧', also: ['trainSetup', 'training', 'design'] },
   { id: 'raceSetup', glyph: '🎮', also: ['race'] },
-  { id: 'shop', glyph: '🛒', also: ['bets'] },
+  { id: 'shop', glyph: '🛒', also: ['bets', 'packs'] },
 ];
 
 /**
@@ -128,6 +132,23 @@ function Arena() {
 
   // Counted once a day, behind the gate: a visit is somebody who came in.
   useEffect(() => track('visit'), []);
+
+  // Season 6: a gift pack for every day the team opens the game
+  // (`core/champ/packs.ts`). Checked again now and then, for a tab left open
+  // into the next day.
+  const { state: champ } = useChampionship();
+  const champUid = champ?.uid ?? '';
+  const showToast = useApp((s) => s.showToast);
+  useEffect(() => {
+    if (!champUid || champUid === HOUSE_UID) return;
+    const claim = () =>
+      void claimDailyGift(champUid).then((got) => {
+        if (got) showToast(got.type === 'premium' ? t.packShop.giftPremium : t.packShop.giftToday);
+      });
+    claim();
+    const id = setInterval(claim, 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [champUid, showToast, t]);
 
   // The team name lives with the account, not with the browser, so the first
   // thing to do behind the gate is ask the account what it is. On the device
@@ -242,6 +263,7 @@ function Arena() {
             {screen === 'feedback' && <Feedback />}
             {screen === 'shop' && <Shop />}
             {screen === 'bets' && <Bets />}
+            {screen === 'packs' && <Packs />}
             {screen === 'design' && <Design />}
           </ErrorBoundary>
           {!bare && screen !== 'info' && <Footer onOpen={openInfo} onFeedback={openFeedback} />}
