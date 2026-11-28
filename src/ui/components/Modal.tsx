@@ -1,6 +1,7 @@
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useT } from '../../i18n';
+import { Icon } from './Icon';
 
 /** How many dialogs are on screen, for anything that must stay out of their way. */
 let openDialogs = 0;
@@ -82,7 +83,7 @@ export function Modal({
           </div>
           <div className="fill" />
           <button ref={closeRef} className="ghost small" onClick={onClose} aria-label={t.misc.close}>
-            ✕
+            <Icon name="close" />
           </button>
         </div>
 

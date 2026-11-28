@@ -11,7 +11,7 @@ export const signin: typeof He.signin = {
     'Train a model in the browser, enter it in the championship, and once a day every entered model races the others. No coding needed - you choose how the car should drive, and it learns on its own.',
   entering: 'Entering…',
   continueNoAccount: 'Continue without an account',
-  playNow: '🏁 Play now - no account',
+  playNow: 'Play now - no account',
   inherited: (
     <>
       This browser already holds an anonymous identity, and this button carries on <b>with it</b> - with the

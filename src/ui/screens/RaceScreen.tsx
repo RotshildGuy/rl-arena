@@ -14,6 +14,7 @@ import { lapTime, posClass, raceTime } from '../format';
 import type { RacingSnapshot } from '../../core/games/racing/env';
 import { t as words, useT } from '../../i18n';
 import { useRaceSound } from '../useRaceSound';
+import { Icon } from '../components/Icon';
 
 type Phase = 'loading' | 'countdown' | 'racing' | 'done';
 
@@ -360,7 +361,7 @@ export function RaceScreen() {
             </button>
           )}
           <button className={soundOn ? 'on' : ''} aria-pressed={soundOn} onClick={toggleSound}>
-            {soundOn ? '🔊' : '🔈'}
+            <Icon name={soundOn ? 'sound' : 'mute'} />
           </button>
           <button onClick={restart} disabled={phase === 'loading'}>
             {w.restart}
@@ -392,7 +393,7 @@ export function RaceScreen() {
                     <span className="p">{i + 1}</span>
                     <span className="livery" style={{ background: s.color }} />
                     <span className="who">{s.name}</span>
-                    <span className="gap">{s.finished ? '✓' : ''}</span>
+                    <span className="gap">{s.finished ? <Icon name="check" size={14} /> : ''}</span>
                   </div>
                 ))}
               </div>
@@ -425,7 +426,7 @@ export function RaceScreen() {
     return (
       <div className="rotate-page" ref={stageRef}>
         <div className="rotate-gate">
-          <div className="glyph" aria-hidden="true">📱</div>
+          <div className="glyph" aria-hidden="true"><Icon name="rotate" size={44} /></div>
           <h2>{w.rotate}</h2>
           <p className="muted" style={{ margin: 0, maxWidth: 300 }}>
             {w.rotateWhy(game.matchNoun)}
@@ -461,7 +462,7 @@ export function RaceScreen() {
             </button>
           )}
           <button className={soundOn ? 'on' : ''} aria-pressed={soundOn} onClick={toggleSound}>
-            {soundOn ? '🔊' : '🔈'}
+            <Icon name={soundOn ? 'sound' : 'mute'} />
           </button>
           <button onClick={restart} disabled={phase === 'loading'}>
             {w.restartNoun(game.matchNoun)}

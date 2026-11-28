@@ -46,7 +46,7 @@ export const broadcast: typeof He.broadcast = {
   dayOver: 'The day is over - results are open',
   ctaTitle: 'Want a car of your own on the grid?',
   ctaBody: 'You choose how the car should drive, and it learns on its own in front of you. Two minutes, no coding.',
-  ctaButton: '🔧 Build my own driver',
+  ctaButton: 'Build my own driver',
   sessionResults: (session) => `${session} results`,
   toReport: 'To the race report',
   realTime: 'The broadcast runs at normal speed only - everyone sees the same moment at the same time.',

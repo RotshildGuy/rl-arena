@@ -1,6 +1,7 @@
 import { buildStandings } from './points';
 import { hallOfFame, seasonCards } from './seasons';
 import { HOUSE_UID } from './house';
+import { teamLocker, type GiftRecord } from './packs';
 import type { RaceCard, RaceResult } from './types';
 import { t } from '../../i18n/dict';
 
@@ -32,9 +33,16 @@ export interface Wallet {
 
 /**
  * Pass settled results only (`settledResults`), so a race on air pays nothing
- * until it has been seen.
+ * until it has been seen. `gifts`, the team's daily pack claims (its shop
+ * document's), add what duplicates paid in the packs already opened.
  */
-export function earnedCoins(uid: string, cards: RaceCard[], settled: Map<string, RaceResult>, now: number): Wallet {
+export function earnedCoins(
+  uid: string,
+  cards: RaceCard[],
+  settled: Map<string, RaceResult>,
+  now: number,
+  gifts?: GiftRecord[],
+): Wallet {
   if (!uid || uid === HOUSE_UID) return { total: 0, breakdown: [] };
   let points = 0;
   let starts = 0;
@@ -86,6 +94,13 @@ export function earnedCoins(uid: string, cards: RaceCard[], settled: Map<string,
     [starts >= 10, words.tenRaces, 50],
   ];
   for (const [got, label, coins] of once) if (got) breakdown.push({ label, coins });
+
+  // Duplicates in daily packs, once the pack has opened.
+  const box = teamLocker(uid, gifts, cards);
+  if (box.coins) {
+    const dupes = box.opened.reduce((n, o) => n + o.items.filter((x) => x.dupe).length, 0);
+    breakdown.push({ label: words.dupes(dupes), coins: box.coins });
+  }
 
   return { total: breakdown.reduce((s, e) => s + e.coins, 0), breakdown };
 }

@@ -1,3 +1,4 @@
+import { prizeWords } from '../../core/champ/prizeSet';
 import type * as He from '../he/core';
 
 export const tracks: typeof He.tracks = {
@@ -127,6 +128,7 @@ export const shopItems: typeof He.shopItems = {
   'quote-easy': 'That was too easy',
   'quote-champagne': 'Get the champagne ready!',
   'quote-team': 'Thanks to the whole team, this one is yours!',
+  ...prizeWords('en'),
   'helmet-black': 'Black helmet',
   'helmet-red': 'Red helmet',
   'smoke-blue': 'Blue drift smoke',
@@ -165,6 +167,7 @@ export const coins: typeof He.coins = {
   firstWin: 'First win',
   clean: 'A whole race without touching the wall',
   tenRaces: 'Ten races',
+  dupes: (n) => `Duplicates in packs (${n})`,
 };
 
 export const diagnose: typeof He.diagnose = {
@@ -244,7 +247,7 @@ export const racing: typeof He.racing = {
     balanced: { label: 'Balanced', hint: 'The default - the balance known to teach a decent driver' },
     aggressive: { label: 'Aggressive', hint: "Fast, overtakes and isn't afraid of contact. Quicker when it works, and ends in the wall when it doesn't" },
   },
-  blurb: 'A 2D race on four maps. The car "sees" through nine distance sensors and chooses gas, brake and steering.',
+  blurb: 'The car "sees" through nine distance sensors and chooses gas, brake and steering.',
   options: {
     trackId: { label: 'Map' },
     nCars: { label: 'Number of cars', hint: 'The cars are split between the models in training. More cars - more traffic to deal with' },

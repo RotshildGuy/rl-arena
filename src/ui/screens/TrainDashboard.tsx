@@ -26,6 +26,7 @@ import { trainingTarget, type TrainingTarget } from '../../core/champ/records';
 import { locale, t as words, useT } from '../../i18n';
 import { driverName, grandPrixTitle, teamName, trackName } from '../../i18n/names';
 import { isolated, Ltr, Name } from '../components/Name';
+import { Icon } from '../components/Icon';
 
 /** Finish and go, a checkpoint from the button, or one taken because the page was hidden. */
 type SaveMode = 'leave' | 'checkpoint' | 'quiet';
@@ -388,12 +389,12 @@ export function TrainDashboard() {
             {booting && <span className="pill">{d.booting}</span>}
             {draft.rival && (
               <span className="pill" title={d.rivalTitle}>
-                {d.rival(isolated(draft.rival.driver), isolated(teamName(draft.rival.team)))}
+                <Icon name="flag" size={14} /> {d.rival(isolated(draft.rival.driver), isolated(teamName(draft.rival.team)))}
               </span>
             )}
             {remainingMs !== null && !limitHit.current && (
               <span className="pill" title={d.autoStop}>
-                ⏱ <span className="mono">{durationText(remainingMs)}</span> {d.untilSave}
+                <Icon name="stopwatch" size={14} /> <span className="mono">{durationText(remainingMs)}</span> {d.untilSave}
               </span>
             )}
             {limitHit.current && <span className="pill good">{d.timeUpSaved}</span>}
@@ -413,7 +414,7 @@ export function TrainDashboard() {
             ))}
           </div>
           <button onClick={() => (running ? trainer.pause() : trainer.play())} disabled={booting || status === 'error'}>
-            {running ? d.pause : d.resume}
+            <Icon name={running ? 'pause' : 'play'} size={14} /> {running ? d.pause : d.resume}
           </button>
           <button onClick={() => save('checkpoint')} disabled={saving || booting}>
             {d.checkpoint}
@@ -489,7 +490,7 @@ export function TrainDashboard() {
             {hasLaps && speed !== 'turbo' && <LiveTiming snapRef={snapRef} />}
             {speed === 'turbo' && (
               <div className="stage-overlay-end">
-                <span className="pill">{d.turboPill}</span>
+                <span className="pill"><Icon name="bolt" size={14} /> {d.turboPill}</span>
               </div>
             )}
           </div>

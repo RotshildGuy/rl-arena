@@ -29,6 +29,9 @@ import { drawCarPreview, type CarLook } from '../../core/games/racing/render';
 import { myShop, saveShop } from '../../storage/shop';
 import { useT } from '../../i18n';
 import { Celebration } from '../components/Celebration';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
+import { CarViewer, type CarView } from '../three/CarViewer';
 
 /** In the order they are shown; titles and hints are in the dictionary (`shop.sections`). */
 const SECTIONS: SlotKind[] = ['color', 'pattern', 'shape', 'secondary', 'wing', 'rim', 'helmet', 'smoke', 'celebration'];
@@ -50,6 +53,8 @@ export function Shop() {
   const { state } = useChampionship();
   const [doc, setDoc] = useState<ShopDoc | null>(null);
   const [trial, setTrial] = useState<Equipped>({});
+  // What was tried last: a trail, a flame or smoke only shows from above.
+  const [lastTried, setLastTried] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const uid = state?.uid ?? '';
@@ -63,10 +68,10 @@ export function Shop() {
 
   const mine = useMyBets(doc);
   const wallet = useMemo(() => {
-    if (!state) return null;
+    if (!state || !doc) return null;
     const now = Date.now();
-    return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now);
-  }, [state, uid]);
+    return earnedCoins(uid, state.cards, settledResults(state.cards, state.results, now), now, doc.gifts);
+  }, [state, uid, doc]);
 
   if (!state || !wallet || !doc || !mine) return <PageSkeleton variant="cards" />;
 
@@ -150,6 +155,7 @@ export function Shop() {
     }
     if (item.retired) return;
     setTrial({ ...trial, [kind]: item.id });
+    setLastTried(kind);
   };
 
   const reset = (kind: SlotKind) => {
@@ -166,13 +172,15 @@ export function Shop() {
   return (
     <>
       <div className="toolbar">
+        <PageArt kind="shop" />
         <div className="title">
-          <div className="eyebrow">{s.eyebrow}</div>
           <h1 className="display">{s.title}</h1>
           <div className="muted small">{s.intro}</div>
-          <div className="muted small">{s.noMoney}</div>
         </div>
         <div className="actions">
+          <button className="small" onClick={() => go('packs')}>
+            <Icon name="gift" /> {words.packShop.toPacks}
+          </button>
           <span className="pill" style={{ fontSize: 15 }}>
             <Coin /> <span className="mono" style={{ fontWeight: 800 }}>{balance}</span> {s.coins}
           </span>
@@ -182,7 +190,7 @@ export function Shop() {
       <div className="shop-layout">
         {/* The car first, and pinned while scrolling: every tap below changes it. */}
         <div className="shop-preview card notched">
-          <Preview color={previewColor} look={previewLook} />
+          <Preview color={previewColor} look={previewLook} prefer={lastTried && MOVING.has(lastTried) ? 'top' : '3d'} />
 
           {toBuy.length > 0 ? (
             <div className="row wrap" style={{ marginTop: 10, gap: 8 }}>
@@ -328,10 +336,9 @@ export function Shop() {
             </div>
           </div>
 
-          <div className="card notched">
-            <div className="eyebrow" style={{ marginBottom: 8 }}>
-              {s.earned}
-            </div>
+          {/* Folded: the balance is in the header; the sums behind it are a tap away. */}
+          <details className="card notched fold">
+            <summary className="eyebrow">{s.earned}</summary>
             {wallet.breakdown.length === 0 && (
               <div className="muted small">
                 {s.noCoins}
@@ -362,12 +369,9 @@ export function Shop() {
               </div>
             )}
             <button className="small" style={{ marginTop: 8 }} onClick={() => go('bets')}>
-              🎲 {words.bets.open}
+              <Icon name="dice" /> {words.bets.open}
             </button>
-            <div className="dim tiny" style={{ marginTop: 8 }}>
-              {s.honest}
-            </div>
-          </div>
+          </details>
         </div>
       </div>
     </>
@@ -430,7 +434,7 @@ function Swatch({
       )}
       <span className="swatch-price">
         {owned ? (
-          on ? '✓' : ''
+          on ? <Icon name="check" size={14} /> : ''
         ) : (
           <>
             <Coin /> {item.price}
@@ -458,30 +462,24 @@ function MiniCar({ color, look }: { color: string; look: CarLook }) {
  * The sample car. A celebration being tried or worn plays over it whenever it
  * changes, and again on a tap.
  */
-function Preview({ color, look }: { color: string; look: CarLook }) {
+function Preview({ color, look, prefer }: { color: string; look: CarLook; prefer: CarView }) {
+  const again = useT().shop.celebrateAgain;
   const [play, setPlay] = useState(0);
-  const car = <PreviewCar color={color} look={look} />;
+  const car = <CarViewer color={color} look={look} prefer={prefer} />;
   if (!look.celebration) return car;
   return (
-    <button className="shop-party" onClick={() => setPlay((n) => n + 1)}>
+    <div className="shop-party">
       {car}
       <Celebration key={look.celebration} kind={look.celebration} colors={[color, look.secondary ?? '']} play={play} />
-    </button>
+      <button className="ghost small shop-party-again" onClick={() => setPlay((n) => n + 1)}>
+        {again}
+      </button>
+    </div>
   );
 }
 
-function PreviewCar({ color, look }: { color: string; look: CarLook }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    c.width = Math.round(c.clientWidth * dpr);
-    c.height = Math.round(c.clientHeight * dpr);
-    drawCarPreview(c.getContext('2d')!, color, look);
-  }, [color, look]);
-  return <canvas ref={ref} className="shop-canvas" />;
-}
+/** What only shows while the car moves, and so only in the view from above. */
+const MOVING = new Set(['trail', 'flame', 'smoke']);
 
 function NumberPicker({
   owned,

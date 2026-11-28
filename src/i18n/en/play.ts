@@ -36,7 +36,7 @@ export const race: typeof He.race = {
   loadingRivals: 'Loading the rivals…',
   go: 'Go!',
   margin: (s) => ` by ${s}s`,
-  youWon: (margin) => `You won${margin}! 🏆`,
+  youWon: (margin) => `You won${margin}!`,
   won: (name, margin) => `${name} won${margin}`,
   youLed: (noun) => `You were leading when the ${noun} stopped`,
   led: (name, noun) => `${name} was leading when the ${noun} stopped`,

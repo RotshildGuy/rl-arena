@@ -24,6 +24,8 @@ import { useT } from '../../i18n';
 import { driverName, teamName, trackName } from '../../i18n/names';
 import { Name } from '../components/Name';
 import { Coin } from './Shop';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
 
 /**
  * Betting (`core/champ/bets.ts`): the next race and the season's title, a
@@ -66,10 +68,12 @@ export function Bets() {
   return (
     <>
       <div className="card notched" style={{ marginBottom: 14 }}>
-        <div className="eyebrow">{b.eyebrow}</div>
-        <h1 className="display" style={{ margin: '6px 0' }}>
-          {b.title}
-        </h1>
+        <div className="row" style={{ gap: 14, marginBottom: 6 }}>
+          <PageArt kind="bets" />
+          <h1 className="display" style={{ margin: 0 }}>
+            {b.title}
+          </h1>
+        </div>
         <div className="small muted" style={{ marginBottom: 10 }}>
           {b.intro}
         </div>
@@ -328,9 +332,7 @@ export function BetsCard() {
   return (
     <div className="card notched bets-card" style={{ marginBottom: 14 }}>
       <div className="row wrap" style={{ gap: 10 }}>
-        <span style={{ fontSize: 26 }} aria-hidden="true">
-          🎲
-        </span>
+        <Icon name="dice" size={28} />
         <div style={{ flex: 1, minWidth: 180 }}>
           <div className="eyebrow">{b.cardTitle}</div>
           <div className="small">

@@ -12,6 +12,7 @@ import { HOUSE_DRIVERS } from '../../core/champ/house';
 import { lapTime } from '../format';
 import { driverName, teamName } from '../../i18n/names';
 import { locale, useT } from '../../i18n';
+import { PageArt } from '../components/PageArt';
 
 /**
  * Setting up a race against models.
@@ -79,8 +80,8 @@ export function RaceSetup() {
 
   return (
     <>
-      <div className="page-head">
-        <div className="eyebrow">{r.eyebrow}</div>
+      <div className="page-head with-art">
+        <PageArt kind="play" />
         <h1 className="display">{r.title}</h1>
         <p className="muted" style={{ margin: 0, maxWidth: 640 }}>
           {game.seatHint} - {isTouchDevice ? game.touchHint : game.controlsHint}. {r.offRecord}
@@ -95,7 +96,7 @@ export function RaceSetup() {
             {maxOpponents === 1
               ? r.oneOnOne
               : race.opponents.length === 0
-                ? r.pick
+                ? ''
                 : r.onTrack(race.opponents.length)}
           </div>
         </div>

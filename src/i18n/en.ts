@@ -11,6 +11,7 @@ import * as feedback from './en/feedback';
 import * as garage from './en/garage';
 import * as info from './en/info';
 import * as misc from './en/misc';
+import * as packs from './en/packs';
 import * as play from './en/play';
 import * as report from './en/report';
 import * as shop from './en/shop';
@@ -32,6 +33,7 @@ export const en: Dict = {
   ...garage,
   ...info,
   ...misc,
+  ...packs,
   ...play,
   ...report,
   ...shop,

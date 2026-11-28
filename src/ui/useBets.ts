@@ -10,7 +10,7 @@ import { useChampionship } from './useChampionship';
 export interface MyBets {
   bets: Bet[];
   book: BetBook;
-  /** Coins earned from racing. */
+  /** Coins earned from racing, and from duplicates in opened packs. */
   earned: number;
   /** Earned minus spent in the shop: what the bets are checked against. */
   budget: number;
@@ -51,7 +51,7 @@ export function useMyBets(shopDoc?: ShopDoc | null): MyBets | null {
     if (!state || !bets || !doc) return null;
     const now = Date.now();
     const settled = settledResults(state.cards, state.results, now);
-    const earned = earnedCoins(uid, state.cards, settled, now).total;
+    const earned = earnedCoins(uid, state.cards, settled, now, doc.gifts).total;
     const budget = earned - spent(doc.purchases);
     const book = betBook(bets, budget, state.cards, settled, now);
     return { bets, book, earned, budget, balance: budget + book.net };

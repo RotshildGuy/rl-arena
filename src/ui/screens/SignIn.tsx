@@ -4,6 +4,7 @@ import { authError, continueOffline, getAuthView, resetPassword, signIn, subscri
 import { GoogleMark } from '../components/GoogleMark';
 import { SettingsButton } from '../components/SettingsButton';
 import { useT } from '../../i18n';
+import { Icon } from '../components/Icon';
 
 /**
  * The door.
@@ -130,7 +131,7 @@ export function SignIn() {
           disabled={busy !== null}
           onClick={() => void attempt('anon', signIn.anonymous)}
         >
-          {busy === 'anon' ? s.entering : inherited ? s.continueNoAccount : s.playNow}
+          {busy === 'anon' ? s.entering : inherited ? s.continueNoAccount : <><Icon name="flag" /> {s.playNow}</>}
         </button>
         <p className="small muted" style={{ margin: '8px 0 0' }}>
           {inherited ? s.inherited : s.noSignup}

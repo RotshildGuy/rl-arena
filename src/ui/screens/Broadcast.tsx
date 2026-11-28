@@ -32,6 +32,7 @@ import { useRaceSound } from '../useRaceSound';
 import { RADIO_VOICE_SEASON } from '../raceAudio';
 import { displaySeason } from '../../core/champ/schedule';
 import { getLang } from '../../i18n';
+import { Icon } from '../components/Icon';
 
 /** Lights sequence before a replay. Live sessions get it from the wall clock. */
 const PREROLL_MS = 5000;
@@ -631,7 +632,7 @@ function BroadcastStage({
           title={b.soundTitle}
           onClick={toggleSound}
         >
-          {soundOn ? '🔊' : '🔈'} {b.soundOn}
+          <Icon name={soundOn ? 'sound' : 'mute'} /> {b.soundOn}
         </button>
         <button
           className={`small ${radioOn ? 'on' : ''}`}
@@ -639,7 +640,7 @@ function BroadcastStage({
           title={b.radioTitle}
           onClick={toggleRadio}
         >
-          📻 {b.radioOn}
+          <Icon name="radio" /> {b.radioOn}
         </button>
         <button className="small" onClick={onExit}>
           {b.report}
@@ -748,7 +749,7 @@ function BroadcastStage({
                 <b>{b.ctaTitle}</b>
                 <span className="small muted">{b.ctaBody}</span>
                 <button className="primary" onClick={() => goTo('library')}>
-                  {b.ctaButton}
+                  <Icon name="wrench" /> {b.ctaButton}
                 </button>
               </div>
             )}
@@ -798,7 +799,7 @@ function BroadcastStage({
             aria-label={playing ? b.pause : b.play}
             title={playing ? b.pauseKey : b.playKey}
           >
-            {playing ? '❚❚' : '▶'}
+            <Icon name={playing ? 'pause' : 'play'} />
           </button>
           <button
             className="icon ghost"

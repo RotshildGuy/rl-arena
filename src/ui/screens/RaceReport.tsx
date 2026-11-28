@@ -17,6 +17,7 @@ import type { ArenaEntry, Finish, RaceCard, RaceResult, SessionResult } from '..
 import { dateTimeText, gapTime, lapClass, lapTime, posClass, raceTime, speedText, untilText } from '../format';
 import { t as words, useLang, useT } from '../../i18n';
 import { driverOf, grandPrixTitle, teamName, teamOf, trackName } from '../../i18n/names';
+import { Icon } from '../components/Icon';
 
 export function RaceReport() {
   const r = useT().report;
@@ -121,7 +122,7 @@ export function RaceReport() {
             <span className="small muted">{r.tryBody}</span>
           </div>
           <button className="primary" onClick={() => go('library')}>
-            {r.tryButton}
+            <Icon name="wrench" /> {r.tryButton}
           </button>
         </div>
       )}

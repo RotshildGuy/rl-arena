@@ -4,6 +4,7 @@ import { EMBLEM_SYMBOLS } from '../../core/champ/emblem';
 import { teamColor, teamLook } from '../../core/champ/livery';
 import { FINISH_FX_MS, drawCarPreview, drawFinishFx, type CarLook } from '../../core/games/racing/render';
 import { myShop, saveShop } from '../../storage/shop';
+import { teamPrizes } from '../../core/champ/packs';
 import { previewEngine } from '../raceAudio';
 import { useApp } from '../store';
 import { useChampionship } from '../useChampionship';
@@ -13,6 +14,9 @@ import { Podium } from '../components/Podium';
 import { Trophy } from '../components/Trophy';
 import { Celebration } from '../components/Celebration';
 import { CarNumbers } from './Shop';
+import { Icon } from '../components/Icon';
+import { PageArt } from '../components/PageArt';
+import { CarViewer } from '../three/CarViewer';
 
 /** Every part of the look, in the order the screen lists them: the car, then sound, then the podium. */
 const PARTS: SlotKind[] = [
@@ -77,7 +81,7 @@ export function Design() {
   const myCars = state.entries.filter((e) => e.uid === uid && !e.retired).sort((a, b) => a.createdAt - b.createdAt);
   const driver = myCars[0]?.driver ?? team;
   const bought = new Set(doc.purchases);
-  const prizes = new Set(ownedPrizes(doc, { packs: DEMO_PACKS }));
+  const prizes = new Set(ownedPrizes(doc, { packs: DEMO_PACKS, won: teamPrizes(uid, doc, state.cards) }));
   /** Shop items that are the team's look anyway: they are the default tile, not items of their own. */
   const defaults = defaultItems(team);
   const isDefault = (it: ShopItem) => defaults[it.kind as SlotKind] === it.id;
@@ -138,6 +142,7 @@ export function Design() {
   return (
     <>
       <div className="toolbar">
+        <PageArt kind="design" />
         <div className="title">
           <div className="eyebrow">{d.eyebrow}</div>
           <h1 className="display">{d.title}</h1>
@@ -148,14 +153,18 @@ export function Design() {
             {d.back}
           </button>
           <button className="small" onClick={() => go('shop')}>
-            🛒 {d.toShop}
+            <Icon name="bag" /> {d.toShop}
+          </button>
+          <button className="small" onClick={() => go('packs')}>
+            <Icon name="gift" /> {words.packShop.toPacks}
           </button>
         </div>
       </div>
 
       <div className="shop-layout">
         <div className="shop-preview design-preview card notched">
-          <DesignCar color={color} look={look} />
+          {/* A trail, a flame and smoke only show on the move: from above while one of them is open. */}
+          <CarViewer color={color} look={look} prefer={open === 'trail' || open === 'flame' || open === 'smoke' ? 'top' : '3d'} />
           {look.finish && <FinishPreview kind={look.finish} color={color} second={look.secondary} />}
           {PODIUM_PARTS.some((k) => current(k)) && <Podium compact places={[{ position: 1, driver, team, color, look }]} />}
         </div>
@@ -254,20 +263,6 @@ export function Design() {
   );
 }
 
-/** The car with what it wears, on asphalt: trail and flame included. */
-function DesignCar({ color, look }: { color: string; look: CarLook }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    c.width = Math.round(c.clientWidth * dpr);
-    c.height = Math.round(c.clientHeight * dpr);
-    drawCarPreview(c.getContext('2d')!, color, look);
-  }, [color, look]);
-  return <canvas ref={ref} className="shop-canvas" />;
-}
-
 /** A small car in a pattern or a shape, for its tile. */
 function TinyCar({ color, look }: { color: string; look: CarLook }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -302,14 +297,14 @@ function DefaultArtOf({ kind, team, base, look, color }: { kind: SlotKind; team:
     case 'shape':
       return <TinyCar color={color} look={{ ...look, shape: 'classic', number: undefined, emblem: undefined }} />;
     case 'engine':
-      return <span>🔊</span>;
+      return <Icon name="sound" size={22} />;
     default:
-      return <span className="design-x">✕</span>;
+      return <span className="design-x"><Icon name="close" /></span>;
   }
 }
 
 /** What an item is, shown small: a swatch, a little car, an icon. */
-function ItemArt({ item, color, look }: { item: ShopItem; color: string; look: CarLook }) {
+export function ItemArt({ item, color, look }: { item: ShopItem; color: string; look: CarLook }) {
   switch (item.kind) {
     case 'color':
     case 'secondary':
@@ -368,13 +363,13 @@ function PrizeArt({ item, color }: { item: ShopItem; color: string }) {
     case 'banner':
       return <span className={`prize-swatch banner banner-${item.value}`} />;
     case 'engine':
-      return <span>🔊</span>;
+      return <Icon name="sound" size={22} />;
     case 'finish':
-      return <span>✨</span>;
+      return <Icon name="sparkle" size={22} />;
     case 'title':
-      return <span>🏷️</span>;
+      return <Icon name="tag" size={22} />;
     case 'quote':
-      return <span>📻</span>;
+      return <Icon name="radio" size={22} />;
     default:
       return null;
   }

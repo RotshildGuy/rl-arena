@@ -2,7 +2,7 @@
 export const bets = {
   title: 'הימורים',
   eyebrow: 'מטבעות על השולחן',
-  intro: 'מהמרים במטבעות שהקבוצה הרוויחה על מי שינצח במרוץ הבא או באליפות. אף אחד חוץ מכם לא רואה על מה הימרתם.',
+  intro: 'מי ינצח במרוץ הבא או באליפות? רק אתם רואים על מה הימרתם.',
   balance: 'יש לכם',
   coins: (n: number) => `${n} מטבעות`,
   nextRace: (round: number, track: string) => `סבב ${round} · ${track}`,
@@ -41,7 +41,7 @@ export const bets = {
   onRace: (round: number) => `מרוץ, סבב ${round}`,
   onSeason: (season: number, round: number) => `אליפות עונה ${season} (מסבב ${round})`,
   won: (n: number) => `+${n}`,
-  privacy: 'הדירוג שממנו נגזרים היחסים מוסתר, וההימורים שלכם פרטיים. אחרים רואים רק את סך המטבעות של הקבוצה.',
+  privacy: 'אחרים רואים רק את סך המטבעות של הקבוצה.',
   open: 'הימורים',
   cardTitle: 'להמר על המרוץ הבא',
   cardBody: (favourite: string, odds: number) => `הפייבוריט: ${favourite} ביחס ${odds}. ומה אתם חושבים?`,

@@ -1,3 +1,4 @@
+import { prizeWords } from '../../core/champ/prizeSet';
 /**
  * Strings that live in `core/`: the circuits, the race day, the shop, the
  * reward sliders and the advice after a race. Core keeps its data; the words
@@ -134,6 +135,7 @@ export const shopItems: Record<string, string> = {
   'quote-easy': 'זה היה קל מדי',
   'quote-champagne': 'תכינו את השמפניה!',
   'quote-team': 'תודה לכל הצוות, זה שלכם!',
+  ...prizeWords('he'),
   'helmet-black': 'קסדה שחורה',
   'helmet-red': 'קסדה אדומה',
   'smoke-blue': 'עשן כחול בדריפט',
@@ -172,6 +174,7 @@ export const coins = {
   firstWin: 'ניצחון ראשון',
   clean: 'מרוץ שלם בלי לגעת בקיר',
   tenRaces: 'עשרה מרוצים',
+  dupes: (n: number) => `כפולים בחבילות (${n})`,
 };
 
 export const diagnose = {
@@ -252,7 +255,7 @@ export const racing = {
     balanced: { label: 'מאוזן', hint: 'ברירת המחדל - האיזון שידוע שמלמד נהג סביר' },
     aggressive: { label: 'אגרסיבי', hint: 'מהיר, עוקף ולא מפחד ממגע. מהיר יותר כשזה עובד, ונגמר בקיר כשלא' },
   },
-  blurb: 'מרוץ 2D על ארבע מפות. הרכב "רואה" דרך תשעה חיישני מרחק ובוחר גז, בלם והיגוי.',
+  blurb: 'הרכב "רואה" דרך תשעה חיישני מרחק ובוחר גז, בלם והיגוי.',
   options: {
     trackId: { label: 'מפה' },
     nCars: { label: 'מספר רכבים', hint: 'הרכבים מתחלקים בין המודלים שמתאמנים. יותר רכבים - יותר תנועה להתמודד איתה' },
